@@ -1,26 +1,34 @@
 /// Information about atoms of the same type.
+#[derive(Clone, Copy, Debug)]
 pub struct AtomGroupInfo<T> {
     /// Unique identifier.
-    id: usize,
+    pub id: usize,
     /// The mass of a single atom in this group.
-    mass: T,
+    pub mass: T,
 }
 
 #[cfg(feature = "monte_carlo")]
 #[derive(Clone, Copy)]
 pub struct ChangedPosition<T> {
+    group_idx: usize,
     position_idx: usize,
     old_value: T,
 }
 
 #[cfg(feature = "monte_carlo")]
 #[derive(Clone, Copy)]
-pub enum ContainerOption<T> {
+pub enum GroupOption<T> {
     This(T),
-    Other {
-        container_idx: usize,
-        changed_position: T,
-    },
+    Other { group_idx: usize, value: T },
+}
+
+#[cfg(feature = "monte_carlo")]
+#[derive(Clone, Copy)]
+pub enum ReplicaOption<T> {
+    This(T),
+    Prev(T),
+    Next(T),
+    Other { replica_idx: usize, value: T },
 }
 
 pub mod adder {
@@ -34,4 +42,9 @@ pub mod adder {
     pub trait SyncAdderReciever<T> {
         fn recieve(&mut self) -> Result<T, SyncAddError>;
     }
+}
+
+pub mod marker {
+    pub trait LeadingIsInner {}
+    pub trait TrailingIsInner {}
 }
