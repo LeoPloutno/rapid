@@ -1,8 +1,5 @@
 use crate::{
-    core::{
-        adder::{SyncAddError, SyncAdderReciever, SyncAdderSender},
-        marker::TrailingIsInner,
-    },
+    core::adder::{SyncAddError, SyncAdderReciever, SyncAdderSender},
     vector::Vector,
 };
 use std::ops::Add;

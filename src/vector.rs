@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 pub trait Vector<const N: usize>:
     Sized
@@ -10,6 +10,7 @@ pub trait Vector<const N: usize>:
     + MulAssign<Self::Element>
     + Div<Self::Element, Output = Self>
     + DivAssign<Self::Element>
+    + Neg<Output = Self>
 {
     type Element;
 
@@ -24,7 +25,7 @@ mod simd_vector {
     use super::Vector;
     use std::{
         iter::Sum,
-        ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
+        ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
         simd::{LaneCount, Simd, SimdElement, SupportedLaneCount},
     };
 
@@ -129,6 +130,19 @@ mod simd_vector {
         }
     }
 
+    impl<T, const N: usize> Neg for SimdVector<T, N>
+    where
+        T: SimdElement,
+        LaneCount<N>: SupportedLaneCount,
+        Simd<T, N>: Neg<Output = Simd<T, N>>,
+    {
+        type Output = Self;
+
+        fn neg(self) -> Self::Output {
+            Self(-self.0)
+        }
+    }
+
     impl<T, const N: usize> Vector<N> for SimdVector<T, N>
     where
         T: SimdElement
@@ -141,7 +155,8 @@ mod simd_vector {
         Simd<T, N>: Add<Output = Simd<T, N>>
             + Sub<Output = Simd<T, N>>
             + Mul<Output = Simd<T, N>>
-            + Div<Output = Simd<T, N>>,
+            + Div<Output = Simd<T, N>>
+            + Neg<Output = Simd<T, N>>,
     {
         type Element = T;
 
@@ -164,7 +179,7 @@ mod array_vector {
     use std::{
         iter::Sum,
         mem::{self, MaybeUninit},
-        ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
+        ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     };
 
     pub struct ArrayVector<T, const N: usize>([T; N]);
@@ -289,6 +304,23 @@ mod array_vector {
         }
     }
 
+    impl<T, const N: usize> Neg for ArrayVector<T, N>
+    where
+        T: Neg<Output = T>,
+    {
+        type Output = Self;
+
+        fn neg(self) -> Self::Output {
+            let mut uninit = [const { MaybeUninit::uninit() }; N];
+            for (elem_uninit, elem_self) in uninit.iter_mut().zip(self.0.into_iter()) {
+                elem_uninit.write(-elem_self);
+            }
+            // SAFETY: - Initialized the contents above.
+            //         - `Src` and `Dst` have the same layout.
+            Self(unsafe { mem::transmute_copy(&uninit) })
+        }
+    }
+
     impl<T, const N: usize> Vector<N> for ArrayVector<T, N>
     where
         T: Clone
@@ -300,6 +332,7 @@ mod array_vector {
             + MulAssign
             + Div<Output = T>
             + DivAssign
+            + Neg<Output = T>
             + Sum,
     {
         type Element = T;

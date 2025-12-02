@@ -1,21 +1,32 @@
-use std::ops::Add;
-
-use crate::{core::AtomGroupInfo, vector::Vector};
-
 use super::AtomDecoupledPhysicalPotential;
+use crate::core::AtomGroupInfo;
+use std::ops::Add;
 
 /// A trait for physical potentials that yield the contribution of a single group
 /// in a given replica to the total potential energy of said replica.
-pub trait GroupDecoupledPhysicalPotential<T, const N: usize, V>
-where
-    V: Vector<N, Element = T>,
-{
+///
+/// Any implementor of this trait automatically implements [`PhysicalPotential`]
+///
+/// [`PhysicalPotential`]: super::PhysicalPotential
+pub trait GroupDecoupledPhysicalPotential<T, V> {
     /// Calculates the contribution of this group to the total potential energy
     /// of the replica and sets the forces of this group accordingly.
     ///
     /// Returns the contribution to the total energy.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_group_potential_set_forces(
+    fn calculate_potential_set_forces(
+        &mut self,
+        group: &AtomGroupInfo<T>,
+        positions: &[V],
+        forces: &mut [V],
+    ) -> T;
+
+    /// Calculates the contribution of this group to the total potential energy
+    /// of the replica and adds the forces arising from this potential to the forces of this group.
+    ///
+    /// Returns the contribution to the total energy.
+    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    fn calculate_potential_add_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
         positions: &[V],
@@ -26,66 +37,96 @@ where
     /// of the replica.
     ///
     /// Returns the contribution to the total energy.
-    #[deprecated = "Consider using `calculate_group_potential_set_forces` as a more efficient alternative"]
+    #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_group_potential(&mut self, group: &AtomGroupInfo<T>, positions: &[V]) -> T;
+    fn calculate_potential(&mut self, group: &AtomGroupInfo<T>, positions: &[V]) -> T;
 
     /// Sets the forces of this group.
-    #[deprecated = "Consider using `calculate_group_potential_set_forces` as a more efficient alternative"]
-    fn set_group_forces(&mut self, group: &AtomGroupInfo<T>, positions: &[V], forces: &mut [V]);
+    #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
+    fn set_forces(&mut self, group: &AtomGroupInfo<T>, positions: &[V], forces: &mut [V]);
+
+    /// Adds the forces arising from this potential to the forces of this group.
+    #[deprecated = "Consider using `calculate_potential_add_forces` as a more efficient alternative"]
+    fn add_forces(&mut self, group: &AtomGroupInfo<T>, positions: &[V], forces: &mut [V]);
 }
 
-impl<T, const N: usize, V, U> GroupDecoupledPhysicalPotential<T, N, V> for [U]
+impl<T, V, U> GroupDecoupledPhysicalPotential<T, V> for U
 where
     T: Add<Output = T>,
-    V: Vector<N, Element = T>,
-    U: AtomDecoupledPhysicalPotential<T, N, V>,
+    U: ?Sized + AtomDecoupledPhysicalPotential<T, V>,
 {
-    fn calculate_group_potential_set_forces(
+    fn calculate_potential_set_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
         positions: &[V],
         forces: &mut [V],
     ) -> T {
-        let mut iter = positions
-            .iter()
-            .zip(forces.iter_mut())
-            .zip(self)
-            .enumerate()
-            .map(|(idx, ((position, force), potential))| {
-                potential.calculate_atom_potential_set_force(idx, group, position, force)
-            });
-        let first_atom_energy = iter
-            .next()
-            .expect("There must be at least one atom in a group");
-        iter.fold(first_atom_energy, |accum, energy| accum + energy)
-    }
-
-    fn calculate_group_potential(&mut self, group: &AtomGroupInfo<T>, positions: &[V]) -> T {
         let mut iter =
             positions
                 .iter()
-                .zip(self)
+                .zip(forces.iter_mut())
                 .enumerate()
-                .map(|(idx, (position, potential))| {
-                    #[allow(deprecated)]
-                    potential.calculate_atom_potential(idx, group, position)
+                .map(|(idx, (position, force))| {
+                    AtomDecoupledPhysicalPotential::calculate_potential_set_force(
+                        self, idx, group, position, force,
+                    )
                 });
         let first_atom_energy = iter
             .next()
             .expect("There must be at least one atom in a group");
-        iter.fold(first_atom_energy, |accum, energy| accum + energy)
+        iter.fold(first_atom_energy, |accum_energy, atom_energy| {
+            accum_energy + atom_energy
+        })
     }
 
-    fn set_group_forces(&mut self, group: &AtomGroupInfo<T>, positions: &[V], forces: &mut [V]) {
-        for (idx, ((position, force), potential)) in positions
-            .iter()
-            .zip(forces.iter_mut())
-            .zip(self)
-            .enumerate()
-        {
+    fn calculate_potential_add_forces(
+        &mut self,
+        group: &AtomGroupInfo<T>,
+        positions: &[V],
+        forces: &mut [V],
+    ) -> T {
+        let mut iter =
+            positions
+                .iter()
+                .zip(forces.iter_mut())
+                .enumerate()
+                .map(|(idx, (position, force))| {
+                    AtomDecoupledPhysicalPotential::calculate_potential_add_force(
+                        self, idx, group, position, force,
+                    )
+                });
+        let first_atom_energy = iter
+            .next()
+            .expect("There must be at least one atom in a group");
+        iter.fold(first_atom_energy, |accum_energy, atom_energy| {
+            accum_energy + atom_energy
+        })
+    }
+
+    fn calculate_potential(&mut self, group: &AtomGroupInfo<T>, positions: &[V]) -> T {
+        let mut iter = positions.iter().enumerate().map(|(idx, position)| {
             #[allow(deprecated)]
-            potential.set_atom_force(idx, group, position, force);
+            AtomDecoupledPhysicalPotential::calculate_potential(self, idx, group, position)
+        });
+        let first_atom_energy = iter
+            .next()
+            .expect("There must be at least one atom in a group");
+        iter.fold(first_atom_energy, |accum_energy, atom_energy| {
+            accum_energy + atom_energy
+        })
+    }
+
+    fn set_forces(&mut self, group: &AtomGroupInfo<T>, positions: &[V], forces: &mut [V]) {
+        for (idx, (position, force)) in positions.iter().zip(forces.iter_mut()).enumerate() {
+            #[allow(deprecated)]
+            AtomDecoupledPhysicalPotential::set_force(self, idx, group, position, force);
+        }
+    }
+
+    fn add_forces(&mut self, group: &AtomGroupInfo<T>, positions: &[V], forces: &mut [V]) {
+        for (idx, (position, force)) in positions.iter().zip(forces.iter_mut()).enumerate() {
+            #[allow(deprecated)]
+            AtomDecoupledPhysicalPotential::set_force(self, idx, group, position, force);
         }
     }
 }
@@ -97,14 +138,15 @@ pub(super) mod monte_carlo {
     use super::GroupDecoupledPhysicalPotential;
     use crate::{
         core::AtomGroupInfo, potential::physical::MonteCarloAtomDecoupledPhysicalPotential,
-        vector::Vector,
     };
 
     /// A trait for group-deoupled physical potentials that may be used in a Monte-Carlo algorithm.
-    pub trait MonteCarloGroupDecoupledPhysicalPotential<T, const N: usize, V>:
-        GroupDecoupledPhysicalPotential<T, N, V>
-    where
-        V: Vector<N, Element = T>,
+    ///
+    /// Any implementor of this trait automatically implements [`MonteCarloPhysicalPotential`]
+    ///
+    /// [`MonteCarloPhysicalPotential`]: super::MonteCarloPhysicalPotential
+    pub trait MonteCarloGroupDecoupledPhysicalPotential<T, V>:
+        GroupDecoupledPhysicalPotential<T, V>
     {
         /// Calculates the change in the potential energy of this group
         /// after a change in the position of one of its atoms
@@ -112,7 +154,22 @@ pub(super) mod monte_carlo {
         ///
         /// Returns the change in potential energy.
         #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-        fn calculate_group_potential_diff_update_force(
+        fn calculate_potential_diff_set_changed_forces(
+            &mut self,
+            changed_position_idx: usize,
+            old_value: &V,
+            group: &AtomGroupInfo<T>,
+            positions: &[V],
+            forces: &mut [V],
+        ) -> T;
+
+        /// Calculates the change in the potential energy of this group
+        /// after a change in the position of one of its atoms
+        /// and adds the updated forces to the forces of this group.
+        ///
+        /// Returns the change in potential energy.
+        #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+        fn calculate_potential_diff_add_changed_forces(
             &mut self,
             changed_position_idx: usize,
             old_value: &V,
@@ -125,9 +182,9 @@ pub(super) mod monte_carlo {
         /// after a change in the position of one of its atoms.
         ///
         /// Returns the change in potential energy.
-        #[deprecated = "Consider using `calculate_group_potential_diff_update_force` as a more efficient alternative"]
+        #[deprecated = "Consider using `calculate_potential_diff_set_changed_forces` as a more efficient alternative"]
         #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-        fn calculate_group_potential_diff(
+        fn calculate_potential_diff(
             &mut self,
             changed_position_idx: usize,
             old_value: &V,
@@ -136,8 +193,20 @@ pub(super) mod monte_carlo {
         ) -> T;
 
         /// Updates the forces of this group after a change in the position of one of its atoms.
-        #[deprecated = "Consider using `calculate_group_potential_diff_update_force` as a more efficient alternative"]
-        fn update_group_forces(
+        #[deprecated = "Consider using `calculate_potential_diff_set_changed_forces` as a more efficient alternative"]
+        fn set_changed_forces(
+            &mut self,
+            changed_position_idx: usize,
+            old_value: &V,
+            group: &AtomGroupInfo<T>,
+            positions: &[V],
+            forces: &mut [V],
+        );
+
+        /// Adds the updated forces to the forces of this group given a change
+        /// in the position of one of its atoms.
+        #[deprecated = "Consider using `calculate_potential_diff_add_changed_forces` as a more efficient alternative"]
+        fn add_changed_forces(
             &mut self,
             changed_position_idx: usize,
             old_value: &V,
@@ -147,13 +216,12 @@ pub(super) mod monte_carlo {
         );
     }
 
-    impl<T, const N: usize, V, U> MonteCarloGroupDecoupledPhysicalPotential<T, N, V> for [U]
+    impl<T, V, U> MonteCarloGroupDecoupledPhysicalPotential<T, V> for U
     where
         T: Add<Output = T>,
-        V: Vector<N, Element = T>,
-        U: MonteCarloAtomDecoupledPhysicalPotential<T, N, V>,
+        U: ?Sized + MonteCarloAtomDecoupledPhysicalPotential<T, V>,
     {
-        fn calculate_group_potential_diff_update_force(
+        fn calculate_potential_diff_set_changed_forces(
             &mut self,
             changed_position_idx: usize,
             old_value: &V,
@@ -161,23 +229,43 @@ pub(super) mod monte_carlo {
             positions: &[V],
             forces: &mut [V],
         ) -> T {
-            self.into_iter()
-                .nth(changed_position_idx)
-                .expect("There must be at least one atom-decoupled potential in the slice")
-                .calculate_atom_potential_diff_update_force(
-                    changed_position_idx,
-                    old_value,
-                    group,
-                    positions
-                        .get(changed_position_idx)
-                        .expect("`changed_position_idx` must be a valid index in `positions`"),
-                    forces
-                        .get_mut(changed_position_idx)
-                        .expect("`changed_position_idx` must be a valid index in `forces`"),
-                )
+            MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff_set_changed_force(
+                self,
+                changed_position_idx,
+                old_value,
+                group,
+                positions
+                    .get(changed_position_idx)
+                    .expect("`changed_position_idx` must be a valid index in `positions`"),
+                forces
+                    .get_mut(changed_position_idx)
+                    .expect("`changed_position_idx` must be a valid index in `forces`"),
+            )
         }
 
-        fn calculate_group_potential_diff(
+        fn calculate_potential_diff_add_changed_forces(
+            &mut self,
+            changed_position_idx: usize,
+            old_value: &V,
+            group: &AtomGroupInfo<T>,
+            positions: &[V],
+            forces: &mut [V],
+        ) -> T {
+            MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff_add_changed_force(
+                self,
+                changed_position_idx,
+                old_value,
+                group,
+                positions
+                    .get(changed_position_idx)
+                    .expect("`changed_position_idx` must be a valid index in `positions`"),
+                forces
+                    .get_mut(changed_position_idx)
+                    .expect("`changed_position_idx` must be a valid index in `forces`"),
+            )
+        }
+
+        fn calculate_potential_diff(
             &mut self,
             changed_position_idx: usize,
             old_value: &V,
@@ -185,20 +273,18 @@ pub(super) mod monte_carlo {
             positions: &[V],
         ) -> T {
             #[allow(deprecated)]
-            self.into_iter()
-                .nth(changed_position_idx)
-                .expect("There must be at least one atom-decoupled potential in the slice")
-                .calculate_atom_potential_diff(
-                    changed_position_idx,
-                    old_value,
-                    group,
-                    positions
-                        .get(changed_position_idx)
-                        .expect("`changed_position_idx` must be a valid index in `positions`"),
-                )
+            MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff(
+                self,
+                changed_position_idx,
+                old_value,
+                group,
+                positions
+                    .get(changed_position_idx)
+                    .expect("`changed_position_idx` must be a valid index in `positions`"),
+            )
         }
 
-        fn update_group_forces(
+        fn set_changed_forces(
             &mut self,
             changed_position_idx: usize,
             old_value: &V,
@@ -207,20 +293,41 @@ pub(super) mod monte_carlo {
             forces: &mut [V],
         ) {
             #[allow(deprecated)]
-            self.into_iter()
-                .nth(changed_position_idx)
-                .expect("There must be at least one atom-decoupled potential in the slice")
-                .update_atom_force(
-                    changed_position_idx,
-                    old_value,
-                    group,
-                    positions
-                        .get(changed_position_idx)
-                        .expect("`changed_position_idx` must be a valid index in `positions`"),
-                    forces
-                        .get_mut(changed_position_idx)
-                        .expect("`changed_position_idx` must be a valid index in `forces`"),
-                )
+            MonteCarloAtomDecoupledPhysicalPotential::set_changed_force(
+                self,
+                changed_position_idx,
+                old_value,
+                group,
+                positions
+                    .get(changed_position_idx)
+                    .expect("`changed_position_idx` must be a valid index in `positions`"),
+                forces
+                    .get_mut(changed_position_idx)
+                    .expect("`changed_position_idx` must be a valid index in `forces`"),
+            );
+        }
+
+        fn add_changed_forces(
+            &mut self,
+            changed_position_idx: usize,
+            old_value: &V,
+            group: &AtomGroupInfo<T>,
+            positions: &[V],
+            forces: &mut [V],
+        ) {
+            #[allow(deprecated)]
+            MonteCarloAtomDecoupledPhysicalPotential::add_changed_force(
+                self,
+                changed_position_idx,
+                old_value,
+                group,
+                positions
+                    .get(changed_position_idx)
+                    .expect("`changed_position_idx` must be a valid index in `positions`"),
+                forces
+                    .get_mut(changed_position_idx)
+                    .expect("`changed_position_idx` must be a valid index in `forces`"),
+            );
         }
     }
 }
