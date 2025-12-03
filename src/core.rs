@@ -51,4 +51,8 @@ pub mod marker {
 
 pub mod stats {
     pub trait Indistinguishable {}
+
+    pub trait Bosonic {}
+
+    impl<T: ?Sized + Bosonic> Indistinguishable for T {}
 }

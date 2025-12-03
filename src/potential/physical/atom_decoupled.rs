@@ -7,7 +7,7 @@ use crate::core::AtomGroupInfo;
 ///
 /// [`GroupDecoupledPhysicalPotential`]: super::GroupDecoupledPhysicalPotential
 pub trait AtomDecoupledPhysicalPotential<T, V> {
-    /// Calculates the contribution of this atom to the total potential energy
+    /// Calculates the contribution of this atom to the total physical potential energy
     /// of the replica and sets the force of this atom accordingly.
     ///
     /// Returns the contribution to the total energy.
@@ -20,7 +20,7 @@ pub trait AtomDecoupledPhysicalPotential<T, V> {
         force: &mut V,
     ) -> T;
 
-    /// Calculates the contribution of this atom to the total potential energy
+    /// Calculates the contribution of this atom to the total physical potential energy
     /// of the replica and adds the force arising from this potential to the force of this atom.
     ///
     /// Returns the contribution to the total energy.
@@ -33,7 +33,7 @@ pub trait AtomDecoupledPhysicalPotential<T, V> {
         force: &mut V,
     ) -> T;
 
-    /// Calculates the contribution of this atom to the total potential energy
+    /// Calculates the contribution of this atom to the total physical potential energy
     /// of the replica.
     ///
     /// Returns the contribution to the total energy.
@@ -63,7 +63,7 @@ pub(super) mod monte_carlo {
     pub trait MonteCarloAtomDecoupledPhysicalPotential<T, V>:
         AtomDecoupledPhysicalPotential<T, V>
     {
-        /// Calculates the change in the potential energy of this atom
+        /// Calculates the change in the physical potential energy of this atom
         /// after a change in its position and updates the force of this atom accordingly.
         ///
         /// Returns the change in potential energy.
@@ -77,7 +77,7 @@ pub(super) mod monte_carlo {
             force: &mut V,
         ) -> T;
 
-        /// Calculates the change in the potential energy of this atom
+        /// Calculates the change in the physical potential energy of this atom
         /// after a change in its position and adds the updated force to the force
         /// of this atom.
         ///
@@ -92,7 +92,7 @@ pub(super) mod monte_carlo {
             force: &mut V,
         ) -> T;
 
-        /// Calculates the change in the potential energy of this atom
+        /// Calculates the change in the physical potential energy of this atom
         /// after a change in its position.
         ///
         /// Returns the change in potential energy.

@@ -9,7 +9,7 @@ use std::ops::Add;
 ///
 /// [`PhysicalPotential`]: super::PhysicalPotential
 pub trait GroupDecoupledPhysicalPotential<T, V> {
-    /// Calculates the contribution of this group to the total potential energy
+    /// Calculates the contribution of this group to the total physical potential energy
     /// of the replica and sets the forces of this group accordingly.
     ///
     /// Returns the contribution to the total energy.
@@ -21,7 +21,7 @@ pub trait GroupDecoupledPhysicalPotential<T, V> {
         forces: &mut [V],
     ) -> T;
 
-    /// Calculates the contribution of this group to the total potential energy
+    /// Calculates the contribution of this group to the total physical potential energy
     /// of the replica and adds the forces arising from this potential to the forces of this group.
     ///
     /// Returns the contribution to the total energy.
@@ -33,7 +33,7 @@ pub trait GroupDecoupledPhysicalPotential<T, V> {
         forces: &mut [V],
     ) -> T;
 
-    /// Calculates the contribution of this group to the total potential energy
+    /// Calculates the contribution of this group to the total physical potential energy
     /// of the replica.
     ///
     /// Returns the contribution to the total energy.
@@ -148,7 +148,7 @@ pub(super) mod monte_carlo {
     pub trait MonteCarloGroupDecoupledPhysicalPotential<T, V>:
         GroupDecoupledPhysicalPotential<T, V>
     {
-        /// Calculates the change in the potential energy of this group
+        /// Calculates the change in the physical potential energy of this group
         /// after a change in the position of one of its atoms
         /// and sets the forces of this group accordingly.
         ///
@@ -163,7 +163,7 @@ pub(super) mod monte_carlo {
             forces: &mut [V],
         ) -> T;
 
-        /// Calculates the change in the potential energy of this group
+        /// Calculates the change in the physical potential energy of this group
         /// after a change in the position of one of its atoms
         /// and adds the updated forces to the forces of this group.
         ///
@@ -178,7 +178,7 @@ pub(super) mod monte_carlo {
             forces: &mut [V],
         ) -> T;
 
-        /// Calculates the change in the potential energy of this group
+        /// Calculates the change in the physical potential energy of this group
         /// after a change in the position of one of its atoms.
         ///
         /// Returns the change in potential energy.
