@@ -3,6 +3,7 @@
 // #![warn(missing_docs)]
 
 pub mod core;
+pub mod marker;
 pub mod potential;
 pub mod vector;
 

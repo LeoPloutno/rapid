@@ -44,11 +44,6 @@ pub mod adder {
     }
 }
 
-pub mod marker {
-    pub trait LeadingIsInner {}
-    pub trait TrailingIsInner {}
-}
-
 pub mod stats {
     pub trait Indistinguishable {}
 

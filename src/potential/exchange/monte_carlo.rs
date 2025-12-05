@@ -1,8 +1,8 @@
-use super::{
-    InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
+use super::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential};
+use crate::{
+    core::AtomGroupInfo,
     marker::{InnerIsLeading, InnerIsTrailing},
 };
-use crate::core::AtomGroupInfo;
 
 #[derive(Clone, Copy, Debug)]
 pub enum NeighboringReplica {

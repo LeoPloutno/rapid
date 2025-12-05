@@ -1,15 +1,5 @@
 use crate::core::AtomGroupInfo;
-use marker::{InnerIsLeading, InnerIsTrailing};
-
-pub mod marker {
-    /// A marker trait for types that can implement `Leading[...]`
-    /// traits by reusing their `Inner[...]` implementation.
-    pub trait InnerIsLeading {}
-
-    /// A marker trait for types that can implement `Trailing[...]`
-    /// traits by reusing their `Inner[...]` implementation.
-    pub trait InnerIsTrailing {}
-}
+use crate::marker::{InnerIsLeading, InnerIsTrailing};
 
 /// A trait for exchange potentials that yield the contribution of the first replica
 /// to the total exchange potential energy of a given group.
@@ -165,7 +155,7 @@ pub trait TrailingExchangePotential<T, V> {
     fn calculate_potential_set_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
-        replica: usize,
+        last_replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -181,7 +171,7 @@ pub trait TrailingExchangePotential<T, V> {
     fn calculate_potential_add_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
-        replica: usize,
+        last_replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -197,7 +187,7 @@ pub trait TrailingExchangePotential<T, V> {
     fn calculate_potential(
         &mut self,
         group: &AtomGroupInfo<T>,
-        replica: usize,
+        last_replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -208,7 +198,7 @@ pub trait TrailingExchangePotential<T, V> {
     fn set_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
-        replica: usize,
+        last_replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -220,7 +210,7 @@ pub trait TrailingExchangePotential<T, V> {
     fn add_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
-        replica: usize,
+        last_replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -336,7 +326,7 @@ where
     fn calculate_potential_set_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
-        replica: usize,
+        last_replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -345,7 +335,7 @@ where
         InnerExchangePotential::calculate_potential_set_forces(
             self,
             group,
-            replica,
+            last_replica,
             positions_prev_replica,
             position_first_replica,
             positions,
@@ -356,7 +346,7 @@ where
     fn calculate_potential_add_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
-        replica: usize,
+        last_replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -365,7 +355,7 @@ where
         InnerExchangePotential::calculate_potential_add_forces(
             self,
             group,
-            replica,
+            last_replica,
             positions_prev_replica,
             position_first_replica,
             positions,
@@ -376,7 +366,7 @@ where
     fn calculate_potential(
         &mut self,
         group: &AtomGroupInfo<T>,
-        replica: usize,
+        last_replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -385,7 +375,7 @@ where
         InnerExchangePotential::calculate_potential(
             self,
             group,
-            replica,
+            last_replica,
             positions_prev_replica,
             position_first_replica,
             positions,
@@ -395,7 +385,7 @@ where
     fn set_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
-        replica: usize,
+        last_replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -405,7 +395,7 @@ where
         InnerExchangePotential::set_forces(
             self,
             group,
-            replica,
+            last_replica,
             positions_prev_replica,
             position_first_replica,
             positions,
@@ -416,7 +406,7 @@ where
     fn add_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
-        replica: usize,
+        last_replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -426,7 +416,7 @@ where
         InnerExchangePotential::add_forces(
             self,
             group,
-            replica,
+            last_replica,
             positions_prev_replica,
             position_first_replica,
             positions,
