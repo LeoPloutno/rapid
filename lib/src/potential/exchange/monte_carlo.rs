@@ -23,14 +23,14 @@ pub trait LeadingMonteCarloExchangePotential<T, V>: LeadingExchangePotential<T, 
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
         group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        last_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of the first replica to the change in total exchange
@@ -42,14 +42,14 @@ pub trait LeadingMonteCarloExchangePotential<T, V>: LeadingExchangePotential<T, 
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff_add_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
         group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        last_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of the first replica to the change in total exchange
@@ -61,13 +61,13 @@ pub trait LeadingMonteCarloExchangePotential<T, V>: LeadingExchangePotential<T, 
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
         group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
+        last_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
     ) -> T;
 
     /// Updates the forces of this group in the first replica after a change
@@ -76,14 +76,14 @@ pub trait LeadingMonteCarloExchangePotential<T, V>: LeadingExchangePotential<T, 
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn set_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
         group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        last_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Adds the updated forces to the forces of this group in the first replica given a change
@@ -92,14 +92,14 @@ pub trait LeadingMonteCarloExchangePotential<T, V>: LeadingExchangePotential<T, 
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn add_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
         group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        last_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 }
 
@@ -115,15 +115,15 @@ pub trait InnerMonteCarloExchangePotential<T, V>: InnerExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
-        group: &AtomGroupInfo<T>,
         replica: usize,
-        positions_prev_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group: &AtomGroupInfo<T>,
+        prev_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of this replica to the change in total exchange
@@ -135,15 +135,15 @@ pub trait InnerMonteCarloExchangePotential<T, V>: InnerExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff_add_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
-        group: &AtomGroupInfo<T>,
         replica: usize,
-        positions_prev_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group: &AtomGroupInfo<T>,
+        prev_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of this replica to the change in total exchange
@@ -155,14 +155,14 @@ pub trait InnerMonteCarloExchangePotential<T, V>: InnerExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
-        group: &AtomGroupInfo<T>,
         replica: usize,
-        positions_prev_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
+        group: &AtomGroupInfo<T>,
+        prev_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
     ) -> T;
 
     /// Updates the forces of this group in this replica after a change
@@ -171,15 +171,15 @@ pub trait InnerMonteCarloExchangePotential<T, V>: InnerExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn set_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
-        group: &AtomGroupInfo<T>,
         replica: usize,
-        positions_prev_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group: &AtomGroupInfo<T>,
+        prev_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Adds the updated forces to the forces of this group in this replica given a change
@@ -188,15 +188,15 @@ pub trait InnerMonteCarloExchangePotential<T, V>: InnerExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn add_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
-        group: &AtomGroupInfo<T>,
         replica: usize,
-        positions_prev_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group: &AtomGroupInfo<T>,
+        prev_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 }
 
@@ -212,15 +212,15 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
+        last_replica: usize,
         group: &AtomGroupInfo<T>,
-        replica: usize,
-        positions_prev_replica: &[V],
-        position_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        prev_replica_group_positions: &[V],
+        first_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of the last replica to the change in total exchange
@@ -232,15 +232,15 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff_add_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
+        last_replica: usize,
         group: &AtomGroupInfo<T>,
-        replica: usize,
-        positions_prev_replica: &[V],
-        position_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        prev_replica_group_positions: &[V],
+        first_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of the last replica to the change in total exchange
@@ -252,14 +252,14 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
+        last_replica: usize,
         group: &AtomGroupInfo<T>,
-        replica: usize,
-        positions_prev_replica: &[V],
-        position_first_replica: &[V],
-        positions: &[V],
+        prev_replica_group_positions: &[V],
+        first_replica_group_positions: &[V],
+        group_positions: &[V],
     ) -> T;
 
     /// Updates the forces of this group in the last replica after a change
@@ -268,15 +268,15 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn set_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
+        last_replica: usize,
         group: &AtomGroupInfo<T>,
-        replica: usize,
-        positions_prev_replica: &[V],
-        position_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        prev_replica_group_positions: &[V],
+        first_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Adds the updated forces to the forces of this group in the last replica given a change
@@ -285,15 +285,15 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn add_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
+        last_replica: usize,
         group: &AtomGroupInfo<T>,
-        replica: usize,
-        positions_prev_replica: &[V],
-        position_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        prev_replica_group_positions: &[V],
+        first_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 }
 
@@ -303,33 +303,33 @@ where
 {
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
         group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        position_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        prev_replica_group_positions: &[V],
+        next_replica_group_positions: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T {
         InnerMonteCarloExchangePotential::calculate_potential_diff_set_changed_forces(
             self,
-            changed_atom_idx,
             changed_replica,
+            changed_atom_idx,
             old_value,
-            group,
             0,
-            positions_last_replica,
-            position_next_replica,
-            positions,
-            forces,
+            group,
+            prev_replica_group_positions,
+            next_replica_group_positions,
+            group_positions,
+            group_forces,
         )
     }
 
     fn calculate_potential_diff_add_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
         group: &AtomGroupInfo<T>,
         positions_last_replica: &[V],
@@ -339,11 +339,11 @@ where
     ) -> T {
         InnerMonteCarloExchangePotential::calculate_potential_diff_add_changed_forces(
             self,
-            changed_atom_idx,
             changed_replica,
+            changed_atom_idx,
             old_value,
-            group,
             0,
+            group,
             positions_last_replica,
             position_next_replica,
             positions,
@@ -353,8 +353,8 @@ where
 
     fn calculate_potential_diff(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
         group: &AtomGroupInfo<T>,
         positions_last_replica: &[V],
@@ -364,11 +364,11 @@ where
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::calculate_potential_diff(
             self,
-            changed_atom_idx,
             changed_replica,
+            changed_atom_idx,
             old_value,
-            group,
             0,
+            group,
             positions_last_replica,
             position_next_replica,
             positions,
@@ -377,8 +377,8 @@ where
 
     fn set_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
         group: &AtomGroupInfo<T>,
         positions_last_replica: &[V],
@@ -389,11 +389,11 @@ where
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::set_changed_forces(
             self,
-            changed_atom_idx,
             changed_replica,
+            changed_atom_idx,
             old_value,
-            group,
             0,
+            group,
             positions_last_replica,
             position_next_replica,
             positions,
@@ -403,8 +403,8 @@ where
 
     fn add_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
         group: &AtomGroupInfo<T>,
         positions_last_replica: &[V],
@@ -415,11 +415,11 @@ where
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::add_changed_forces(
             self,
-            changed_atom_idx,
             changed_replica,
+            changed_atom_idx,
             old_value,
-            group,
             0,
+            group,
             positions_last_replica,
             position_next_replica,
             positions,
@@ -434,11 +434,11 @@ where
 {
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
+        last_replica: usize,
         group: &AtomGroupInfo<T>,
-        replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -446,11 +446,11 @@ where
     ) -> T {
         InnerMonteCarloExchangePotential::calculate_potential_diff_set_changed_forces(
             self,
-            changed_atom_idx,
             changed_replica,
+            changed_atom_idx,
             old_value,
+            last_replica,
             group,
-            replica,
             positions_prev_replica,
             position_first_replica,
             positions,
@@ -460,11 +460,11 @@ where
 
     fn calculate_potential_diff_add_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
+        last_replica: usize,
         group: &AtomGroupInfo<T>,
-        replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -472,11 +472,11 @@ where
     ) -> T {
         InnerMonteCarloExchangePotential::calculate_potential_diff_add_changed_forces(
             self,
-            changed_atom_idx,
             changed_replica,
+            changed_atom_idx,
             old_value,
+            last_replica,
             group,
-            replica,
             positions_prev_replica,
             position_first_replica,
             positions,
@@ -486,11 +486,11 @@ where
 
     fn calculate_potential_diff(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
+        last_replica: usize,
         group: &AtomGroupInfo<T>,
-        replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -498,11 +498,11 @@ where
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::calculate_potential_diff(
             self,
-            changed_atom_idx,
             changed_replica,
+            changed_atom_idx,
             old_value,
+            last_replica,
             group,
-            replica,
             positions_prev_replica,
             position_first_replica,
             positions,
@@ -511,11 +511,11 @@ where
 
     fn set_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
+        last_replica: usize,
         group: &AtomGroupInfo<T>,
-        replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -524,11 +524,11 @@ where
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::set_changed_forces(
             self,
-            changed_atom_idx,
             changed_replica,
+            changed_atom_idx,
             old_value,
+            last_replica,
             group,
-            replica,
             positions_prev_replica,
             position_first_replica,
             positions,
@@ -538,11 +538,11 @@ where
 
     fn add_changed_forces(
         &mut self,
-        changed_atom_idx: usize,
         changed_replica: NeighboringReplica,
+        changed_atom_idx: usize,
         old_value: &V,
+        last_replica: usize,
         group: &AtomGroupInfo<T>,
-        replica: usize,
         positions_prev_replica: &[V],
         position_first_replica: &[V],
         positions: &[V],
@@ -551,11 +551,11 @@ where
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::add_changed_forces(
             self,
-            changed_atom_idx,
             changed_replica,
+            changed_atom_idx,
             old_value,
+            last_replica,
             group,
-            replica,
             positions_prev_replica,
             position_first_replica,
             positions,

@@ -1,11 +1,3 @@
-[package]
-name = "rapid"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-
-
-[features]
-default = ["monte_carlo"]
-monte_carlo = []
+[workspace]
+resolver = "3"
+members = ["lib", "arc_rw_lock", "bin"]

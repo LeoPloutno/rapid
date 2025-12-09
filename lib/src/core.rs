@@ -1,25 +1,14 @@
+use std::range::Range;
+
 /// Information about atoms of the same type.
 #[derive(Clone, Copy, Debug)]
 pub struct AtomGroupInfo<T> {
     /// Unique identifier.
     pub id: usize,
-    /// The mass of a single atom in this group.
+    /// The range of indices corresponding to this group.
+    pub span: Range<usize>,
+    /// The mass of a single atom of this group.
     pub mass: T,
-}
-
-#[cfg(feature = "monte_carlo")]
-#[derive(Clone, Copy)]
-pub struct ChangedPosition<T> {
-    group_idx: usize,
-    position_idx: usize,
-    old_value: T,
-}
-
-#[cfg(feature = "monte_carlo")]
-#[derive(Clone, Copy)]
-pub enum GroupOption<T> {
-    This(T),
-    Other { group_idx: usize, value: T },
 }
 
 #[cfg(feature = "monte_carlo")]
@@ -42,12 +31,4 @@ pub mod adder {
     pub trait SyncAdderReciever<T> {
         fn recieve(&mut self) -> Result<T, SyncAddError>;
     }
-}
-
-pub mod stats {
-    pub trait Indistinguishable {}
-
-    pub trait Bosonic {}
-
-    impl<T: ?Sized + Bosonic> Indistinguishable for T {}
 }

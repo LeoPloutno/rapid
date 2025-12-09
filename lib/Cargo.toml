@@ -1,0 +1,11 @@
+[package]
+name = "lib"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+arc_rw_lock = { path = "../arc_rw_lock" }
+
+[features]
+default = ["monte_carlo"]
+monte_carlo = []
