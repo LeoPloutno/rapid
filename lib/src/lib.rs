@@ -6,7 +6,9 @@ pub mod core;
 pub mod marker;
 pub mod observable;
 pub mod potential;
+pub mod propagator;
 pub mod stat;
+pub mod sync_ops;
 pub mod thermostat;
 pub mod vector;
 

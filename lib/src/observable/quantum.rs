@@ -2,135 +2,124 @@ use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
 
 use crate::{
     core::AtomGroupInfo,
-    marker::{InnerIsLeading, InnerIsTrailing},
+    marker::InnerIsTrailing,
     potential::exchange::{
         InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
     },
     stat::{Bosonic, Distinguishable, Stat},
+    sync_ops::{SyncAddRecv, SyncAddSend, SyncMulRecv, SyncMulSend},
 };
 
-/// A trait for quantum estimators that yield the contribution of
-/// the first replica to the observable value.
-pub trait LeadingQuantumObservable<T, V, D, B>
+/// A trait for quantum estimators that return the observable value.
+pub trait LeadingQuantumObservable<T, V, D, B, A, M, E>
 where
     D: LeadingExchangePotential<T, V> + Distinguishable,
     B: LeadingExchangePotential<T, V> + Bosonic,
+    A: SyncAddRecv<Self::Output> + ?Sized,
+    M: SyncMulRecv<Self::Output> + ?Sized,
+    E: From<A::Error> + From<M::Error>,
 {
     type Output;
 
-    /// Calculates the contribution of this group in the first replica
-    /// to the value of the observable, such that the sum of all contributions
-    /// off all groups in all replicas is the final value.
+    /// Calculates the observable.
+    ///
+    /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
+        adder: &mut A,
+        multiplier: &mut M,
         exchange_potential: &Stat<D, B>,
         groups: &[AtomGroupInfo<T>],
         group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Self::Output;
+    ) -> Result<Self::Output, E>;
 }
 
-/// A trait for quantum estimators that yield the contribution of
-/// an inner replica to the observable value.
-pub trait InnerQuantumObservable<T, V, D, B>
+/// A trait for quantum estimators that assist
+/// a [`LeadingQuantumObservable`] in calculating the observable value
+/// from an inner replica.
+pub trait InnerQuantumObservable<T, V, D, B, A, M, E>
 where
     D: InnerExchangePotential<T, V> + Distinguishable,
     B: InnerExchangePotential<T, V> + Bosonic,
+    A: SyncAddSend<Self::Output> + ?Sized,
+    M: SyncMulSend<Self::Output> + ?Sized,
+    E: From<A::Error> + From<M::Error>,
 {
     type Output;
 
-    /// Calculates the contribution of this group in this replica
-    /// to the value of the observable, such that the sum of all contributions
-    /// off all groups in all replicas is the final value.
+    /// Calculates the observable.
     ///
-    /// Returns `None` if this replica does not contribute to the
-    /// observable value. This might happen with indistinguishable particles.
+    /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
+        adder: &mut A,
+        multiplier: &mut M,
         exchange_potential: &Stat<D, B>,
         replica: usize,
         groups: &[AtomGroupInfo<T>],
         group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Option<Self::Output>;
+    ) -> Result<(), E>;
 }
 
-/// A trait for quantum estimators that yield the contribution of
-/// the last replica to the observable value.
-pub trait TrailingQuantumObservable<T, V, D, B>
+/// A trait for quantum estimators that assist
+/// a [`LeadingQuantumObservable`] in calculating the observable value
+/// from the last replica.
+pub trait TrailingQuantumObservable<T, V, D, B, A, M, E>
 where
     D: TrailingExchangePotential<T, V> + Distinguishable,
     B: TrailingExchangePotential<T, V> + Bosonic,
+    A: SyncAddSend<Self::Output> + ?Sized,
+    M: SyncMulSend<Self::Output> + ?Sized,
+    E: From<A::Error> + From<M::Error>,
 {
     type Output;
 
-    /// Calculates the contribution of this group in the last replica
-    /// to the value of the observable, such that the sum of all contributions
-    /// off all groups in all replicas is the final value.
+    /// Calculates the observable.
     ///
-    /// Returns `None` if the last replica does not contribute to the
-    /// observable value. This might happen with indistinguishable particles.
+    /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
+        adder: &mut A,
+        multiplier: &mut M,
         exchange_potential: &Stat<D, B>,
         last_replica: usize,
         groups: &[AtomGroupInfo<T>],
         group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Option<Self::Output>;
+    ) -> Result<(), E>;
 }
 
-impl<T, V, D, B, U> LeadingQuantumObservable<T, V, D, B> for U
-where
-    D: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
-    B: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
-    U: InnerQuantumObservable<T, V, D, B> + InnerIsLeading,
-{
-    type Output = <Self as InnerQuantumObservable<T, V, D, B>>::Output;
-
-    fn calculate(
-        &mut self,
-        exchange_potential: &Stat<D, B>,
-        groups: &[AtomGroupInfo<T>],
-        group_idx: usize,
-        positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Self::Output {
-        InnerQuantumObservable::calculate(
-            self,
-            exchange_potential,
-            0,
-            groups,
-            group_idx,
-            positions,
-            forces,
-        )
-        .expect("The first replica always contributes to a quantum observable")
-    }
-}
-
-impl<T, V, D, B, U> TrailingQuantumObservable<T, V, D, B> for U
+impl<T, V, D, B, A, M, E, U> TrailingQuantumObservable<T, V, D, B, A, M, E> for U
 where
     D: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
     B: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
-    U: InnerQuantumObservable<T, V, D, B> + InnerIsTrailing,
+    A: SyncAddSend<<Self as InnerQuantumObservable<T, V, D, B, A, M, E>>::Output> + ?Sized,
+    M: SyncMulSend<<Self as InnerQuantumObservable<T, V, D, B, A, M, E>>::Output> + ?Sized,
+    E: From<A::Error> + From<M::Error>,
+    U: InnerQuantumObservable<T, V, D, B, A, M, E> + InnerIsTrailing,
 {
-    type Output = <Self as InnerQuantumObservable<T, V, D, B>>::Output;
+    type Output = <Self as InnerQuantumObservable<T, V, D, B, A, M, E>>::Output;
 
     fn calculate(
         &mut self,
+        adder: &mut A,
+        multiplier: &mut M,
         exchange_potential: &Stat<D, B>,
         last_replica: usize,
         groups: &[AtomGroupInfo<T>],
         group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Option<Self::Output> {
+    ) -> Result<(), E> {
         InnerQuantumObservable::calculate(
             self,
+            adder,
+            multiplier,
             exchange_potential,
             last_replica,
             groups,

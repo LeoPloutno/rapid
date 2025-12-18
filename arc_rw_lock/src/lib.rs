@@ -1,4 +1,12 @@
-#![feature(allocator_api, ptr_metadata)]
+#![allow(dead_code)]
+#![feature(allocator_api, ptr_metadata, sync_nonpoison)]
+
+mod alloc;
+mod arc;
+mod inner;
+mod lock;
+mod rw_lock;
+mod unique_arc;
 
 use std::{
     alloc::{Allocator, Global},
