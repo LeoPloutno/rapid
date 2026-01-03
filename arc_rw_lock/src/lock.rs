@@ -1,24 +1,16 @@
 use std::{
+    ops::{Deref, DerefMut},
     ptr::NonNull,
     sync::{LockResult, PoisonError, TryLockError, TryLockResult, nonpoison::WouldBlock},
+    thread::panicking,
 };
 
 use crate::inner::{InnerRwLock, Lock, PoisonLock};
 
 #[derive(Clone)]
 pub struct MappedRwLock<T: ?Sized, U: ?Sized = dyn 'static + Send + Sync> {
-    inner: NonNull<InnerRwLock<U>>,
+    pub(crate) inner: NonNull<InnerRwLock<U>>,
     pub(crate) subfield: NonNull<T>,
-}
-
-pub struct MappedRwLockWriteGuard<'a, T: ?Sized> {
-    lock: &'a PoisonLock,
-    data: &'a mut T,
-}
-
-pub struct MappedRwLockReadWholeGuard<'a, T: ?Sized> {
-    lock: &'a Lock,
-    data: &'a T,
 }
 
 impl<T: ?Sized, U: ?Sized> MappedRwLock<T, U> {
@@ -91,5 +83,58 @@ impl<T: ?Sized, U: ?Sized> MappedRwLock<T, U> {
         } else {
             Err(TryLockError::WouldBlock)
         }
+    }
+}
+
+pub struct MappedRwLockWriteGuard<'a, T: ?Sized> {
+    lock: &'a PoisonLock,
+    data: &'a mut T,
+}
+
+impl<'a, T: ?Sized> Drop for MappedRwLockWriteGuard<'a, T> {
+    fn drop(&mut self) {
+        // SAFETY: The existance of this guard guarantees that the counter is non-zero.
+        unsafe {
+            self.lock.lock.drop_writer_unchecked();
+        }
+        if panicking() {
+            self.lock.poison();
+        }
+    }
+}
+
+impl<'a, T: ?Sized> Deref for MappedRwLockWriteGuard<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.data
+    }
+}
+
+impl<'a, T: ?Sized> DerefMut for MappedRwLockWriteGuard<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.data
+    }
+}
+
+pub struct MappedRwLockReadWholeGuard<'a, T: ?Sized> {
+    lock: &'a Lock,
+    data: &'a T,
+}
+
+impl<'a, T: ?Sized> Drop for MappedRwLockReadWholeGuard<'a, T> {
+    fn drop(&mut self) {
+        // SAFETY: The existance of this guard guarantees that the counter is non-zero.
+        unsafe {
+            self.lock.drop_writer_unchecked();
+        }
+    }
+}
+
+impl<'a, T: ?Sized> Deref for MappedRwLockReadWholeGuard<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.data
     }
 }

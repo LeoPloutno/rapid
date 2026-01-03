@@ -1,7 +1,7 @@
 use std::range::Range;
 
 /// Information about atoms of the same type.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct AtomGroupInfo<T> {
     /// Unique identifier.
     pub id: usize,
@@ -9,4 +9,6 @@ pub struct AtomGroupInfo<T> {
     pub span: Range<usize>,
     /// The mass of a single atom of this group.
     pub mass: T,
+    /// Atomic symbol
+    pub label: String,
 }

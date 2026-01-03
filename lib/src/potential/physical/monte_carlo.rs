@@ -84,7 +84,7 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
 impl<T, V, U> MonteCarloPhysicalPotential<T, V> for U
 where
     T: Default,
-    U: ?Sized + MonteCarloGroupDecoupledPhysicalPotential<T, V>,
+    U: MonteCarloGroupDecoupledPhysicalPotential<T, V> + ?Sized,
 {
     fn calculate_potential_diff_set_changed_forces(
         &mut self,

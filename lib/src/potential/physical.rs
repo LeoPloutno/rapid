@@ -69,7 +69,7 @@ pub trait PhysicalPotential<T, V> {
 
 impl<T, V, U> PhysicalPotential<T, V> for U
 where
-    U: ?Sized + GroupDecoupledPhysicalPotential<T, V>,
+    U: GroupDecoupledPhysicalPotential<T, V> + ?Sized,
 {
     fn calculate_potential_set_forces(
         &mut self,

@@ -66,7 +66,7 @@ pub trait GroupDecoupledPhysicalPotential<T, V> {
 impl<T, V, U> GroupDecoupledPhysicalPotential<T, V> for U
 where
     T: Add<Output = T>,
-    U: ?Sized + AtomDecoupledPhysicalPotential<T, V>,
+    U: AtomDecoupledPhysicalPotential<T, V> + ?Sized,
 {
     fn calculate_potential_set_forces(
         &mut self,

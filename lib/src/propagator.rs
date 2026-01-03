@@ -15,18 +15,19 @@ use crate::{
 };
 
 /// A trait for a propagator of a group in the first replica.
-pub trait LeadingPropagator<T, V, D, B, A>
+pub trait LeadingPropagator<T, V, D, B>
 where
     D: LeadingQuadraticExpansionExchangePotential<T, V> + Distinguishable,
     B: LeadingQuadraticExpansionExchangePotential<T, V> + Bosonic,
-    A: SyncAddRecv<T>,
 {
     /// Propagates the positions, momenta, and forces by a single step.
+    ///
+    /// Returns the contribution of this group in the first replica
+    /// to the physical and exchange potential energies.
     fn propagate(
         &mut self,
         step: usize,
         step_size: T,
-        replica: usize,
         groups: &[AtomGroupInfo<T>],
         group_idx: usize,
         phys_potential: &mut dyn PhysicalPotential<T, V>,
@@ -35,17 +36,19 @@ where
         positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Result<(T, T), A::Error>;
+    ) -> (T, T);
 }
 
 /// A trait for a propagator of a group in an inner replica.
-pub trait InnerPropagator<T, V, D, B, A>
+pub trait InnerPropagator<T, V, D, B>
 where
     D: InnerQuadraticExpansionExchangePotential<T, V> + Distinguishable,
     B: InnerQuadraticExpansionExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T>,
 {
     /// Propagates the positions, momenta, and forces by a single step.
+    ///
+    /// Returns the contribution of this group in this replica
+    /// to the physical and exchange potential energies.
     fn propagate(
         &mut self,
         step: usize,
@@ -59,22 +62,24 @@ where
         positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Result<(T, T), A::Error>;
+    ) -> (T, T);
 }
 
 /// A trait for a propagator of a group in the last replica.
-pub trait TrailingPropagator<T, V, D, B, A>
+pub trait TrailingPropagator<T, V, D, B>
 where
     D: TrailingQuadraticExpansionExchangePotential<T, V> + Distinguishable,
     B: TrailingQuadraticExpansionExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T>,
 {
     /// Propagates the positions, momenta, and forces by a single step.
+    ///
+    /// Returns the contribution of this group in the last replica
+    /// to the physical and exchange potential energies.
     fn propagate(
         &mut self,
         step: usize,
         step_size: T,
-        replica: usize,
+        last_replica: usize,
         groups: &[AtomGroupInfo<T>],
         group_idx: usize,
         phys_potential: &mut dyn PhysicalPotential<T, V>,
@@ -83,5 +88,5 @@ where
         positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Result<(T, T), A::Error>;
+    ) -> (T, T);
 }

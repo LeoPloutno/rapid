@@ -1,7 +1,7 @@
 use atomic_wait;
 use std::{
     hint, process,
-    sync::atomic::{AtomicU32, Ordering},
+    sync::atomic::{self, AtomicU32, Ordering},
 };
 
 #[cold]
@@ -253,6 +253,7 @@ impl Lock {
     /// The readers counter must be non-zero.
     pub(crate) unsafe fn drop_whole_reader_unchecked(&self) {
         if self.0.fetch_sub(Self::COUNTER_ONE, Ordering::Release) == Self::COUNTER_ONE {
+            atomic::fence(Ordering::Acquire);
             atomic_wait::wake_all(&self.0);
         }
     }

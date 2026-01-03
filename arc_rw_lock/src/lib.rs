@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-#![feature(allocator_api, ptr_metadata, sync_nonpoison)]
+#![feature(allocator_api, ptr_metadata, layout_for_ptr, sync_nonpoison)]
 
 mod alloc;
 mod arc;
@@ -22,22 +22,9 @@ pub struct UniqueArcRwLock<T: ?Sized, A: Allocator = Global> {
     _phantom: PhantomData<(NonNull<T>, A)>,
 }
 
-pub struct MappedRwLock<T: ?Sized, U: ?Sized> {
-    _phantom: PhantomData<(NonNull<T>, NonNull<U>)>,
-}
+pub use lock::{MappedRwLock, MappedRwLockReadWholeGuard, MappedRwLockWriteGuard};
 
-pub struct ArcMappedRwLock<T: ?Sized, U: ?Sized = dyn 'static + Send + Sync, A: Allocator = Global>
-{
-    _phantom: PhantomData<(NonNull<T>, NonNull<U>, A)>,
-}
-
-pub struct UniqueArcMappedRwLock<
-    T: ?Sized,
-    U: ?Sized = dyn 'static + Send + Sync,
-    A: Allocator = Global,
-> {
-    _phantom: PhantomData<(NonNull<T>, NonNull<U>, A)>,
-}
+pub use arc::{ArcMappedRwLock, UniqueArcMappedRwLock};
 
 pub type ElementRwLock<T> = MappedRwLock<T, [T]>;
 
@@ -47,6 +34,6 @@ pub type ArcElementRwLock<T, A = Global> = ArcMappedRwLock<T, [T], A>;
 
 pub type ArcSliceRwLock<T, A = Global> = ArcMappedRwLock<[T], [T], A>;
 
-pub type UniqueArcElementRwLock<T, A = Global> = ArcMappedRwLock<T, [T], A>;
+pub type UniqueArcElementRwLock<T, A = Global> = UniqueArcMappedRwLock<T, [T], A>;
 
-pub type UniqueArcSliceRwLock<T, A = Global> = ArcMappedRwLock<[T], [T], A>;
+pub type UniqueArcSliceRwLock<T, A = Global> = UniqueArcMappedRwLock<[T], [T], A>;

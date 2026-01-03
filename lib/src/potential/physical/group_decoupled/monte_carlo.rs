@@ -82,7 +82,7 @@ pub trait MonteCarloGroupDecoupledPhysicalPotential<T, V>:
 impl<T, V, U> MonteCarloGroupDecoupledPhysicalPotential<T, V> for U
 where
     T: Add<Output = T>,
-    U: ?Sized + MonteCarloAtomDecoupledPhysicalPotential<T, V>,
+    U: MonteCarloAtomDecoupledPhysicalPotential<T, V> + ?Sized,
 {
     fn calculate_potential_diff_set_changed_forces(
         &mut self,

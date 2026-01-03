@@ -11,12 +11,12 @@ use crate::{
 };
 
 /// A trait for quantum estimators that return the observable value.
-pub trait LeadingQuantumObservable<T, V, D, B, A, M, E>
+pub trait LeadingQuantumObservable<T, V, A, M, D, B, E>
 where
-    D: LeadingExchangePotential<T, V> + Distinguishable,
-    B: LeadingExchangePotential<T, V> + Bosonic,
     A: SyncAddRecv<Self::Output> + ?Sized,
     M: SyncMulRecv<Self::Output> + ?Sized,
+    D: LeadingExchangePotential<T, V> + Distinguishable,
+    B: LeadingExchangePotential<T, V> + Bosonic,
     E: From<A::Error> + From<M::Error>,
 {
     type Output;
@@ -39,12 +39,12 @@ where
 /// A trait for quantum estimators that assist
 /// a [`LeadingQuantumObservable`] in calculating the observable value
 /// from an inner replica.
-pub trait InnerQuantumObservable<T, V, D, B, A, M, E>
+pub trait InnerQuantumObservable<T, V, A, M, D, B, E>
 where
-    D: InnerExchangePotential<T, V> + Distinguishable,
-    B: InnerExchangePotential<T, V> + Bosonic,
     A: SyncAddSend<Self::Output> + ?Sized,
     M: SyncMulSend<Self::Output> + ?Sized,
+    D: InnerExchangePotential<T, V> + Distinguishable,
+    B: InnerExchangePotential<T, V> + Bosonic,
     E: From<A::Error> + From<M::Error>,
 {
     type Output;
@@ -68,12 +68,12 @@ where
 /// A trait for quantum estimators that assist
 /// a [`LeadingQuantumObservable`] in calculating the observable value
 /// from the last replica.
-pub trait TrailingQuantumObservable<T, V, D, B, A, M, E>
+pub trait TrailingQuantumObservable<T, V, A, M, D, B, E>
 where
-    D: TrailingExchangePotential<T, V> + Distinguishable,
-    B: TrailingExchangePotential<T, V> + Bosonic,
     A: SyncAddSend<Self::Output> + ?Sized,
     M: SyncMulSend<Self::Output> + ?Sized,
+    D: TrailingExchangePotential<T, V> + Distinguishable,
+    B: TrailingExchangePotential<T, V> + Bosonic,
     E: From<A::Error> + From<M::Error>,
 {
     type Output;
@@ -94,16 +94,16 @@ where
     ) -> Result<(), E>;
 }
 
-impl<T, V, D, B, A, M, E, U> TrailingQuantumObservable<T, V, D, B, A, M, E> for U
+impl<T, V, A, M, D, B, E, U> TrailingQuantumObservable<T, V, A, M, D, B, E> for U
 where
+    A: SyncAddSend<<Self as InnerQuantumObservable<T, V, A, M, D, B, E>>::Output> + ?Sized,
+    M: SyncMulSend<<Self as InnerQuantumObservable<T, V, A, M, D, B, E>>::Output> + ?Sized,
     D: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
     B: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<<Self as InnerQuantumObservable<T, V, D, B, A, M, E>>::Output> + ?Sized,
-    M: SyncMulSend<<Self as InnerQuantumObservable<T, V, D, B, A, M, E>>::Output> + ?Sized,
     E: From<A::Error> + From<M::Error>,
-    U: InnerQuantumObservable<T, V, D, B, A, M, E> + InnerIsTrailing,
+    U: InnerQuantumObservable<T, V, A, M, D, B, E> + InnerIsTrailing,
 {
-    type Output = <Self as InnerQuantumObservable<T, V, D, B, A, M, E>>::Output;
+    type Output = <Self as InnerQuantumObservable<T, V, A, M, D, B, E>>::Output;
 
     fn calculate(
         &mut self,
