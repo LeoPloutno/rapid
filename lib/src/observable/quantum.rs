@@ -11,19 +11,20 @@ use crate::{
 };
 
 /// A trait for quantum estimators that return the observable value.
-pub trait LeadingQuantumObservable<T, V, A, M, D, B, E>
+pub trait LeadingQuantumObservable<T, V, D, B, A, M>
 where
-    A: SyncAddRecv<Self::Output> + ?Sized,
-    M: SyncMulRecv<Self::Output> + ?Sized,
     D: LeadingExchangePotential<T, V> + Distinguishable,
     B: LeadingExchangePotential<T, V> + Bosonic,
-    E: From<A::Error> + From<M::Error>,
+    A: SyncAddRecv<T> + ?Sized,
+    M: SyncMulRecv<T> + ?Sized,
 {
     type Output;
+    type Error;
 
     /// Calculates the observable.
     ///
     /// Returns an error if a synchronization failure occurs.
+    #[must_use]
     fn calculate(
         &mut self,
         adder: &mut A,
@@ -33,25 +34,26 @@ where
         group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Result<Self::Output, E>;
+    ) -> Result<Self::Output, Self::Error>;
 }
 
 /// A trait for quantum estimators that assist
 /// a [`LeadingQuantumObservable`] in calculating the observable value
 /// from an inner replica.
-pub trait InnerQuantumObservable<T, V, A, M, D, B, E>
+pub trait InnerQuantumObservable<T, V, D, B, A, M>
 where
-    A: SyncAddSend<Self::Output> + ?Sized,
-    M: SyncMulSend<Self::Output> + ?Sized,
     D: InnerExchangePotential<T, V> + Distinguishable,
     B: InnerExchangePotential<T, V> + Bosonic,
-    E: From<A::Error> + From<M::Error>,
+    A: SyncAddSend<T> + ?Sized,
+    M: SyncMulSend<T> + ?Sized,
 {
     type Output;
+    type Error;
 
     /// Calculates the observable.
     ///
     /// Returns an error if a synchronization failure occurs.
+    #[must_use]
     fn calculate(
         &mut self,
         adder: &mut A,
@@ -62,25 +64,26 @@ where
         group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Result<(), E>;
+    ) -> Result<(), Self::Error>;
 }
 
 /// A trait for quantum estimators that assist
 /// a [`LeadingQuantumObservable`] in calculating the observable value
 /// from the last replica.
-pub trait TrailingQuantumObservable<T, V, A, M, D, B, E>
+pub trait TrailingQuantumObservable<T, V, D, B, A, M>
 where
-    A: SyncAddSend<Self::Output> + ?Sized,
-    M: SyncMulSend<Self::Output> + ?Sized,
     D: TrailingExchangePotential<T, V> + Distinguishable,
     B: TrailingExchangePotential<T, V> + Bosonic,
-    E: From<A::Error> + From<M::Error>,
+    A: SyncAddSend<T> + ?Sized,
+    M: SyncMulSend<T> + ?Sized,
 {
     type Output;
+    type Error;
 
     /// Calculates the observable.
     ///
     /// Returns an error if a synchronization failure occurs.
+    #[must_use]
     fn calculate(
         &mut self,
         adder: &mut A,
@@ -91,19 +94,19 @@ where
         group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Result<(), E>;
+    ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, A, M, D, B, E, U> TrailingQuantumObservable<T, V, A, M, D, B, E> for U
+impl<T, V, D, B, A, M, U> TrailingQuantumObservable<T, V, D, B, A, M> for U
 where
-    A: SyncAddSend<<Self as InnerQuantumObservable<T, V, A, M, D, B, E>>::Output> + ?Sized,
-    M: SyncMulSend<<Self as InnerQuantumObservable<T, V, A, M, D, B, E>>::Output> + ?Sized,
     D: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
     B: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
-    E: From<A::Error> + From<M::Error>,
-    U: InnerQuantumObservable<T, V, A, M, D, B, E> + InnerIsTrailing,
+    A: SyncAddSend<T> + ?Sized,
+    M: SyncMulSend<T> + ?Sized,
+    U: InnerQuantumObservable<T, V, D, B, A, M> + InnerIsTrailing,
 {
-    type Output = <Self as InnerQuantumObservable<T, V, A, M, D, B, E>>::Output;
+    type Output = <Self as InnerQuantumObservable<T, V, D, B, A, M>>::Output;
+    type Error = <Self as InnerQuantumObservable<T, V, D, B, A, M>>::Error;
 
     fn calculate(
         &mut self,
@@ -115,7 +118,7 @@ where
         group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> Result<(), E> {
+    ) -> Result<(), Self::Error> {
         InnerQuantumObservable::calculate(
             self,
             adder,

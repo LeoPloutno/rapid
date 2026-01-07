@@ -10,25 +10,29 @@ use crate::marker::{InnerIsLeading, InnerIsTrailing};
 pub trait LeadingNormalModesTransform<T, V> {
     /// Transforms the positions of this group in all replicas
     /// into the normal modes delegated to the first replica.
-    fn cartesian_to_normal_modes<'a, I>(
+    #[must_use]
+    fn cartesian_to_normal_modes<'a, I, E>(
         &mut self,
         group: &AtomGroupInfo<T>,
         replicas_group_positions: I,
         replica_normal_modes: &mut [V],
-    ) where
+    ) -> Result<(), E>
+    where
         V: 'a,
-        I: Iterator<Item = &'a [V]> + Clone;
+        I: Iterator<Item = Result<&'a [V], E>> + Clone;
 
     /// Transforms all normal modes of this group into the positions
     /// of this group in the first replica.
-    fn normal_modes_to_cartesian<'a, I>(
+    #[must_use]
+    fn normal_modes_to_cartesian<'a, I, E>(
         &mut self,
         group: &AtomGroupInfo<T>,
         replicas_normal_modes: I,
         replica_group_position: &mut [V],
-    ) where
+    ) -> Result<(), E>
+    where
         V: 'a,
-        I: Iterator<Item = &'a [V]> + Clone;
+        I: Iterator<Item = Result<&'a [V], E>> + Clone;
 
     /// Sets `eigenvalues` to contain the eigenvalues of the normal modes
     /// of this group delegated to the first replica.
@@ -45,27 +49,31 @@ pub trait LeadingNormalModesTransform<T, V> {
 pub trait InnerNormalModesTransform<T, V> {
     /// Transforms the positions of this group in all replicas
     /// into the normal modes delegated to this replica.
-    fn cartesian_to_normal_modes<'a, I>(
+    #[must_use]
+    fn cartesian_to_normal_modes<'a, I, E>(
         &mut self,
         replica: usize,
         group: &AtomGroupInfo<T>,
         replicas_group_positions: I,
         replica_normal_modes: &mut [V],
-    ) where
+    ) -> Result<(), E>
+    where
         V: 'a,
-        I: Iterator<Item = &'a [V]> + Clone;
+        I: Iterator<Item = Result<&'a [V], E>> + Clone;
 
     /// Transforms all normal modes of this group into the positions
     /// of this group in this replica.
-    fn normal_modes_to_cartesian<'a, I>(
+    #[must_use]
+    fn normal_modes_to_cartesian<'a, I, E>(
         &mut self,
         replica: usize,
         group: &AtomGroupInfo<T>,
         replicas_normal_modes: I,
         replica_group_position: &mut [V],
-    ) where
+    ) -> Result<(), E>
+    where
         V: 'a,
-        I: Iterator<Item = &'a [V]> + Clone;
+        I: Iterator<Item = Result<&'a [V], E>> + Clone;
 
     /// Sets `eigenvalues` to contain the eigenvalues of the normal modes
     /// of this group delegated to this replica.
@@ -82,27 +90,31 @@ pub trait InnerNormalModesTransform<T, V> {
 pub trait TrailingNormalModesTransform<T, V> {
     /// Transforms the positions of this group in all replicas
     /// into the normal modes delegated to the last replica.
-    fn cartesian_to_normal_modes<'a, I>(
+    #[must_use]
+    fn cartesian_to_normal_modes<'a, I, E>(
         &mut self,
         last_replica: usize,
         group: &AtomGroupInfo<T>,
         replicas_group_positions: I,
         replica_normal_modes: &mut [V],
-    ) where
+    ) -> Result<(), E>
+    where
         V: 'a,
-        I: Iterator<Item = &'a [V]> + Clone;
+        I: Iterator<Item = Result<&'a [V], E>> + Clone;
 
     /// Transforms all normal modes of this group into the positions
     /// of this group in the last replica.
-    fn normal_modes_to_cartesian<'a, I>(
+    #[must_use]
+    fn normal_modes_to_cartesian<'a, I, E>(
         &mut self,
         last_replica: usize,
         group: &AtomGroupInfo<T>,
         replica_normal_modes: I,
         replica_group_position: &mut [V],
-    ) where
+    ) -> Result<(), E>
+    where
         V: 'a,
-        I: Iterator<Item = &'a [V]> + Clone;
+        I: Iterator<Item = Result<&'a [V], E>> + Clone;
 
     /// Sets `eigenvalues` to contain the eigenvalues of the normal modes
     /// of this group delegated to the last replica.
@@ -113,14 +125,15 @@ impl<T, V, U> LeadingNormalModesTransform<T, V> for U
 where
     U: InnerNormalModesTransform<T, V> + InnerIsLeading,
 {
-    fn cartesian_to_normal_modes<'a, I>(
+    fn cartesian_to_normal_modes<'a, I, E>(
         &mut self,
         group: &AtomGroupInfo<T>,
         replicas_group_positions: I,
         replica_normal_modes: &mut [V],
-    ) where
+    ) -> Result<(), E>
+    where
         V: 'a,
-        I: Iterator<Item = &'a [V]> + Clone,
+        I: Iterator<Item = Result<&'a [V], E>> + Clone,
     {
         InnerNormalModesTransform::cartesian_to_normal_modes(
             self,
@@ -128,17 +141,18 @@ where
             group,
             replicas_group_positions,
             replica_normal_modes,
-        );
+        )
     }
 
-    fn normal_modes_to_cartesian<'a, I>(
+    fn normal_modes_to_cartesian<'a, I, E>(
         &mut self,
         group: &AtomGroupInfo<T>,
         replicas_normal_modes: I,
         replica_group_position: &mut [V],
-    ) where
+    ) -> Result<(), E>
+    where
         V: 'a,
-        I: Iterator<Item = &'a [V]> + Clone,
+        I: Iterator<Item = Result<&'a [V], E>> + Clone,
     {
         InnerNormalModesTransform::normal_modes_to_cartesian(
             self,
@@ -146,7 +160,7 @@ where
             group,
             replicas_normal_modes,
             replica_group_position,
-        );
+        )
     }
 
     fn eigenvalues(&mut self, group: &AtomGroupInfo<T>, eigenvalues: &mut [T]) {
@@ -158,15 +172,16 @@ impl<T, V, U> TrailingNormalModesTransform<T, V> for U
 where
     U: InnerNormalModesTransform<T, V> + InnerIsTrailing,
 {
-    fn cartesian_to_normal_modes<'a, I>(
+    fn cartesian_to_normal_modes<'a, I, E>(
         &mut self,
         last_replica: usize,
         group: &AtomGroupInfo<T>,
         replicas_group_positions: I,
         replica_normal_modes: &mut [V],
-    ) where
+    ) -> Result<(), E>
+    where
         V: 'a,
-        I: Iterator<Item = &'a [V]> + Clone,
+        I: Iterator<Item = Result<&'a [V], E>> + Clone,
     {
         InnerNormalModesTransform::cartesian_to_normal_modes(
             self,
@@ -174,18 +189,19 @@ where
             group,
             replicas_group_positions,
             replica_normal_modes,
-        );
+        )
     }
 
-    fn normal_modes_to_cartesian<'a, I>(
+    fn normal_modes_to_cartesian<'a, I, E>(
         &mut self,
         last_replica: usize,
         group: &AtomGroupInfo<T>,
         replicas_normal_modes: I,
         replica_group_position: &mut [V],
-    ) where
+    ) -> Result<(), E>
+    where
         V: 'a,
-        I: Iterator<Item = &'a [V]> + Clone,
+        I: Iterator<Item = Result<&'a [V], E>> + Clone,
     {
         InnerNormalModesTransform::normal_modes_to_cartesian(
             self,
@@ -193,7 +209,7 @@ where
             group,
             replicas_normal_modes,
             replica_group_position,
-        );
+        )
     }
 
     fn eigenvalues(

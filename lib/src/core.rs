@@ -12,3 +12,8 @@ pub struct AtomGroupInfo<T> {
     /// Atomic symbol
     pub label: String,
 }
+
+pub struct CommError {
+    pub replica: usize,
+    pub group_idx: usize,
+}

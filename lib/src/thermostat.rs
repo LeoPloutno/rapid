@@ -7,10 +7,13 @@ use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
 /// in the canonical ensemble such that different energies
 /// are sampled while keeping the temperature fixed.
 pub trait Thermostat<T, V> {
+    type Error;
+
     /// Performs thermalization of the system at a given step.
     ///
     /// Returns the contribution of this group in this replica to the
     /// change in the internal energy of the system.
+    #[must_use]
     fn thermalize(
         &mut self,
         step: usize,
@@ -21,5 +24,5 @@ pub trait Thermostat<T, V> {
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 }
