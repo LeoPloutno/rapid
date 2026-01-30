@@ -117,12 +117,10 @@ impl Lock {
         let mut loaded = self.0.load(Ordering::Relaxed);
         loop {
             if loaded == Self::EMPTY {
-                match self.0.compare_exchange_weak(
-                    loaded,
-                    Self::COUNTER_ONE,
-                    Ordering::Acquire,
-                    Ordering::Relaxed,
-                ) {
+                match self
+                    .0
+                    .compare_exchange_weak(loaded, Self::COUNTER_ONE, Ordering::Acquire, Ordering::Relaxed)
+                {
                     Ok(_) => return,
                     Err(current) => {
                         hint::spin_loop();
@@ -160,12 +158,10 @@ impl Lock {
         let mut loaded = self.0.load(Ordering::Relaxed);
         loop {
             if loaded == Self::EMPTY {
-                match self.0.compare_exchange_weak(
-                    loaded,
-                    Self::COUNTER_ONE,
-                    Ordering::Acquire,
-                    Ordering::Relaxed,
-                ) {
+                match self
+                    .0
+                    .compare_exchange_weak(loaded, Self::COUNTER_ONE, Ordering::Acquire, Ordering::Relaxed)
+                {
                     Ok(_) => return true,
                     Err(current) => {
                         hint::spin_loop();
@@ -212,12 +208,10 @@ impl Lock {
                     hint::unreachable_unchecked();
                 }
             } else if counter == 1 {
-                match self.0.compare_exchange_weak(
-                    loaded,
-                    Self::EMPTY,
-                    Ordering::Release,
-                    Ordering::Relaxed,
-                ) {
+                match self
+                    .0
+                    .compare_exchange_weak(loaded, Self::EMPTY, Ordering::Release, Ordering::Relaxed)
+                {
                     Ok(_) => {
                         atomic_wait::wake_all(&self.0);
                         return;

@@ -6,7 +6,5 @@ pub use self::{
         InnerQuadraticExpansionExchangePotential, LeadingQuadraticExpansionExchangePotential,
         TrailingQuadraticExpansionExchangePotential,
     },
-    transform::{
-        InnerNormalModesTransform, LeadingNormalModesTransform, TrailingNormalModesTransform,
-    },
+    transform::{InnerNormalModesTransform, LeadingNormalModesTransform, TrailingNormalModesTransform},
 };

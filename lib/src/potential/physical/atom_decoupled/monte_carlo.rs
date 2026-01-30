@@ -6,71 +6,63 @@ use crate::core::AtomGroupInfo;
 /// Any implementor of this trait automatically implements [`MonteCarloGroupDecoupledPhysicalPotential`].
 ///
 /// [`MonteCarloGroupDecoupledPhysicalPotential`]: super::super::MonteCarloGroupDecoupledPhysicalPotential
-pub trait MonteCarloAtomDecoupledPhysicalPotential<T, V>:
-    AtomDecoupledPhysicalPotential<T, V>
-{
+pub trait MonteCarloAtomDecoupledPhysicalPotential<T, V>: AtomDecoupledPhysicalPotential<T, V> {
     /// Calculates the change in the physical potential energy of this atom
-    /// after a change in its atom_position and updates the atom_force of this atom accordingly.
+    /// after a change in its position and updates the force of this atom accordingly.
     ///
     /// Returns the change in potential energy.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff_set_changed_force(
         &mut self,
-        group: &AtomGroupInfo<T>,
         atom_idx: usize,
-        old_value: &V,
-        atom_position: &V,
-        atom_force: &mut V,
+        group: &AtomGroupInfo<T>,
+        old_value: V,
+        position: &V,
+        force: &mut V,
     ) -> T;
 
     /// Calculates the change in the physical potential energy of this atom
-    /// after a change in its atom_position and adds the updated atom_force to the atom_force
+    /// after a change in its position and adds the updated force to the force
     /// of this atom.
     ///
     /// Returns the change in potential energy.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff_add_changed_force(
         &mut self,
-        group: &AtomGroupInfo<T>,
         atom_idx: usize,
-        old_value: &V,
-        atom_position: &V,
-        atom_force: &mut V,
+        group: &AtomGroupInfo<T>,
+        old_value: V,
+        position: &V,
+        force: &mut V,
     ) -> T;
 
     /// Calculates the change in the physical potential energy of this atom
-    /// after a change in its atom_position.
+    /// after a change in its position.
     ///
     /// Returns the change in potential energy.
     #[deprecated = "Consider using `calculate_potential_diff_set_changed_force` as a more efficient alternative"]
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential_diff(
-        &mut self,
-        group: &AtomGroupInfo<T>,
-        changed_position_idx: usize,
-        old_value: &V,
-        atom_position: &V,
-    ) -> T;
+    fn calculate_potential_diff(&mut self, atom_idx: usize, group: &AtomGroupInfo<T>, old_value: V, position: &V) -> T;
 
-    /// Updates the atom_force of this atom after a change to its atom_position.
+    /// Updates the force of this atom after a change to its position.
     #[deprecated = "Consider using `calculate_potential_diff_set_changed_force` as a more efficient alternative"]
     fn set_changed_force(
         &mut self,
-        group: &AtomGroupInfo<T>,
         atom_idx: usize,
-        old_value: &V,
-        atom_position: &V,
-        atom_force: &mut V,
+        group: &AtomGroupInfo<T>,
+        old_value: V,
+        position: &V,
+        force: &mut V,
     );
 
-    /// Adds the updated atom_force to the atom_force of this atom given a change in its atom_position.
+    /// Adds the updated force to the force of this atom given a change in its position.
     #[deprecated = "Consider using `calculate_potential_diff_add_changed_force` as a more efficient alternative"]
     fn add_changed_force(
         &mut self,
-        group: &AtomGroupInfo<T>,
         atom_idx: usize,
-        old_value: &V,
-        atom_position: &V,
-        atom_force: &mut V,
+        group: &AtomGroupInfo<T>,
+        old_value: V,
+        position: &V,
+        force: &mut V,
     );
 }

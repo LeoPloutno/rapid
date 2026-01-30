@@ -5,36 +5,36 @@ use crate::core::AtomGroupInfo;
 pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
     /// Calculates the contribution of this group to the change in total physical
     /// potential energy of the replica after a change in the position of a single atom
-    /// and updates the group_forces of this group accordingly.
+    /// and updates the forces of this group accordingly.
     ///
     /// Returns the contribution to the change in total energy.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
         changed_group_idx: usize,
         changed_atom_idx: usize,
-        old_value: &V,
+        old_value: V,
         groups_positions: &[V],
-        group_forces: &mut [V],
+        forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of this group to the change in total physical
     /// potential energy of the replica after a change in the position of a single atom
-    /// and adds the updated group_forces to the group_forces of this group.
+    /// and adds the updated forces to the forces of this group.
     ///
     /// Returns the contribution to the change in total energy.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff_add_changed_forces(
         &mut self,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
         changed_group_idx: usize,
         changed_atom_idx: usize,
-        old_value: &V,
+        old_value: V,
         groups_positions: &[V],
-        group_forces: &mut [V],
+        forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of this group to the change in total physical
@@ -45,39 +45,39 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_diff(
         &mut self,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
         changed_group_idx: usize,
         changed_atom_idx: usize,
-        old_value: &V,
+        old_value: V,
         groups_positions: &[V],
     ) -> T;
 
-    /// Updates the group_forces of this group after a change in the position of a single atom.
+    /// Updates the forces of this group after a change in the position of a single atom.
     #[deprecated = "Consider using `calculate_potential_diff_set_changed_forces` as a more efficient alternative"]
     fn set_changed_forces(
         &mut self,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
         changed_group_idx: usize,
         changed_atom_idx: usize,
-        old_value: &V,
+        old_value: V,
         groups_positions: &[V],
-        group_forces: &mut [V],
+        forces: &mut [V],
     );
 
-    /// Adds the updated group_forces to the group_forces of this group given a change
+    /// Adds the updated forces to the forces of this group given a change
     /// in the position of a single atom.
     #[deprecated = "Consider using `calculate_potential_diff_add_changed_forces` as a more efficient alternative"]
     fn add_changed_forces(
         &mut self,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
         changed_group_idx: usize,
         changed_atom_idx: usize,
-        old_value: &V,
+        old_value: V,
         groups_positions: &[V],
-        group_forces: &mut [V],
+        forces: &mut [V],
     );
 }
 
@@ -88,13 +88,13 @@ where
 {
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
         changed_group_idx: usize,
         changed_atom_idx: usize,
-        old_value: &V,
+        old_value: V,
         groups_positions: &[V],
-        group_forces: &mut [V],
+        forces: &mut [V],
     ) -> T {
         if changed_group_idx == group_idx {
             let group = groups
@@ -109,7 +109,7 @@ where
                 changed_atom_idx,
                 old_value,
                 positions,
-                group_forces,
+                forces,
             )
         } else {
             T::default()
@@ -118,13 +118,13 @@ where
 
     fn calculate_potential_diff_add_changed_forces(
         &mut self,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
         changed_group_idx: usize,
         changed_atom_idx: usize,
-        old_value: &V,
+        old_value: V,
         groups_positions: &[V],
-        group_forces: &mut [V],
+        forces: &mut [V],
     ) -> T {
         if changed_group_idx == group_idx {
             let group = groups
@@ -139,7 +139,7 @@ where
                 changed_atom_idx,
                 old_value,
                 positions,
-                group_forces,
+                forces,
             )
         } else {
             T::default()
@@ -148,11 +148,11 @@ where
 
     fn calculate_potential_diff(
         &mut self,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
         changed_group_idx: usize,
         changed_atom_idx: usize,
-        old_value: &V,
+        old_value: V,
         groups_positions: &[V],
     ) -> T {
         if changed_group_idx == group_idx {
@@ -177,13 +177,13 @@ where
 
     fn set_changed_forces(
         &mut self,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
         changed_group_idx: usize,
         changed_atom_idx: usize,
-        old_value: &V,
+        old_value: V,
         groups_positions: &[V],
-        group_forces: &mut [V],
+        forces: &mut [V],
     ) {
         if changed_group_idx == group_idx {
             let group = groups
@@ -199,20 +199,20 @@ where
                 changed_atom_idx,
                 old_value,
                 positions,
-                group_forces,
+                forces,
             );
         }
     }
 
     fn add_changed_forces(
         &mut self,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
         changed_group_idx: usize,
         changed_atom_idx: usize,
-        old_value: &V,
+        old_value: V,
         groups_positions: &[V],
-        group_forces: &mut [V],
+        forces: &mut [V],
     ) {
         if changed_group_idx == group_idx {
             let group = groups
@@ -228,7 +228,7 @@ where
                 changed_atom_idx,
                 old_value,
                 positions,
-                group_forces,
+                forces,
             );
         }
     }

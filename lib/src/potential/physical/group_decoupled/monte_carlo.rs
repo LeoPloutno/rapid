@@ -8,12 +8,10 @@ use crate::{core::AtomGroupInfo, potential::physical::MonteCarloAtomDecoupledPhy
 /// Any implementor of this trait automatically implements [`MonteCarloPhysicalPotential`]
 ///
 /// [`MonteCarloPhysicalPotential`]: super::super::MonteCarloPhysicalPotential
-pub trait MonteCarloGroupDecoupledPhysicalPotential<T, V>:
-    GroupDecoupledPhysicalPotential<T, V>
-{
+pub trait MonteCarloGroupDecoupledPhysicalPotential<T, V>: GroupDecoupledPhysicalPotential<T, V> {
     /// Calculates the change in the physical potential energy of this group
     /// after a change in the position of one of its atoms
-    /// and sets the group_forces of this group accordingly.
+    /// and sets the forces of this group accordingly.
     ///
     /// Returns the change in potential energy.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
@@ -21,14 +19,14 @@ pub trait MonteCarloGroupDecoupledPhysicalPotential<T, V>:
         &mut self,
         group: &AtomGroupInfo<T>,
         changed_position_idx: usize,
-        old_value: &V,
-        group_positions: &[V],
-        group_forces: &mut [V],
+        old_value: V,
+        positions: &[V],
+        forces: &mut [V],
     ) -> T;
 
     /// Calculates the change in the physical potential energy of this group
     /// after a change in the position of one of its atoms
-    /// and adds the updated group_forces to the group_forces of this group.
+    /// and adds the updated forces to the forces of this group.
     ///
     /// Returns the change in potential energy.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
@@ -36,9 +34,9 @@ pub trait MonteCarloGroupDecoupledPhysicalPotential<T, V>:
         &mut self,
         group: &AtomGroupInfo<T>,
         changed_position_idx: usize,
-        old_value: &V,
-        group_positions: &[V],
-        group_forces: &mut [V],
+        old_value: V,
+        positions: &[V],
+        forces: &mut [V],
     ) -> T;
 
     /// Calculates the change in the physical potential energy of this group
@@ -51,31 +49,31 @@ pub trait MonteCarloGroupDecoupledPhysicalPotential<T, V>:
         &mut self,
         group: &AtomGroupInfo<T>,
         changed_position_idx: usize,
-        old_value: &V,
-        group_positions: &[V],
+        old_value: V,
+        positions: &[V],
     ) -> T;
 
-    /// Updates the group_forces of this group after a change in the position of one of its atoms.
+    /// Updates the forces of this group after a change in the position of one of its atoms.
     #[deprecated = "Consider using `calculate_potential_diff_set_changed_forces` as a more efficient alternative"]
     fn set_changed_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
         changed_position_idx: usize,
-        old_value: &V,
-        group_positions: &[V],
-        group_forces: &mut [V],
+        old_value: V,
+        positions: &[V],
+        forces: &mut [V],
     );
 
-    /// Adds the updated group_forces to the group_forces of this group given a change
+    /// Adds the updated forces to the forces of this group given a change
     /// in the position of one of its atoms.
     #[deprecated = "Consider using `calculate_potential_diff_add_changed_forces` as a more efficient alternative"]
     fn add_changed_forces(
         &mut self,
         group: &AtomGroupInfo<T>,
         changed_position_idx: usize,
-        old_value: &V,
-        group_positions: &[V],
-        group_forces: &mut [V],
+        old_value: V,
+        positions: &[V],
+        forces: &mut [V],
     );
 }
 
@@ -88,21 +86,21 @@ where
         &mut self,
         group: &AtomGroupInfo<T>,
         changed_position_idx: usize,
-        old_value: &V,
-        group_positions: &[V],
-        group_forces: &mut [V],
+        old_value: V,
+        positions: &[V],
+        forces: &mut [V],
     ) -> T {
         MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff_set_changed_force(
             self,
-            group,
             changed_position_idx,
+            group,
             old_value,
-            group_positions
+            positions
                 .get(changed_position_idx)
-                .expect("`changed_position_idx` must be a valid index in `group_positions`"),
-            group_forces
+                .expect("`changed_position_idx` must be a valid index in `positions`"),
+            forces
                 .get_mut(changed_position_idx)
-                .expect("`changed_position_idx` must be a valid index in `group_forces`"),
+                .expect("`changed_position_idx` must be a valid index in `forces`"),
         )
     }
 
@@ -110,21 +108,21 @@ where
         &mut self,
         group: &AtomGroupInfo<T>,
         changed_position_idx: usize,
-        old_value: &V,
-        group_positions: &[V],
-        group_forces: &mut [V],
+        old_value: V,
+        positions: &[V],
+        forces: &mut [V],
     ) -> T {
         MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff_add_changed_force(
             self,
-            group,
             changed_position_idx,
+            group,
             old_value,
-            group_positions
+            positions
                 .get(changed_position_idx)
-                .expect("`changed_position_idx` must be a valid index in `group_positions`"),
-            group_forces
+                .expect("`changed_position_idx` must be a valid index in `positions`"),
+            forces
                 .get_mut(changed_position_idx)
-                .expect("`changed_position_idx` must be a valid index in `group_forces`"),
+                .expect("`changed_position_idx` must be a valid index in `forces`"),
         )
     }
 
@@ -132,18 +130,18 @@ where
         &mut self,
         group: &AtomGroupInfo<T>,
         changed_position_idx: usize,
-        old_value: &V,
-        group_positions: &[V],
+        old_value: V,
+        positions: &[V],
     ) -> T {
         #[allow(deprecated)]
         MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff(
             self,
-            group,
             changed_position_idx,
+            group,
             old_value,
-            group_positions
+            positions
                 .get(changed_position_idx)
-                .expect("`changed_position_idx` must be a valid index in `group_positions`"),
+                .expect("`changed_position_idx` must be a valid index in `positions`"),
         )
     }
 
@@ -151,22 +149,22 @@ where
         &mut self,
         group: &AtomGroupInfo<T>,
         changed_position_idx: usize,
-        old_value: &V,
-        group_positions: &[V],
-        group_forces: &mut [V],
+        old_value: V,
+        positions: &[V],
+        forces: &mut [V],
     ) {
         #[allow(deprecated)]
         MonteCarloAtomDecoupledPhysicalPotential::set_changed_force(
             self,
-            group,
             changed_position_idx,
+            group,
             old_value,
-            group_positions
+            positions
                 .get(changed_position_idx)
-                .expect("`changed_position_idx` must be a valid index in `group_positions`"),
-            group_forces
+                .expect("`changed_position_idx` must be a valid index in `positions`"),
+            forces
                 .get_mut(changed_position_idx)
-                .expect("`changed_position_idx` must be a valid index in `group_forces`"),
+                .expect("`changed_position_idx` must be a valid index in `forces`"),
         );
     }
 
@@ -174,22 +172,22 @@ where
         &mut self,
         group: &AtomGroupInfo<T>,
         changed_position_idx: usize,
-        old_value: &V,
-        group_positions: &[V],
-        group_forces: &mut [V],
+        old_value: V,
+        positions: &[V],
+        forces: &mut [V],
     ) {
         #[allow(deprecated)]
         MonteCarloAtomDecoupledPhysicalPotential::add_changed_force(
             self,
-            group,
             changed_position_idx,
+            group,
             old_value,
-            group_positions
+            positions
                 .get(changed_position_idx)
-                .expect("`changed_position_idx` must be a valid index in `group_positions`"),
-            group_forces
+                .expect("`changed_position_idx` must be a valid index in `positions`"),
+            forces
                 .get_mut(changed_position_idx)
-                .expect("`changed_position_idx` must be a valid index in `group_forces`"),
+                .expect("`changed_position_idx` must be a valid index in `forces`"),
         );
     }
 }

@@ -3,16 +3,14 @@ use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
 use crate::{
     core::AtomGroupInfo,
     marker::InnerIsTrailing,
-    potential::exchange::{
-        InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
-    },
+    potential::exchange::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential},
     stat::{Bosonic, Distinguishable, Stat},
     sync_ops::{SyncAddRecv, SyncAddSend, SyncMulRecv, SyncMulSend},
 };
 
 /// A trait for quantities which may be used to debug the simulation,
-/// returned from the first replica.
-pub trait LeadingDebugObservable<T, V, D, B, A, M>
+/// operate in the first replica and produce output.
+pub trait LeadingDebugObservableOutput<T, V, D, B, A, M>
 where
     D: LeadingExchangePotential<T, V> + Distinguishable,
     B: LeadingExchangePotential<T, V> + Bosonic,
@@ -28,18 +26,52 @@ where
     #[must_use]
     fn calculate(
         &mut self,
+        group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
+        exchange_potential: &Stat<D, B>,
         adder: &mut A,
         multiplier: &mut M,
-        phys_potential_energy: T,
-        exch_potential_energy: T,
+        physical_potential_energy: T,
+        exchange_potential_energy: T,
         kinetic_energy: T,
-        exchange_potential: &Stat<D, B>,
-        groups: &[AtomGroupInfo<T>],
-        group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<Self::Output, Self::Error>;
+}
+
+/// A trait for quantities which may be used to debug the simulation,
+/// operating from the first replica.
+pub trait LeadingDebugObservable<T, V, D, B, A, M>
+where
+    D: LeadingExchangePotential<T, V> + Distinguishable,
+    B: LeadingExchangePotential<T, V> + Bosonic,
+    A: SyncAddSend<T> + ?Sized,
+    M: SyncMulSend<T> + ?Sized,
+{
+    type Output;
+    type Error;
+
+    /// Assists calculating the quantity.
+    ///
+    /// Returns an error if a synchronization failure occurs.
+    #[must_use]
+    fn calculate(
+        &mut self,
+        group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
+        exchange_potential: &Stat<D, B>,
+        adder: &mut A,
+        multiplier: &mut M,
+        physical_potential_energy: T,
+        exchange_potential_energy: T,
+        kinetic_energy: T,
+        positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        momenta: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+    ) -> Result<(), Self::Error>;
 }
 
 /// A trait for objects that assist
@@ -55,24 +87,25 @@ where
     type Output;
     type Error;
 
-    /// Calculates the quantity.
+    /// Assists calculating the quantity.
     ///
     /// Returns an error if a synchronization failure occurs.
     #[must_use]
     fn calculate(
         &mut self,
+        replica: usize,
+        group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
+        exchange_potential: &Stat<D, B>,
         adder: &mut A,
         multiplier: &mut M,
-        phys_potential_energy: T,
-        exch_potential_energy: T,
+        physical_potential_energy: T,
+        exchange_potential_energy: T,
         kinetic_energy: T,
-        exchange_potential: &Stat<D, B>,
-        replica: usize,
-        groups: &[AtomGroupInfo<T>],
-        group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(), Self::Error>;
 }
 
@@ -89,24 +122,25 @@ where
     type Output;
     type Error;
 
-    /// Calculates the quantity.
+    /// Assists calculating the quantity.
     ///
     /// Returns an error if a synchronization failure occurs.
     #[must_use]
     fn calculate(
         &mut self,
+        last_replica: usize,
+        group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
+        exchange_potential: &Stat<D, B>,
         adder: &mut A,
         multiplier: &mut M,
-        phys_potential_energy: T,
-        exch_potential_energy: T,
+        physical_potential_energy: T,
+        exchange_potential_energy: T,
         kinetic_energy: T,
-        exchange_potential: &Stat<D, B>,
-        last_replica: usize,
-        groups: &[AtomGroupInfo<T>],
-        group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(), Self::Error>;
 }
 
@@ -123,33 +157,35 @@ where
 
     fn calculate(
         &mut self,
+        last_replica: usize,
+        group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
+        exchange_potential: &Stat<D, B>,
         adder: &mut A,
         multiplier: &mut M,
-        phys_potential_energy: T,
-        exch_potential_energy: T,
+        physical_potential_energy: T,
+        exchange_potential_energy: T,
         kinetic_energy: T,
-        exchange_potential: &Stat<D, B>,
-        last_replica: usize,
-        groups: &[AtomGroupInfo<T>],
-        group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(), Self::Error> {
         InnerDebugObservable::calculate(
             self,
+            last_replica,
+            group_idx,
+            groups,
+            exchange_potential,
             adder,
             multiplier,
-            phys_potential_energy,
-            exch_potential_energy,
+            physical_potential_energy,
+            exchange_potential_energy,
             kinetic_energy,
-            exchange_potential,
-            last_replica,
-            groups,
-            group_idx,
             positions,
             momenta,
-            forces,
+            physical_forces,
+            exchange_forces,
         )
     }
 }

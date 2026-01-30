@@ -3,15 +3,14 @@ use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
 use crate::{
     core::AtomGroupInfo,
     marker::InnerIsTrailing,
-    potential::exchange::{
-        InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
-    },
+    potential::exchange::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential},
     stat::{Bosonic, Distinguishable, Stat},
     sync_ops::{SyncAddRecv, SyncAddSend, SyncMulRecv, SyncMulSend},
 };
 
-/// A trait for quantum estimators that return the observable value.
-pub trait LeadingQuantumObservable<T, V, D, B, A, M>
+/// A trait for quantum estimators which operate in the first replica
+/// and produce output.
+pub trait LeadingQuantumObservableOutput<T, V, D, B, A, M>
 where
     D: LeadingExchangePotential<T, V> + Distinguishable,
     B: LeadingExchangePotential<T, V> + Bosonic,
@@ -27,14 +26,42 @@ where
     #[must_use]
     fn calculate(
         &mut self,
+        group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
+        exchange_potential: &Stat<D, B>,
         adder: &mut A,
         multiplier: &mut M,
-        exchange_potential: &Stat<D, B>,
-        groups: &[AtomGroupInfo<T>],
-        group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<Self::Output, Self::Error>;
+}
+
+/// A trait for quantum estimators operating in the first replica.
+pub trait LeadingQuantumObservable<T, V, D, B, A, M>
+where
+    D: LeadingExchangePotential<T, V> + Distinguishable,
+    B: LeadingExchangePotential<T, V> + Bosonic,
+    A: SyncAddSend<T> + ?Sized,
+    M: SyncMulSend<T> + ?Sized,
+{
+    type Output;
+    type Error;
+
+    /// Assists calculating the observable.
+    ///
+    /// Returns an error if a synchronization failure occurs.
+    fn calculate(
+        &mut self,
+        group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
+        exchange_potential: &Stat<D, B>,
+        adder: &mut A,
+        multiplier: &mut M,
+        positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+    ) -> Result<(), Self::Error>;
 }
 
 /// A trait for quantum estimators that assist
@@ -50,20 +77,21 @@ where
     type Output;
     type Error;
 
-    /// Calculates the observable.
+    /// Assists calculating the observable.
     ///
     /// Returns an error if a synchronization failure occurs.
     #[must_use]
     fn calculate(
         &mut self,
+        replica: usize,
+        group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
+        exchange_potential: &Stat<D, B>,
         adder: &mut A,
         multiplier: &mut M,
-        exchange_potential: &Stat<D, B>,
-        replica: usize,
-        groups: &[AtomGroupInfo<T>],
-        group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(), Self::Error>;
 }
 
@@ -80,20 +108,21 @@ where
     type Output;
     type Error;
 
-    /// Calculates the observable.
+    /// Assists calculating the observable.
     ///
     /// Returns an error if a synchronization failure occurs.
     #[must_use]
     fn calculate(
         &mut self,
+        last_replica: usize,
+        group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
+        exchange_potential: &Stat<D, B>,
         adder: &mut A,
         multiplier: &mut M,
-        exchange_potential: &Stat<D, B>,
-        last_replica: usize,
-        groups: &[AtomGroupInfo<T>],
-        group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(), Self::Error>;
 }
 
@@ -110,25 +139,27 @@ where
 
     fn calculate(
         &mut self,
+        last_replica: usize,
+        group_idx: usize,
+        groups: &[AtomGroupInfo<T>],
+        exchange_potential: &Stat<D, B>,
         adder: &mut A,
         multiplier: &mut M,
-        exchange_potential: &Stat<D, B>,
-        last_replica: usize,
-        groups: &[AtomGroupInfo<T>],
-        group_idx: usize,
         positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(), Self::Error> {
         InnerQuantumObservable::calculate(
             self,
+            last_replica,
+            group_idx,
+            groups,
+            exchange_potential,
             adder,
             multiplier,
-            exchange_potential,
-            last_replica,
-            groups,
-            group_idx,
             positions,
-            forces,
+            physical_forces,
+            exchange_forces,
         )
     }
 }

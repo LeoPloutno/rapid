@@ -10,7 +10,6 @@ use crate::{
         physical::PhysicalPotential,
     },
     stat::{Bosonic, Distinguishable, Stat},
-    sync_ops::{SyncAddRecv, SyncAddSend},
     thermostat::Thermostat,
 };
 
@@ -30,14 +29,15 @@ where
         &mut self,
         step: usize,
         step_size: T,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
-        phys_potential: &mut dyn PhysicalPotential<T, V>,
-        groups_exch_potentials: &mut [Stat<D, B>],
+        groups: &[AtomGroupInfo<T>],
+        physical_potential: &mut dyn PhysicalPotential<T, V>,
+        groups_exchange_potentials: &mut [Stat<D, B>],
         thermostat: &mut dyn Thermostat<T, V, Error = E>,
         positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(T, T), Self::Error>;
 }
 
@@ -58,14 +58,15 @@ where
         step: usize,
         step_size: T,
         replica: usize,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
-        phys_potential: &mut dyn PhysicalPotential<T, V>,
-        groups_exch_potentials: &mut [Stat<D, B>],
+        groups: &[AtomGroupInfo<T>],
+        physical_potential: &mut dyn PhysicalPotential<T, V>,
+        groups_exchange_potentials: &mut [Stat<D, B>],
         thermostat: &mut dyn Thermostat<T, V, Error = E>,
         positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(T, T), Self::Error>;
 }
 
@@ -87,13 +88,14 @@ where
         step: usize,
         step_size: T,
         last_replica: usize,
-        groups: &[AtomGroupInfo<T>],
         group_idx: usize,
-        phys_potential: &mut dyn PhysicalPotential<T, V>,
-        groups_exch_potentials: &mut [Stat<D, B>],
+        groups: &[AtomGroupInfo<T>],
+        physical_potential: &mut dyn PhysicalPotential<T, V>,
+        groups_exchange_potentials: &mut [Stat<D, B>],
         thermostat: &mut dyn Thermostat<T, V, Error = E>,
         positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
         momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        exchange_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(T, T), Self::Error>;
 }

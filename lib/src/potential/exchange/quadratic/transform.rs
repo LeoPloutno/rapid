@@ -212,12 +212,7 @@ where
         )
     }
 
-    fn eigenvalues(
-        &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        eigenvalues: &mut [T],
-    ) {
+    fn eigenvalues(&mut self, last_replica: usize, group: &AtomGroupInfo<T>, eigenvalues: &mut [T]) {
         InnerNormalModesTransform::eigenvalues(self, last_replica, group, eigenvalues);
     }
 }

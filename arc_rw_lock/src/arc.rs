@@ -27,18 +27,15 @@ impl<T: ?Sized> InnerArc<T> {
     };
 
     unsafe fn decrement_shared_counter(this: NonNull<Self>, order: Ordering) -> bool {
-        unsafe { &(*this.as_ptr()).counter }.fetch_sub(Self::SHARED_COUNTER_ONE, order)
-            == Self::SHARED_COUNTER_ONE
+        unsafe { &(*this.as_ptr()).counter }.fetch_sub(Self::SHARED_COUNTER_ONE, order) == Self::SHARED_COUNTER_ONE
     }
 
     unsafe fn decrement_unique_counter(this: NonNull<Self>, order: Ordering) -> bool {
-        unsafe { &(*this.as_ptr()).counter }.fetch_sub(Self::UNIQUE_COUNTER_ONE, order)
-            == Self::UNIQUE_COUNTER_ONE
+        unsafe { &(*this.as_ptr()).counter }.fetch_sub(Self::UNIQUE_COUNTER_ONE, order) == Self::UNIQUE_COUNTER_ONE
     }
 }
 
-pub struct ArcMappedRwLock<T: ?Sized, U: ?Sized = dyn 'static + Send + Sync, A: Allocator = Global>
-{
+pub struct ArcMappedRwLock<T: ?Sized, U: ?Sized = dyn 'static + Send + Sync, A: Allocator = Global> {
     pub(crate) lock: MappedRwLock<T, U>,
     pub(crate) allocator: A,
 }
@@ -54,8 +51,7 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for ArcMappedRwLock<T, U, A> {
         // SAFETY: By construction, `ptr.byte_sub(offset)` calculates the
         //         address of the underlying `InnerArc`, which has already
         //         been successfully allocated.
-        let allocation =
-            NonNull::<InnerArc<U>>::from_raw_parts(unsafe { ptr.byte_sub(offset) }, metadata);
+        let allocation = NonNull::<InnerArc<U>>::from_raw_parts(unsafe { ptr.byte_sub(offset) }, metadata);
         if unsafe { InnerArc::decrement_shared_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
             if const { needs_drop::<InnerArc<U>>() } {
@@ -79,11 +75,7 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> AsRef<MappedRwLock<T, U>> for ArcMapped
     }
 }
 
-pub struct UniqueArcMappedRwLock<
-    T: ?Sized,
-    U: ?Sized = dyn 'static + Send + Sync,
-    A: Allocator = Global,
-> {
+pub struct UniqueArcMappedRwLock<T: ?Sized, U: ?Sized = dyn 'static + Send + Sync, A: Allocator = Global> {
     pub(crate) lock: MappedRwLock<T, U>,
     pub(crate) allocator: A,
 }
@@ -99,8 +91,7 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for UniqueArcMappedRwLock<T, U, A>
         // SAFETY: By construction, `ptr.byte_sub(offset)` calculates the
         //         address of the underlying `InnerArc`, which has already
         //         been successfully allocated.
-        let allocation =
-            NonNull::<InnerArc<U>>::from_raw_parts(unsafe { ptr.byte_sub(offset) }, metadata);
+        let allocation = NonNull::<InnerArc<U>>::from_raw_parts(unsafe { ptr.byte_sub(offset) }, metadata);
         if unsafe { InnerArc::decrement_unique_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
             if const { needs_drop::<InnerArc<U>>() } {
@@ -118,17 +109,13 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for UniqueArcMappedRwLock<T, U, A>
     }
 }
 
-impl<T: ?Sized, U: ?Sized, A: Allocator> AsRef<MappedRwLock<T, U>>
-    for UniqueArcMappedRwLock<T, U, A>
-{
+impl<T: ?Sized, U: ?Sized, A: Allocator> AsRef<MappedRwLock<T, U>> for UniqueArcMappedRwLock<T, U, A> {
     fn as_ref(&self) -> &MappedRwLock<T, U> {
         &self.lock
     }
 }
 
-impl<T: ?Sized, U: ?Sized, A: Allocator> AsMut<MappedRwLock<T, U>>
-    for UniqueArcMappedRwLock<T, U, A>
-{
+impl<T: ?Sized, U: ?Sized, A: Allocator> AsMut<MappedRwLock<T, U>> for UniqueArcMappedRwLock<T, U, A> {
     fn as_mut(&mut self) -> &mut MappedRwLock<T, U> {
         &mut self.lock
     }
