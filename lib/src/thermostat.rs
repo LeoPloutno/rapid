@@ -1,4 +1,3 @@
-use crate::core::AtomGroupInfo;
 use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
 
 /// A trait for thermostats.
@@ -17,12 +16,8 @@ pub trait Thermostat<T, V> {
     fn thermalize(
         &mut self,
         step: usize,
-        step_size: T,
-        replica: usize,
-        groups: &[AtomGroupInfo<T>],
-        group_idx: usize,
-        positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        replicas_groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        replicas_groups_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        group_momenta: &mut [V],
     ) -> Result<T, Self::Error>;
 }

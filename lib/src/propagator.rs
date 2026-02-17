@@ -1,25 +1,25 @@
 use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
 
 use crate::{
-    core::AtomGroupInfo,
     potential::{
-        exchange::quadratic::{
-            InnerQuadraticExpansionExchangePotential, LeadingQuadraticExpansionExchangePotential,
-            TrailingQuadraticExpansionExchangePotential,
-        },
+        exchange::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential},
         physical::PhysicalPotential,
     },
     stat::{Bosonic, Distinguishable, Stat},
     thermostat::Thermostat,
 };
 
+pub mod quadratic;
+
 /// A trait for a propagator of a group in the first replica.
-pub trait LeadingPropagator<T, V, D, B, E>
+pub trait LeadingPropagator<T, V, Phys, Dist, Boson, Therm>
 where
-    D: LeadingQuadraticExpansionExchangePotential<T, V> + Distinguishable,
-    B: LeadingQuadraticExpansionExchangePotential<T, V> + Bosonic,
+    Phys: PhysicalPotential<T, V> + ?Sized,
+    Dist: LeadingExchangePotential<T, V> + Distinguishable,
+    Boson: LeadingExchangePotential<T, V> + Bosonic,
+    Therm: Thermostat<T, V> + ?Sized,
 {
-    type Error: From<E>;
+    type Error: From<Therm::Error>;
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///
@@ -28,26 +28,25 @@ where
     fn propagate(
         &mut self,
         step: usize,
-        step_size: T,
-        group_idx: usize,
-        groups: &[AtomGroupInfo<T>],
-        physical_potential: &mut dyn PhysicalPotential<T, V>,
-        groups_exchange_potentials: &mut [Stat<D, B>],
-        thermostat: &mut dyn Thermostat<T, V, Error = E>,
-        positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        physical_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        exchange_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_potential: &mut Phys,
+        exchange_potential: &mut Stat<Dist, Boson>,
+        thermostat: &mut Therm,
+        groups_positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_physical_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_exchange_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(T, T), Self::Error>;
 }
 
 /// A trait for a propagator of a group in an inner replica.
-pub trait InnerPropagator<T, V, D, B, E>
+pub trait InnerPropagator<T, V, Phys, Dist, Boson, Therm>
 where
-    D: InnerQuadraticExpansionExchangePotential<T, V> + Distinguishable,
-    B: InnerQuadraticExpansionExchangePotential<T, V> + Bosonic,
+    Phys: PhysicalPotential<T, V> + ?Sized,
+    Dist: InnerExchangePotential<T, V> + Distinguishable,
+    Boson: InnerExchangePotential<T, V> + Bosonic,
+    Therm: Thermostat<T, V> + ?Sized,
 {
-    type Error: From<E>;
+    type Error: From<Therm::Error>;
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///
@@ -56,27 +55,25 @@ where
     fn propagate(
         &mut self,
         step: usize,
-        step_size: T,
-        replica: usize,
-        group_idx: usize,
-        groups: &[AtomGroupInfo<T>],
-        physical_potential: &mut dyn PhysicalPotential<T, V>,
-        groups_exchange_potentials: &mut [Stat<D, B>],
-        thermostat: &mut dyn Thermostat<T, V, Error = E>,
-        positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        physical_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        exchange_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_potential: &mut Phys,
+        exchange_potential: &mut Stat<Dist, Boson>,
+        thermostat: &mut Therm,
+        groups_positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_physical_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_exchange_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(T, T), Self::Error>;
 }
 
 /// A trait for a propagator of a group in the last replica.
-pub trait TrailingPropagator<T, V, D, B, E>
+pub trait TrailingPropagator<T, V, Phys, Dist, Boson, Therm>
 where
-    D: TrailingQuadraticExpansionExchangePotential<T, V> + Distinguishable,
-    B: TrailingQuadraticExpansionExchangePotential<T, V> + Bosonic,
+    Phys: PhysicalPotential<T, V> + ?Sized,
+    Dist: TrailingExchangePotential<T, V> + Distinguishable,
+    Boson: TrailingExchangePotential<T, V> + Bosonic,
+    Therm: Thermostat<T, V> + ?Sized,
 {
-    type Error: From<E>;
+    type Error: From<Therm::Error>;
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///
@@ -86,16 +83,12 @@ where
     fn propagate(
         &mut self,
         step: usize,
-        step_size: T,
-        last_replica: usize,
-        group_idx: usize,
-        groups: &[AtomGroupInfo<T>],
-        physical_potential: &mut dyn PhysicalPotential<T, V>,
-        groups_exchange_potentials: &mut [Stat<D, B>],
-        thermostat: &mut dyn Thermostat<T, V, Error = E>,
-        positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        physical_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
-        exchange_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        physical_potential: &mut Phys,
+        exchange_potential: &mut Stat<Dist, Boson>,
+        thermostat: &mut Therm,
+        groups_positions: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_momenta: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_physical_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_exchange_forces: &mut ElementRwLock<UniqueArcSliceRwLock<V>>,
     ) -> Result<(T, T), Self::Error>;
 }

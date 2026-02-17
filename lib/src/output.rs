@@ -1,4 +1,6 @@
-use crate::{core::AtomGroupInfo, vector::Vector};
+use std::ops::{Deref, DerefMut};
+
+use crate::vector::Vector;
 
 /// A trait for streams that write to coordinate files, such as '.xyz' files.
 pub trait VectorsOutput<const N: usize, T, V>
@@ -9,7 +11,7 @@ where
 
     /// Write the coordinates of the atoms in all groups to the stream.
     #[must_use]
-    fn write(&mut self, step: usize, groups: &[AtomGroupInfo<T>], vectors: &[V]) -> Result<(), Self::Error>;
+    fn write(&mut self, step: usize, vectors: &[V]) -> Result<(), Self::Error>;
 }
 
 pub trait ObservablesOutput<const N: usize, T, V, E>
@@ -23,7 +25,6 @@ where
     fn write(
         &mut self,
         step: usize,
-        groups: &[AtomGroupInfo<T>],
         observables: &mut dyn Iterator<Item = Result<Self::Input, E>>,
     ) -> Result<(), Self::Error>;
 }
@@ -60,6 +61,84 @@ pub enum ObservableOutputOption<Q, D, S> {
         quantum: Observables<Q, S>,
         debug: Observables<D, S>,
     },
+}
+
+pub enum ObservableStreamOption<S> {
+    None,
+    One(S),
+    Shared(S),
+    All { quantum: S, debug: S },
+}
+
+impl<Q, D, S> ObservableOutputOption<Q, D, S> {
+    pub fn as_deref_mut(
+        &mut self,
+    ) -> ObservableOutputOption<&mut <Q as Deref>::Target, &mut <D as Deref>::Target, &mut <S as Deref>::Target>
+    where
+        Q: DerefMut,
+        D: DerefMut,
+        S: DerefMut,
+    {
+        match self {
+            Self::None => ObservableOutputOption::None,
+            Self::Quantum(Observables { observables, stream }) => ObservableOutputOption::Quantum(Observables {
+                observables: &mut *observables,
+                stream: &mut *stream,
+            }),
+            Self::Debug(Observables { observables, stream }) => ObservableOutputOption::Debug(Observables {
+                observables: &mut *observables,
+                stream: &mut *stream,
+            }),
+            Self::Shared { quantum, debug, stream } => ObservableOutputOption::Shared {
+                quantum: &mut *quantum,
+                debug: &mut *debug,
+                stream: &mut *stream,
+            },
+            Self::Separate {
+                quantum:
+                    Observables {
+                        observables: quantum_observables,
+                        stream: quantum_stream,
+                    },
+                debug:
+                    Observables {
+                        observables: debug_observables,
+                        stream: debug_stream,
+                    },
+            } => ObservableOutputOption::Separate {
+                quantum: Observables {
+                    observables: &mut *quantum_observables,
+                    stream: &mut *quantum_stream,
+                },
+                debug: Observables {
+                    observables: &mut *debug_observables,
+                    stream: &mut *debug_stream,
+                },
+            },
+        }
+    }
+    pub fn split(self) -> (Option<Q>, Option<D>, ObservableStreamOption<S>) {
+        match self {
+            Self::None => (None, None, ObservableStreamOption::None),
+            Self::Quantum(Observables { observables, stream }) => {
+                (Some(observables), None, ObservableStreamOption::One(stream))
+            }
+            Self::Debug(Observables { observables, stream }) => {
+                (None, Some(observables), ObservableStreamOption::One(stream))
+            }
+            Self::Shared { quantum, debug, stream } => {
+                (Some(quantum), Some(debug), ObservableStreamOption::Shared(stream))
+            }
+            Self::Separate { quantum, debug } => (
+                Some(quantum.observables),
+                Some(debug.observables),
+                ObservableStreamOption::All {
+                    quantum: quantum.stream,
+                    debug: debug.stream,
+                },
+            ),
+        }
+    }
 }
 
 /// An enum which contains the obseervables, if any.

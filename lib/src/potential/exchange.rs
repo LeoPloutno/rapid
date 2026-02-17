@@ -1,4 +1,3 @@
-use crate::core::AtomGroupInfo;
 use crate::marker::{InnerIsLeading, InnerIsTrailing};
 
 #[cfg(feature = "monte_carlo")]
@@ -15,11 +14,10 @@ pub trait LeadingExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_set_forces(
         &mut self,
-        group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_last_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of the first replica to the total exchange potential energy
@@ -30,11 +28,10 @@ pub trait LeadingExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_add_forces(
         &mut self,
-        group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_last_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of the first replica to the total exchange potential energy
@@ -45,32 +42,29 @@ pub trait LeadingExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential(
         &mut self,
-        group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
+        group_positions_last_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
     ) -> T;
 
     /// Sets the forces of this group in the first replica.
     #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
     fn set_forces(
         &mut self,
-        group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_last_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     );
 
     /// Adds the forces arising from this potential to the forces of this group in the first replica.
     #[deprecated = "Consider using `calculate_potential_add_forces` as a more efficient alternative"]
     fn add_forces(
         &mut self,
-        group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_last_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     );
 }
 
@@ -84,12 +78,10 @@ pub trait InnerExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_set_forces(
         &mut self,
-        replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of this replica to the total exchange potential energy
@@ -100,12 +92,10 @@ pub trait InnerExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_add_forces(
         &mut self,
-        replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of this replica to the total exchange potential energy
@@ -116,35 +106,29 @@ pub trait InnerExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential(
         &mut self,
-        replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
+        group_positions_prev_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
     ) -> T;
 
     /// Sets the forces of this group in this replica.
     #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
     fn set_forces(
         &mut self,
-        replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     );
 
     /// Adds the forces arising from this potential to the forces of this group in this replica.
     #[deprecated = "Consider using `calculate_potential_add_forces` as a more efficient alternative"]
     fn add_forces(
         &mut self,
-        replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     );
 }
 
@@ -158,12 +142,10 @@ pub trait TrailingExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_set_forces(
         &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_first_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of the last replica to the total exchange potential energy
@@ -174,12 +156,10 @@ pub trait TrailingExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_add_forces(
         &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_first_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T;
 
     /// Calculates the contribution of the last replica to the total exchange potential energy
@@ -190,35 +170,29 @@ pub trait TrailingExchangePotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential(
         &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_first_replica: &[V],
-        positions: &[V],
+        group_positions_prev_replica: &[V],
+        group_positions_first_replica: &[V],
+        group_positions: &[V],
     ) -> T;
 
     /// Sets the forces of this group in the last replica.
     #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
     fn set_forces(
         &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_first_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     );
 
     /// Adds the forces arising from this potential to the forces of this group in the last replica.
     #[deprecated = "Consider using `calculate_potential_add_forces` as a more efficient alternative"]
     fn add_forces(
         &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_first_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     );
 }
 
@@ -228,97 +202,82 @@ where
 {
     fn calculate_potential_set_forces(
         &mut self,
-        group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_last_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T {
         InnerExchangePotential::calculate_potential_set_forces(
             self,
-            0,
-            group,
-            positions_last_replica,
-            positions_next_replica,
-            positions,
-            forces,
+            group_positions_last_replica,
+            group_positions_next_replica,
+            group_positions,
+            group_forces,
         )
     }
 
     fn calculate_potential_add_forces(
         &mut self,
-        group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_last_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T {
         InnerExchangePotential::calculate_potential_add_forces(
             self,
-            0,
-            group,
-            positions_last_replica,
-            positions_next_replica,
-            positions,
-            forces,
+            group_positions_last_replica,
+            group_positions_next_replica,
+            group_positions,
+            group_forces,
         )
     }
 
     fn calculate_potential(
         &mut self,
-        group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
+        group_positions_last_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
     ) -> T {
         #[allow(deprecated)]
         InnerExchangePotential::calculate_potential(
             self,
-            0,
-            group,
-            positions_last_replica,
-            positions_next_replica,
-            positions,
+            group_positions_last_replica,
+            group_positions_next_replica,
+            group_positions,
         )
     }
 
     fn set_forces(
         &mut self,
-        group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_last_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) {
         #[allow(deprecated)]
         InnerExchangePotential::set_forces(
             self,
-            0,
-            group,
-            positions_last_replica,
-            positions_next_replica,
-            positions,
-            forces,
+            group_positions_last_replica,
+            group_positions_next_replica,
+            group_positions,
+            group_forces,
         );
     }
 
     fn add_forces(
         &mut self,
-        group: &AtomGroupInfo<T>,
-        positions_last_replica: &[V],
-        positions_next_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_last_replica: &[V],
+        group_positions_next_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) {
         #[allow(deprecated)]
         InnerExchangePotential::add_forces(
             self,
-            0,
-            group,
-            positions_last_replica,
-            positions_next_replica,
-            positions,
-            forces,
+            group_positions_last_replica,
+            group_positions_next_replica,
+            group_positions,
+            group_forces,
         );
     }
 }
@@ -329,102 +288,82 @@ where
 {
     fn calculate_potential_set_forces(
         &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_first_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T {
         InnerExchangePotential::calculate_potential_set_forces(
             self,
-            last_replica,
-            group,
-            positions_prev_replica,
-            positions_first_replica,
-            positions,
-            forces,
+            group_positions_prev_replica,
+            group_positions_first_replica,
+            group_positions,
+            group_forces,
         )
     }
 
     fn calculate_potential_add_forces(
         &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_first_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) -> T {
         InnerExchangePotential::calculate_potential_add_forces(
             self,
-            last_replica,
-            group,
-            positions_prev_replica,
-            positions_first_replica,
-            positions,
-            forces,
+            group_positions_prev_replica,
+            group_positions_first_replica,
+            group_positions,
+            group_forces,
         )
     }
 
     fn calculate_potential(
         &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_first_replica: &[V],
-        positions: &[V],
+        group_positions_prev_replica: &[V],
+        group_positions_first_replica: &[V],
+        group_positions: &[V],
     ) -> T {
         #[allow(deprecated)]
         InnerExchangePotential::calculate_potential(
             self,
-            last_replica,
-            group,
-            positions_prev_replica,
-            positions_first_replica,
-            positions,
+            group_positions_prev_replica,
+            group_positions_first_replica,
+            group_positions,
         )
     }
 
     fn set_forces(
         &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_first_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) {
         #[allow(deprecated)]
         InnerExchangePotential::set_forces(
             self,
-            last_replica,
-            group,
-            positions_prev_replica,
-            positions_first_replica,
-            positions,
-            forces,
+            group_positions_prev_replica,
+            group_positions_first_replica,
+            group_positions,
+            group_forces,
         );
     }
 
     fn add_forces(
         &mut self,
-        last_replica: usize,
-        group: &AtomGroupInfo<T>,
-        positions_prev_replica: &[V],
-        positions_first_replica: &[V],
-        positions: &[V],
-        forces: &mut [V],
+        group_positions_prev_replica: &[V],
+        group_positions_first_replica: &[V],
+        group_positions: &[V],
+        group_forces: &mut [V],
     ) {
         #[allow(deprecated)]
         InnerExchangePotential::add_forces(
             self,
-            last_replica,
-            group,
-            positions_prev_replica,
-            positions_first_replica,
-            positions,
-            forces,
+            group_positions_prev_replica,
+            group_positions_first_replica,
+            group_positions,
+            group_forces,
         );
     }
 }

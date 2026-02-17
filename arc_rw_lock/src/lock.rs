@@ -138,3 +138,5 @@ impl<'a, T: ?Sized> Deref for MappedRwLockReadWholeGuard<'a, T> {
         self.data
     }
 }
+
+unsafe impl<T: ?Sized + Send, U: ?Sized + Send> Send for MappedRwLock<T, U> {}

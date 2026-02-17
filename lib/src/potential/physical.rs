@@ -1,4 +1,4 @@
-use crate::core::AtomGroupInfo;
+use crate::core::GroupRecord;
 
 mod atom_decoupled;
 mod group_decoupled;
@@ -13,25 +13,13 @@ pub trait PhysicalPotential<T, V> {
     ///
     /// Returns the contribution to the total energy.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential_set_forces(
-        &mut self,
-        group_idx: usize,
-        groups: &[AtomGroupInfo<T>],
-        groups_positions: &[V],
-        forces: &mut [V],
-    ) -> T;
+    fn calculate_potential_set_forces(&mut self, groups_positions: &[V], group_forces: &mut [V]) -> T;
 
     /// Calculates the contribution of this group to the total potential energy
     /// of the replica and adds the forces arising from this potential to the forces of this group.
     ///
     /// Returns the contribution to the total energy.
-    fn calculate_potential_add_forces(
-        &mut self,
-        group_idx: usize,
-        groups: &[AtomGroupInfo<T>],
-        groups_positions: &[V],
-        forces: &mut [V],
-    ) -> T;
+    fn calculate_potential_add_forces(&mut self, groups_positions: &[V], group_forces: &mut [V]) -> T;
 
     /// Calculates the contribution of this group to the total potential energy
     /// of the replica.
@@ -39,84 +27,57 @@ pub trait PhysicalPotential<T, V> {
     /// Returns the contribution to the total energy.
     #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential(&mut self, group_idx: usize, groups: &[AtomGroupInfo<T>], groups_positions: &[V]) -> T;
+    fn calculate_potential(&mut self, groups_positions: &[V]) -> T;
 
     /// Sets the forces of this group.
     #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
-    fn set_forces(&mut self, group_idx: usize, groups: &[AtomGroupInfo<T>], groups_positions: &[V], forces: &mut [V]);
+    fn set_forces(&mut self, groups_positions: &[V], forces: &mut [V]);
 
     /// Adds the forces arising from this potential to the forces of this group.
     #[deprecated = "Consider using `calculate_potential_add_forces` as a more efficient alternative"]
-    fn add_forces(&mut self, group_idx: usize, groups: &[AtomGroupInfo<T>], groups_positions: &[V], forces: &mut [V]);
+    fn add_forces(&mut self, groups_positions: &[V], forces: &mut [V]);
 }
 
 impl<T, V, U> PhysicalPotential<T, V> for U
 where
-    U: GroupDecoupledPhysicalPotential<T, V> + ?Sized,
+    U: GroupDecoupledPhysicalPotential<T, V> + GroupRecord<T> + ?Sized,
 {
-    fn calculate_potential_set_forces(
-        &mut self,
-        group_idx: usize,
-        groups: &[AtomGroupInfo<T>],
-        groups_positions: &[V],
-        forces: &mut [V],
-    ) -> T {
-        let group = groups
-            .get(group_idx)
-            .expect("`group_idx` should be a valid index in `groups`");
-        let positions = groups_positions
-            .get(group.span)
+    fn calculate_potential_set_forces(&mut self, groups_positions: &[V], group_forces: &mut [V]) -> T {
+        let group_positions = groups_positions
+            .get(self.group().span)
             .expect("`span` should be a valid range in `groups_positions`");
-        GroupDecoupledPhysicalPotential::calculate_potential_set_forces(self, group, positions, forces)
+        GroupDecoupledPhysicalPotential::calculate_potential_set_forces(self, group_positions, group_forces)
     }
 
-    fn calculate_potential_add_forces(
-        &mut self,
-        group_idx: usize,
-        groups: &[AtomGroupInfo<T>],
-        groups_positions: &[V],
-        forces: &mut [V],
-    ) -> T {
-        let group = groups
-            .get(group_idx)
-            .expect("`group_idx` should be a valid index in `groups`");
-        let positions = groups_positions
-            .get(group.span)
+    fn calculate_potential_add_forces(&mut self, groups_positions: &[V], group_forces: &mut [V]) -> T {
+        let group_positions = groups_positions
+            .get(self.group().span)
             .expect("`span` should be a valid range in `groups_positions`");
-        GroupDecoupledPhysicalPotential::calculate_potential_add_forces(self, group, positions, forces)
+        GroupDecoupledPhysicalPotential::calculate_potential_add_forces(self, group_positions, group_forces)
     }
 
-    fn calculate_potential(&mut self, group_idx: usize, groups: &[AtomGroupInfo<T>], groups_positions: &[V]) -> T {
-        let group = groups
-            .get(group_idx)
-            .expect("`group_idx` should be a valid index in `groups`");
-        let positions = groups_positions
-            .get(group.span)
+    fn calculate_potential(&mut self, groups_positions: &[V]) -> T {
+        let group_positions = groups_positions
+            .get(self.group().span)
             .expect("`span` should be a valid range in `groups_positions`");
         #[allow(deprecated)]
-        GroupDecoupledPhysicalPotential::calculate_potential(self, group, positions)
+        GroupDecoupledPhysicalPotential::calculate_potential(self, group_positions)
     }
 
-    fn set_forces(&mut self, group_idx: usize, groups: &[AtomGroupInfo<T>], groups_positions: &[V], forces: &mut [V]) {
-        let group = groups
-            .get(group_idx)
-            .expect("`group_idx` should be a valid index in `groups`");
-        let positions = groups_positions
-            .get(group.span)
+    fn set_forces(&mut self, groups_positions: &[V], group_forces: &mut [V]) {
+        let group_positions = groups_positions
+            .get(self.group().span)
             .expect("`span` should be a valid range in `groups_positions`");
         #[allow(deprecated)]
-        GroupDecoupledPhysicalPotential::set_forces(self, group, positions, forces);
+        GroupDecoupledPhysicalPotential::set_forces(self, group_positions, group_forces);
     }
 
-    fn add_forces(&mut self, group_idx: usize, groups: &[AtomGroupInfo<T>], groups_positions: &[V], forces: &mut [V]) {
-        let group = groups
-            .get(group_idx)
-            .expect("`group_idx` should be a valid index in `groups`");
-        let positions = groups_positions
-            .get(group.span)
+    fn add_forces(&mut self, groups_positions: &[V], group_forces: &mut [V]) {
+        let group_positions = groups_positions
+            .get(self.group().span)
             .expect("`span` should be a valid range in `groups_positions`");
         #[allow(deprecated)]
-        GroupDecoupledPhysicalPotential::add_forces(self, group, positions, forces);
+        GroupDecoupledPhysicalPotential::add_forces(self, group_positions, group_forces);
     }
 }
 

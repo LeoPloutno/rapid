@@ -4,13 +4,7 @@ use std::{
     sync::atomic::{self, AtomicU32, Ordering},
 };
 
-#[cold]
-fn unlikely<T>(value: T) -> T {
-    value
-}
-
-#[cold]
-fn cold_path() {}
+use crate::unlikely;
 
 pub(crate) struct Lock(AtomicU32);
 

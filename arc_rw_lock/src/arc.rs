@@ -1,14 +1,15 @@
 use std::{
     alloc::{Allocator, Global, Layout},
+    hint,
     mem::needs_drop,
-    ptr::{NonNull, metadata},
+    ptr::NonNull,
     sync::atomic::{self, AtomicUsize, Ordering},
 };
 
 use crate::{inner::InnerRwLock, lock::MappedRwLock};
 
 #[repr(C)]
-struct InnerArc<T: ?Sized> {
+pub(crate) struct InnerArc<T: ?Sized> {
     counter: AtomicUsize,
     lock: InnerRwLock<T>,
 }
@@ -16,7 +17,7 @@ struct InnerArc<T: ?Sized> {
 impl<T: ?Sized> InnerArc<T> {
     const SHARED_COUNTER_ONE: usize = 1;
     const UNIQUE_COUNTER_ONE: usize = 1 << usize::BITS / 2;
-    const COUNTER_MAX: usize = {
+    const SHARED_COUNTER_MAX: usize = {
         let mut accum = 0;
         let mut i = 0;
         while i < usize::BITS / 2 {
@@ -25,13 +26,41 @@ impl<T: ?Sized> InnerArc<T> {
         }
         accum
     };
+    const UNIQUE_COUNTER_MAX: usize = Self::SHARED_COUNTER_MAX << usize::BITS / 2;
 
-    unsafe fn decrement_shared_counter(this: NonNull<Self>, order: Ordering) -> bool {
+    pub(crate) const unsafe fn from_lock(lock: NonNull<InnerRwLock<T>>) -> (NonNull<Self>, Layout) {
+        let (layout, offset) = match Layout::new::<AtomicUsize>()
+            // SAFETY: User-upheld invariant.
+            .extend(unsafe { Layout::for_value_raw(lock.as_ptr()) })
+        {
+            Ok(res) => res,
+            // SAFETY: User-upheld invariant.
+            Err(_) => unsafe { hint::unreachable_unchecked() },
+        };
+        let (ptr, metadata) = lock.to_raw_parts();
+        // SAFETY: By construction, `ptr.byte_sub(offset)` calculates the
+        //         address of the underlying `InnerArc`, which has already
+        //         been successfully allocated.
+        (
+            NonNull::from_raw_parts(unsafe { ptr.byte_sub(offset) }, metadata),
+            layout,
+        )
+    }
+
+    pub(crate) unsafe fn decrement_shared_counter(this: NonNull<Self>, order: Ordering) -> bool {
         unsafe { &(*this.as_ptr()).counter }.fetch_sub(Self::SHARED_COUNTER_ONE, order) == Self::SHARED_COUNTER_ONE
     }
 
-    unsafe fn decrement_unique_counter(this: NonNull<Self>, order: Ordering) -> bool {
+    pub(crate) unsafe fn decrement_unique_counter(this: NonNull<Self>, order: Ordering) -> bool {
         unsafe { &(*this.as_ptr()).counter }.fetch_sub(Self::UNIQUE_COUNTER_ONE, order) == Self::UNIQUE_COUNTER_ONE
+    }
+
+    pub(crate) unsafe fn increment_shared_counter(this: NonNull<Self>, order: Ordering) -> bool {
+        unsafe { &(*this.as_ptr()).counter }.fetch_add(Self::SHARED_COUNTER_ONE, order) == Self::SHARED_COUNTER_MAX
+    }
+
+    pub(crate) unsafe fn increment_unique_counter(this: NonNull<Self>, order: Ordering) -> bool {
+        unsafe { &(*this.as_ptr()).counter }.fetch_add(Self::UNIQUE_COUNTER_ONE, order) == Self::UNIQUE_COUNTER_MAX
     }
 }
 
@@ -42,16 +71,8 @@ pub struct ArcMappedRwLock<T: ?Sized, U: ?Sized = dyn 'static + Send + Sync, A: 
 
 impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for ArcMappedRwLock<T, U, A> {
     fn drop(&mut self) {
-        let data_ptr = self.lock.inner;
-        let (layout, offset) = Layout::new::<AtomicUsize>()
-            // SAFETY: This layout has been calculated during allocation for this pointer.
-            .extend(unsafe { Layout::for_value_raw(data_ptr.as_ptr()) })
-            .unwrap();
-        let (ptr, metadata) = data_ptr.to_raw_parts();
-        // SAFETY: By construction, `ptr.byte_sub(offset)` calculates the
-        //         address of the underlying `InnerArc`, which has already
-        //         been successfully allocated.
-        let allocation = NonNull::<InnerArc<U>>::from_raw_parts(unsafe { ptr.byte_sub(offset) }, metadata);
+        // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.
+        let (allocation, layout) = unsafe { InnerArc::from_lock(self.lock.inner) };
         if unsafe { InnerArc::decrement_shared_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
             if const { needs_drop::<InnerArc<U>>() } {
@@ -82,16 +103,8 @@ pub struct UniqueArcMappedRwLock<T: ?Sized, U: ?Sized = dyn 'static + Send + Syn
 
 impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for UniqueArcMappedRwLock<T, U, A> {
     fn drop(&mut self) {
-        let data_ptr = self.lock.inner;
-        let (layout, offset) = Layout::new::<AtomicUsize>()
-            // SAFETY: This layout has been calculated during allocation for this pointer.
-            .extend(unsafe { Layout::for_value_raw(data_ptr.as_ptr()) })
-            .unwrap();
-        let (ptr, metadata) = data_ptr.to_raw_parts();
-        // SAFETY: By construction, `ptr.byte_sub(offset)` calculates the
-        //         address of the underlying `InnerArc`, which has already
-        //         been successfully allocated.
-        let allocation = NonNull::<InnerArc<U>>::from_raw_parts(unsafe { ptr.byte_sub(offset) }, metadata);
+        // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.
+        let (allocation, layout) = unsafe { InnerArc::from_lock(self.lock.inner) };
         if unsafe { InnerArc::decrement_unique_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
             if const { needs_drop::<InnerArc<U>>() } {

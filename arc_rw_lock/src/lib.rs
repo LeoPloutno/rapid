@@ -1,26 +1,27 @@
 #![allow(dead_code)]
 #![feature(allocator_api, ptr_metadata, layout_for_ptr, sync_nonpoison)]
 
-mod alloc;
-mod arc;
-mod inner;
-mod lock;
-mod rw_lock;
-mod unique_arc;
-
 use std::{
     alloc::{Allocator, Global},
     marker::PhantomData,
     ptr::NonNull,
 };
 
-pub struct ArcRwLock<T: ?Sized, A: Allocator = Global> {
-    _phantom: PhantomData<(NonNull<T>, A)>,
+mod alloc;
+mod arc;
+mod inner;
+mod lock;
+mod rw_lock;
+mod slice;
+mod unique_arc;
+
+#[cold]
+fn unlikely<T>(value: T) -> T {
+    value
 }
 
-pub struct UniqueArcRwLock<T: ?Sized, A: Allocator = Global> {
-    _phantom: PhantomData<(NonNull<T>, A)>,
-}
+#[cold]
+fn cold_path() {}
 
 pub use lock::{MappedRwLock, MappedRwLockReadWholeGuard, MappedRwLockWriteGuard};
 
