@@ -1,5 +1,3 @@
-use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
-
 use crate::{
     core::{GroupImageHandle, GroupTypeHandle},
     marker::{InnerIsLeading, InnerIsTrailing},
@@ -51,10 +49,10 @@ where
         physical_potential_energy: T,
         exchange_potential_energy: T,
         kinetic_energy: T,
-        groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_momenta: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_physical_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_exchange_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_momenta: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
     ) -> Result<(), Self::Error>;
 }
 
@@ -83,10 +81,10 @@ where
         physical_potential_energy: T,
         exchange_potential_energy: T,
         kinetic_energy: T,
-        groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_momenta: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_physical_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_exchange_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_momenta: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
     ) -> Result<(), Self::Error>;
 }
 
@@ -115,10 +113,10 @@ where
         physical_potential_energy: T,
         exchange_potential_energy: T,
         kinetic_energy: T,
-        groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_momenta: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_physical_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_exchange_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_momenta: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
     ) -> Result<(), Self::Error>;
 }
 
@@ -141,10 +139,10 @@ where
         physical_potential_energy: T,
         exchange_potential_energy: T,
         kinetic_energy: T,
-        groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_momenta: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_physical_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_exchange_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_momenta: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
     ) -> Result<(), Self::Error> {
         InnerDebugObservable::calculate(
             self,
@@ -181,10 +179,10 @@ where
         physical_potential_energy: T,
         exchange_potential_energy: T,
         kinetic_energy: T,
-        groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_momenta: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_physical_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        groups_exchange_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_momenta: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
     ) -> Result<(), Self::Error> {
         InnerDebugObservable::calculate(
             self,

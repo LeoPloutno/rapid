@@ -1,6 +1,5 @@
-use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
-
 use crate::{
+    core::{GroupImageHandle, GroupTypeHandle},
     marker::{InnerIsLeading, InnerIsTrailing},
     potential::exchange::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential},
     stat::{Bosonic, Distinguishable, Stat},
@@ -47,9 +46,9 @@ where
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
-        groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
     ) -> Result<(), Self::Error>;
 }
 
@@ -76,9 +75,9 @@ where
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
-        groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
     ) -> Result<(), Self::Error>;
 }
 
@@ -105,9 +104,9 @@ where
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
-        groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
     ) -> Result<(), Self::Error>;
 }
 
@@ -129,9 +128,9 @@ where
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
-        groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
     ) -> Result<(), Self::Error> {
         InnerQuantumObservable::calculate(
             self,
@@ -165,9 +164,9 @@ where
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
-        groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
     ) -> Result<(), Self::Error> {
         InnerQuantumObservable::calculate(
             self,
