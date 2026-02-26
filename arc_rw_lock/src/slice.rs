@@ -1,13 +1,44 @@
-use std::{alloc::Allocator, mem, process, sync::atomic::Ordering};
+use std::{alloc::Allocator, mem, ops::Range, process, ptr::NonNull, sync::atomic::Ordering};
 
 use crate::{
-    UniqueArcSliceRwLock,
+    ElementRwLock, SliceRwLock, UniqueArcSliceRwLock,
     arc::InnerArc,
     slice::{iter::IterMut, iter_mut::Iter},
 };
 
 mod iter;
 mod iter_mut;
+
+impl<T> ElementRwLock<T> {
+    pub const fn element_offset(&self) -> usize {
+        // SAFETY: By construction, `inner` points to live and valid data.
+        let (ptr_whole, _) = unsafe { &raw mut (*self.inner.as_ptr()).data }.to_raw_parts();
+        // SAFETY: The offset of `data` guarantees `ptr` is non-null.
+        let ptr_whole = unsafe { NonNull::new_unchecked(ptr_whole) }.cast::<T>();
+        let (ptr, _) = self.subfield.to_raw_parts();
+        let ptr = ptr.cast::<T>();
+        // SAFETY: By construction, `ptr` points to a subslice of `ptr_whole`.
+        unsafe { ptr.offset_from_unsigned(ptr_whole) }
+    }
+}
+
+impl<T> SliceRwLock<T> {
+    pub const fn subslice_range(&self) -> Range<usize> {
+        // SAFETY: By construction, `inner` points to live and valid data.
+        let (ptr_whole, _) = unsafe { &raw mut (*self.inner.as_ptr()).data }.to_raw_parts();
+        // SAFETY: The offset of `data` guarantees `ptr` is non-null.
+        let ptr_whole = unsafe { NonNull::new_unchecked(ptr_whole) }.cast::<T>();
+        let (ptr, len) = self.subfield.to_raw_parts();
+        let ptr = ptr.cast::<T>();
+        // SAFETY: By construction, `ptr` points to a subslice of `ptr_whole`.
+        let start = unsafe { ptr.offset_from_unsigned(ptr_whole) };
+        start
+            ..(
+                // SAFETY: By construction, `start + len` points within or right outside the allocation.
+                unsafe { start.unchecked_add(len) }
+            )
+    }
+}
 
 impl<T, A: Allocator> UniqueArcSliceRwLock<T, A> {
     pub fn iter(self) -> Iter<T, A> {

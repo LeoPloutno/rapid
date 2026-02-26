@@ -1,6 +1,7 @@
 use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
 
 use crate::{
+    core::{GroupImageHandle, GroupTypeHandle},
     marker::{InnerIsLeading, InnerIsTrailing},
     potential::exchange::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential},
     stat::{Bosonic, Distinguishable, Stat},
@@ -10,10 +11,10 @@ use crate::{
 /// A trait for quantities which may be used to debug the simulation.
 /// The implementor of this trait recieves the calculations of
 /// the other debug observables and produces an output.
-pub trait MainDebugObservable<T, V, A, M>
+pub trait MainDebugObservable<T, V, Adder, Multiplier>
 where
-    A: SyncAddRecv<T> + ?Sized,
-    M: SyncMulRecv<T> + ?Sized,
+    Adder: SyncAddRecv<T> + ?Sized,
+    Multiplier: SyncMulRecv<T> + ?Sized,
 {
     type Output;
     type Error;
@@ -22,17 +23,17 @@ where
     ///
     /// Returns an error if a synchronization failure occurs.
     #[must_use]
-    fn calculate(&mut self, adder: &mut A, multiplier: &mut M) -> Result<Self::Output, Self::Error>;
+    fn calculate(&mut self, adder: &mut Adder, multiplier: &mut Multiplier) -> Result<Self::Output, Self::Error>;
 }
 
 /// A trait for quantities which may be used to debug the simulation,
 /// operating in the first replica for a specific group of atoms.
-pub trait LeadingDebugObservable<T, V, D, B, A, M>
+pub trait LeadingDebugObservable<T, V, Adder, Multiplier, Dist, Boson>
 where
-    D: LeadingExchangePotential<T, V> + Distinguishable,
-    B: LeadingExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T> + ?Sized,
-    M: SyncMulSend<T> + ?Sized,
+    Adder: SyncAddSend<T> + ?Sized,
+    Multiplier: SyncMulSend<T> + ?Sized,
+    Dist: LeadingExchangePotential<T, V> + Distinguishable,
+    Boson: LeadingExchangePotential<T, V> + Bosonic,
 {
     type Output;
     type Error;
@@ -44,27 +45,27 @@ where
     #[must_use]
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<D, B>,
-        adder: &mut A,
-        multiplier: &mut M,
+        exchange_potential: &Stat<Dist, Boson>,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
         kinetic_energy: T,
-        groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_momenta: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_momenta: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_physical_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_exchange_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
     ) -> Result<(), Self::Error>;
 }
 
 /// A trait for quantities which may be used to debug the simulation,
 /// operating in an inner replica for a specific group of atoms.
-pub trait InnerDebugObservable<T, V, D, B, A, M>
+pub trait InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson>
 where
-    D: InnerExchangePotential<T, V> + Distinguishable,
-    B: InnerExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T> + ?Sized,
-    M: SyncMulSend<T> + ?Sized,
+    Adder: SyncAddSend<T> + ?Sized,
+    Multiplier: SyncMulSend<T> + ?Sized,
+    Dist: InnerExchangePotential<T, V> + Distinguishable,
+    Boson: InnerExchangePotential<T, V> + Bosonic,
 {
     type Output;
     type Error;
@@ -76,27 +77,27 @@ where
     #[must_use]
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<D, B>,
-        adder: &mut A,
-        multiplier: &mut M,
+        exchange_potential: &Stat<Dist, Boson>,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
         kinetic_energy: T,
-        groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_momenta: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_momenta: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_physical_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_exchange_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
     ) -> Result<(), Self::Error>;
 }
 
 /// A trait for quantities which may be used to debug the simulation,
 /// operating in the last replica for a specific group.
-pub trait TrailingDebugObservable<T, V, D, B, A, M>
+pub trait TrailingDebugObservable<T, V, Adder, Multiplier, Dist, Boson>
 where
-    D: TrailingExchangePotential<T, V> + Distinguishable,
-    B: TrailingExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T> + ?Sized,
-    M: SyncMulSend<T> + ?Sized,
+    Adder: SyncAddSend<T> + ?Sized,
+    Multiplier: SyncMulSend<T> + ?Sized,
+    Dist: TrailingExchangePotential<T, V> + Distinguishable,
+    Boson: TrailingExchangePotential<T, V> + Bosonic,
 {
     type Output;
     type Error;
@@ -108,42 +109,42 @@ where
     #[must_use]
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<D, B>,
-        adder: &mut A,
-        multiplier: &mut M,
+        exchange_potential: &Stat<Dist, Boson>,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
         kinetic_energy: T,
-        groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_momenta: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_momenta: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_physical_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_exchange_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
     ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, D, B, A, M, U> LeadingDebugObservable<T, V, D, B, A, M> for U
+impl<T, V, Adder, Multiplier, Dist, Boson, U> LeadingDebugObservable<T, V, Adder, Multiplier, Dist, Boson> for U
 where
-    D: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
-    B: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T> + ?Sized,
-    M: SyncMulSend<T> + ?Sized,
-    U: InnerDebugObservable<T, V, D, B, A, M> + InnerIsLeading,
+    Adder: SyncAddSend<T> + ?Sized,
+    Multiplier: SyncMulSend<T> + ?Sized,
+    Dist: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
+    Boson: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
+    U: InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson> + InnerIsLeading,
 {
-    type Output = <Self as InnerDebugObservable<T, V, D, B, A, M>>::Output;
-    type Error = <Self as InnerDebugObservable<T, V, D, B, A, M>>::Error;
+    type Output = <Self as InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson>>::Output;
+    type Error = <Self as InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson>>::Error;
 
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<D, B>,
-        adder: &mut A,
-        multiplier: &mut M,
+        exchange_potential: &Stat<Dist, Boson>,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
         kinetic_energy: T,
-        groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_momenta: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_momenta: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_physical_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_exchange_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
     ) -> Result<(), Self::Error> {
         InnerDebugObservable::calculate(
             self,
@@ -161,29 +162,29 @@ where
     }
 }
 
-impl<T, V, D, B, A, M, U> TrailingDebugObservable<T, V, D, B, A, M> for U
+impl<T, V, Adder, Multiplier, Dist, Boson, U> TrailingDebugObservable<T, V, Adder, Multiplier, Dist, Boson> for U
 where
-    D: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
-    B: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T> + ?Sized,
-    M: SyncMulSend<T> + ?Sized,
-    U: InnerDebugObservable<T, V, D, B, A, M> + InnerIsTrailing,
+    Adder: SyncAddSend<T> + ?Sized,
+    Multiplier: SyncMulSend<T> + ?Sized,
+    Dist: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
+    Boson: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
+    U: InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson> + InnerIsTrailing,
 {
-    type Output = <Self as InnerDebugObservable<T, V, D, B, A, M>>::Output;
-    type Error = <Self as InnerDebugObservable<T, V, D, B, A, M>>::Error;
+    type Output = <Self as InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson>>::Output;
+    type Error = <Self as InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson>>::Error;
 
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<D, B>,
-        adder: &mut A,
-        multiplier: &mut M,
+        exchange_potential: &Stat<Dist, Boson>,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
         kinetic_energy: T,
-        groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_momenta: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_physical_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        groups_exchange_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_momenta: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_physical_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        groups_exchange_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
     ) -> Result<(), Self::Error> {
         InnerDebugObservable::calculate(
             self,

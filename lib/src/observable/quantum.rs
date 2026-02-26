@@ -10,10 +10,10 @@ use crate::{
 /// A trait for quantum estimators.
 /// The implementor of this trait recieves the calculations of
 /// the other quantum observables and produces an output.
-pub trait MainQuantumObservable<T, V, A, M>
+pub trait MainQuantumObservable<T, V, Adder, Multiplier>
 where
-    A: SyncAddRecv<T> + ?Sized,
-    M: SyncMulRecv<T> + ?Sized,
+    Adder: SyncAddRecv<T> + ?Sized,
+    Multiplier: SyncMulRecv<T> + ?Sized,
 {
     type Output;
     type Error;
@@ -22,29 +22,29 @@ where
     ///
     /// Returns an error if a synchronization failure occurs.
     #[must_use]
-    fn calculate(&mut self, adder: &mut A, multiplier: &mut M) -> Result<Self::Output, Self::Error>;
+    fn calculate(&mut self, adder: &mut Adder, multiplier: &mut Multiplier) -> Result<Self::Output, Self::Error>;
 }
 
 /// A trait for quantum estimators operating in the first replica for a specific group.
-pub trait LeadingQuantumObservable<T, V, D, B, A, M>
+pub trait LeadingQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>
 where
-    D: LeadingExchangePotential<T, V> + Distinguishable,
-    B: LeadingExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T> + ?Sized,
-    M: SyncMulSend<T> + ?Sized,
+    Adder: SyncAddSend<T> + ?Sized,
+    Multiplier: SyncMulSend<T> + ?Sized,
+    Dist: LeadingExchangePotential<T, V> + Distinguishable,
+    Boson: LeadingExchangePotential<T, V> + Bosonic,
 {
     type Output;
     type Error;
 
     /// Calculates the contribution of this group in the first replica
-    /// to the observable and sends it to a `MainDebugObservable`.
+    /// to the observable and sends it to a `MainQuantumObservable`.
     ///
     /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<D, B>,
-        adder: &mut A,
-        multiplier: &mut M,
+        exchange_potential: &Stat<Dist, Boson>,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
         groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
@@ -54,26 +54,26 @@ where
 }
 
 /// A trait for quantum estimators operating in an inner replica for a specific group.
-pub trait InnerQuantumObservable<T, V, D, B, A, M>
+pub trait InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>
 where
-    D: InnerExchangePotential<T, V> + Distinguishable,
-    B: InnerExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T> + ?Sized,
-    M: SyncMulSend<T> + ?Sized,
+    Dist: InnerExchangePotential<T, V> + Distinguishable,
+    Boson: InnerExchangePotential<T, V> + Bosonic,
+    Adder: SyncAddSend<T> + ?Sized,
+    Multiplier: SyncMulSend<T> + ?Sized,
 {
     type Output;
     type Error;
 
     /// Calculates the contribution of this group in this replica
-    /// to the observable and sends it to a `MainDebugObservable`.
+    /// to the observable and sends it to a `MainQuantumObservable`.
     ///
     /// Returns an error if a synchronization failure occurs.
     #[must_use]
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<D, B>,
-        adder: &mut A,
-        multiplier: &mut M,
+        exchange_potential: &Stat<Dist, Boson>,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
         groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
@@ -83,26 +83,26 @@ where
 }
 
 /// A trait for quantum estimators operating in the last replica for a specific group.
-pub trait TrailingQuantumObservable<T, V, D, B, A, M>
+pub trait TrailingQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>
 where
-    D: TrailingExchangePotential<T, V> + Distinguishable,
-    B: TrailingExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T> + ?Sized,
-    M: SyncMulSend<T> + ?Sized,
+    Adder: SyncAddSend<T> + ?Sized,
+    Multiplier: SyncMulSend<T> + ?Sized,
+    Dist: TrailingExchangePotential<T, V> + Distinguishable,
+    Boson: TrailingExchangePotential<T, V> + Bosonic,
 {
     type Output;
     type Error;
 
     /// Calculates the contribution of this group in the last replica
-    /// to the observable and sends it to a `MainDebugObservable`.
+    /// to the observable and sends it to a `MainQuantumObservable`.
     ///
     /// Returns an error if a synchronization failure occurs.
     #[must_use]
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<D, B>,
-        adder: &mut A,
-        multiplier: &mut M,
+        exchange_potential: &Stat<Dist, Boson>,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
         groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
@@ -111,22 +111,22 @@ where
     ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, D, B, A, M, U> LeadingQuantumObservable<T, V, D, B, A, M> for U
+impl<T, V, Adder, Multiplier, Dist, Boson, U> LeadingQuantumObservable<T, V, Adder, Multiplier, Dist, Boson> for U
 where
-    D: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
-    B: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T> + ?Sized,
-    M: SyncMulSend<T> + ?Sized,
-    U: InnerQuantumObservable<T, V, D, B, A, M> + InnerIsLeading,
+    Adder: SyncAddSend<T> + ?Sized,
+    Multiplier: SyncMulSend<T> + ?Sized,
+    Dist: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
+    Boson: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
+    U: InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson> + InnerIsLeading,
 {
-    type Output = <Self as InnerQuantumObservable<T, V, D, B, A, M>>::Output;
-    type Error = <Self as InnerQuantumObservable<T, V, D, B, A, M>>::Error;
+    type Output = <Self as InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>>::Output;
+    type Error = <Self as InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>>::Error;
 
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<D, B>,
-        adder: &mut A,
-        multiplier: &mut M,
+        exchange_potential: &Stat<Dist, Boson>,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
         groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
@@ -147,22 +147,22 @@ where
     }
 }
 
-impl<T, V, D, B, A, M, U> TrailingQuantumObservable<T, V, D, B, A, M> for U
+impl<T, V, Adder, Multiplier, Dist, Boson, U> TrailingQuantumObservable<T, V, Adder, Multiplier, Dist, Boson> for U
 where
-    D: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
-    B: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
-    A: SyncAddSend<T> + ?Sized,
-    M: SyncMulSend<T> + ?Sized,
-    U: InnerQuantumObservable<T, V, D, B, A, M> + InnerIsTrailing,
+    Adder: SyncAddSend<T> + ?Sized,
+    Multiplier: SyncMulSend<T> + ?Sized,
+    Dist: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
+    Boson: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
+    U: InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson> + InnerIsTrailing,
 {
-    type Output = <Self as InnerQuantumObservable<T, V, D, B, A, M>>::Output;
-    type Error = <Self as InnerQuantumObservable<T, V, D, B, A, M>>::Error;
+    type Output = <Self as InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>>::Output;
+    type Error = <Self as InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>>::Error;
 
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<D, B>,
-        adder: &mut A,
-        multiplier: &mut M,
+        exchange_potential: &Stat<Dist, Boson>,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
         physical_potential_energy: T,
         exchange_potential_energy: T,
         groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,

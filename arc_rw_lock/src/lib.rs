@@ -1,11 +1,7 @@
 #![allow(dead_code)]
 #![feature(allocator_api, ptr_metadata, layout_for_ptr, sync_nonpoison)]
 
-use std::{
-    alloc::{Allocator, Global},
-    marker::PhantomData,
-    ptr::NonNull,
-};
+use std::alloc::Global;
 
 mod alloc;
 mod arc;

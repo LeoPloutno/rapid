@@ -1,4 +1,6 @@
-use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
+use arc_rw_lock::ElementRwLock;
+
+use crate::core::{GroupImageHandle, GroupTypeHandle};
 
 /// A trait for thermostats.
 ///
@@ -10,14 +12,14 @@ pub trait Thermostat<T, V> {
 
     /// Performs thermalization of the system at a given step.
     ///
-    /// Returns the contribution of this group in this replica to the
+    /// Returns the contribution of this group in this image to the
     /// change in the internal energy of the system.
     #[must_use]
     fn thermalize(
         &mut self,
         step: usize,
-        replicas_groups_positions: &ElementRwLock<UniqueArcSliceRwLock<V>>,
-        replicas_groups_forces: &ElementRwLock<UniqueArcSliceRwLock<V>>,
+        images_groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        images_groups_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
         group_momenta: &mut [V],
     ) -> Result<T, Self::Error>;
 }

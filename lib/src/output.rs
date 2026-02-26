@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::vector::Vector;
+use crate::{core::GroupTypeHandle, vector::Vector};
 
 /// A trait for streams that write to coordinate files, such as '.xyz' files.
 pub trait VectorsOutput<const N: usize, T, V>
@@ -11,7 +11,7 @@ where
 
     /// Write the coordinates of the atoms in all groups to the stream.
     #[must_use]
-    fn write(&mut self, step: usize, vectors: &[V]) -> Result<(), Self::Error>;
+    fn write(&mut self, step: usize, vectors: &[GroupTypeHandle<V>]) -> Result<(), Self::Error>;
 }
 
 pub trait ObservablesOutput<const N: usize, T, V, E>
