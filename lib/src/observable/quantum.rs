@@ -29,8 +29,8 @@ pub trait LeadingQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: LeadingExchangePotential<T, V> + Distinguishable,
-    Boson: LeadingExchangePotential<T, V> + Bosonic,
+    Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
+    Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
 {
     type Output;
     type Error;
@@ -41,7 +41,7 @@ where
     /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<Dist, Boson>,
+        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -55,10 +55,10 @@ where
 /// A trait for quantum estimators operating in an inner replica for a specific group.
 pub trait InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>
 where
-    Dist: InnerExchangePotential<T, V> + Distinguishable,
-    Boson: InnerExchangePotential<T, V> + Bosonic,
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
+    Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
+    Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
 {
     type Output;
     type Error;
@@ -70,7 +70,7 @@ where
     #[must_use]
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<Dist, Boson>,
+        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -86,8 +86,8 @@ pub trait TrailingQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: TrailingExchangePotential<T, V> + Distinguishable,
-    Boson: TrailingExchangePotential<T, V> + Bosonic,
+    Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
+    Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
 {
     type Output;
     type Error;
@@ -99,7 +99,7 @@ where
     #[must_use]
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<Dist, Boson>,
+        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -114,8 +114,8 @@ impl<T, V, Adder, Multiplier, Dist, Boson, U> LeadingQuantumObservable<T, V, Add
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
-    Boson: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
+    Dist: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable + ?Sized,
+    Boson: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic + ?Sized,
     U: InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson> + InnerIsLeading,
 {
     type Output = <Self as InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>>::Output;
@@ -123,7 +123,7 @@ where
 
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<Dist, Boson>,
+        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -150,8 +150,8 @@ impl<T, V, Adder, Multiplier, Dist, Boson, U> TrailingQuantumObservable<T, V, Ad
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable,
-    Boson: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic,
+    Dist: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable + ?Sized,
+    Boson: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic + ?Sized,
     U: InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson> + InnerIsTrailing,
 {
     type Output = <Self as InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>>::Output;
@@ -159,7 +159,7 @@ where
 
     fn calculate(
         &mut self,
-        exchange_potential: &Stat<Dist, Boson>,
+        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,

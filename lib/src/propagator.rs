@@ -1,5 +1,5 @@
 use crate::{
-    core::Image,
+    core::{GroupImageHandle, GroupTypeHandle},
     marker::{InnerIsLeading, InnerIsTrailing},
     potential::{
         exchange::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential},
@@ -15,8 +15,8 @@ pub mod quadratic;
 pub trait LeadingPropagator<T, V, Phys, Dist, Boson, Therm>
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: LeadingExchangePotential<T, V> + Distinguishable,
-    Boson: LeadingExchangePotential<T, V> + Bosonic,
+    Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
+    Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
 {
     type Error: From<Therm::Error>;
@@ -29,12 +29,12 @@ where
         &mut self,
         step: usize,
         physical_potential: &mut Phys,
-        exchange_potential: &mut Stat<Dist, Boson>,
+        exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        groups_positions: &mut Image<V>,
-        groups_momenta: &mut Image<V>,
-        groups_physical_forces: &mut Image<V>,
-        groups_exchange_forces: &mut Image<V>,
+        groups_positions: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_momenta: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_physical_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_exchange_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
     ) -> Result<(T, T), Self::Error>;
 }
 
@@ -42,8 +42,8 @@ where
 pub trait InnerPropagator<T, V, Phys, Dist, Boson, Therm>
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: InnerExchangePotential<T, V> + Distinguishable,
-    Boson: InnerExchangePotential<T, V> + Bosonic,
+    Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
+    Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
 {
     type Error: From<Therm::Error>;
@@ -56,12 +56,12 @@ where
         &mut self,
         step: usize,
         physical_potential: &mut Phys,
-        exchange_potential: &mut Stat<Dist, Boson>,
+        exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        groups_positions: &mut Image<V>,
-        groups_momenta: &mut Image<V>,
-        groups_physical_forces: &mut Image<V>,
-        groups_exchange_forces: &mut Image<V>,
+        groups_positions: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_momenta: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_physical_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_exchange_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
     ) -> Result<(T, T), Self::Error>;
 }
 
@@ -69,8 +69,8 @@ where
 pub trait TrailingPropagator<T, V, Phys, Dist, Boson, Therm>
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: TrailingExchangePotential<T, V> + Distinguishable,
-    Boson: TrailingExchangePotential<T, V> + Bosonic,
+    Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
+    Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
 {
     type Error: From<Therm::Error>;
@@ -84,20 +84,20 @@ where
         &mut self,
         step: usize,
         physical_potential: &mut Phys,
-        exchange_potential: &mut Stat<Dist, Boson>,
+        exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        groups_positions: &mut Image<V>,
-        groups_momenta: &mut Image<V>,
-        groups_physical_forces: &mut Image<V>,
-        groups_exchange_forces: &mut Image<V>,
+        groups_positions: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_momenta: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_physical_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_exchange_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
     ) -> Result<(T, T), Self::Error>;
 }
 
 impl<T, V, Phys, Dist, Boson, Therm, U> LeadingPropagator<T, V, Phys, Dist, Boson, Therm> for U
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Distinguishable,
-    Boson: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Bosonic,
+    Dist: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
+    Boson: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
     U: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsLeading,
 {
@@ -107,12 +107,12 @@ where
         &mut self,
         step: usize,
         physical_potential: &mut Phys,
-        exchange_potential: &mut Stat<Dist, Boson>,
+        exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        groups_positions: &mut Image<V>,
-        groups_momenta: &mut Image<V>,
-        groups_physical_forces: &mut Image<V>,
-        groups_exchange_forces: &mut Image<V>,
+        groups_positions: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_momenta: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_physical_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_exchange_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
     ) -> Result<(T, T), Self::Error> {
         InnerPropagator::propagate(
             self,
@@ -131,8 +131,8 @@ where
 impl<T, V, Phys, Dist, Boson, Therm, U> TrailingPropagator<T, V, Phys, Dist, Boson, Therm> for U
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Distinguishable,
-    Boson: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Bosonic,
+    Dist: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
+    Boson: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
     U: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsTrailing,
 {
@@ -142,12 +142,12 @@ where
         &mut self,
         step: usize,
         physical_potential: &mut Phys,
-        exchange_potential: &mut Stat<Dist, Boson>,
+        exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        groups_positions: &mut Image<V>,
-        groups_momenta: &mut Image<V>,
-        groups_physical_forces: &mut Image<V>,
-        groups_exchange_forces: &mut Image<V>,
+        groups_positions: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_momenta: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_physical_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
+        groups_exchange_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
     ) -> Result<(T, T), Self::Error> {
         InnerPropagator::propagate(
             self,

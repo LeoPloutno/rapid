@@ -67,7 +67,21 @@ pub enum ObservableStreamOption<S> {
     None,
     One(S),
     Shared(S),
-    All { quantum: S, debug: S },
+    Separate { quantum: S, debug: S },
+}
+
+impl<S: DerefMut> ObservableStreamOption<S> {
+    pub fn as_deref_mut(&mut self) -> ObservableStreamOption<&mut <S as Deref>::Target> {
+        match self {
+            Self::None => ObservableStreamOption::None,
+            Self::One(s) => ObservableStreamOption::One(&mut *s),
+            Self::Shared(s) => ObservableStreamOption::Shared(&mut *s),
+            Self::Separate { quantum, debug } => ObservableStreamOption::Separate {
+                quantum: &mut *quantum,
+                debug: &mut *debug,
+            },
+        }
+    }
 }
 
 impl<Q, D, S> ObservableOutputOption<Q, D, S> {
@@ -132,7 +146,7 @@ impl<Q, D, S> ObservableOutputOption<Q, D, S> {
             Self::Separate { quantum, debug } => (
                 Some(quantum.observables),
                 Some(debug.observables),
-                ObservableStreamOption::All {
+                ObservableStreamOption::Separate {
                     quantum: quantum.stream,
                     debug: debug.stream,
                 },

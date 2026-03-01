@@ -2,17 +2,21 @@ use std::{ops::Range, sync::LockResult};
 
 use arc_rw_lock::{MappedRwLockReadWholeGuard, MappedRwLockWriteGuard, UniqueArcElementRwLock, UniqueArcSliceRwLock};
 
+use crate::stat::Stat;
+
 /// Information about atoms of the same type.
 #[derive(Clone, Debug)]
 pub struct AtomType<T> {
     /// Unique identifier.
     pub id: usize,
-    /// The range of indices of groups allocated to this type.
-    pub span: Range<usize>,
-    /// The mass of a single atom of this type.
-    pub mass: T,
     /// Atomic symbol
     pub label: String,
+    /// The range of indices of groups allocated to this type.
+    pub groups: Range<usize>,
+    /// The mass of a single atom of this type.
+    pub mass: T,
+    /// Whether the atoms are distinguishable.
+    pub statistic: Stat<(), ()>,
 }
 
 pub struct GroupTypeHandle<T>(UniqueArcSliceRwLock<T>);
@@ -46,7 +50,7 @@ impl<G> GroupImageHandle<G> {
         self.0.as_mut().write()
     }
 
-    pub fn read_image(&self) -> LockResult<MappedRwLockReadWholeGuard<[G]>> {
+    pub fn read_image(&self) -> LockResult<MappedRwLockReadWholeGuard<'_, [G]>> {
         self.0.as_ref().read_whole()
     }
 
@@ -56,40 +60,42 @@ impl<G> GroupImageHandle<G> {
 }
 
 #[derive(Clone, Debug)]
-pub struct CommError<T> {
-    pub replica: usize,
-    pub group: AtomType<T>,
+pub enum CommError {
+    Main,
+    Leading { group: usize },
+    Inner { image: usize, group: usize },
+    Trailing { group: usize },
 }
 
 pub trait Factory<'a, T> {
-    type Leading: 'a + ?Sized;
-    type Inner: 'a + ?Sized;
-    type Trailing: 'a + ?Sized;
-    type LeadingIt: Iterator<Item = &'a Self::Leading>;
-    type InnerIt: Iterator<Item: Iterator<Item = &'a Self::Inner>>;
-    type TrailingIt: Iterator<Item = &'a Self::Trailing>;
+    type Leading: 'a;
+    type Inner: 'a;
+    type Trailing: 'a;
+    type LeadingIter: ExactSizeIterator<Item = Self::Leading>;
+    type InnerIter: ExactSizeIterator<Item: ExactSizeIterator<Item = Self::Inner>>;
+    type TrailingIter: ExactSizeIterator<Item = Self::Trailing>;
 
     fn produce(
         &'a mut self,
-        inner_replicas: usize,
+        inner_images: usize,
         groups: &[AtomType<T>],
-    ) -> (Self::LeadingIt, Self::InnerIt, Self::TrailingIt);
+    ) -> (Self::LeadingIter, Self::InnerIter, Self::TrailingIter);
 }
 
 pub trait FullFactory<'a, T> {
     type Main: 'a;
-    type Leading: 'a + ?Sized;
-    type Inner: 'a + ?Sized;
-    type Trailing: 'a + ?Sized;
-    type LeadingIt: Iterator<Item = &'a Self::Leading>;
-    type InnerIt: Iterator<Item: Iterator<Item = &'a Self::Inner>>;
-    type TrailingIt: Iterator<Item = &'a Self::Trailing>;
+    type Leading: 'a;
+    type Inner: 'a;
+    type Trailing: 'a;
+    type LeadingIter: ExactSizeIterator<Item = Self::Leading>;
+    type InnerIter: ExactSizeIterator<Item: ExactSizeIterator<Item = Self::Inner>>;
+    type TrailingIter: ExactSizeIterator<Item = Self::Trailing>;
 
     fn produce(
         &'a mut self,
-        inner_replicas: usize,
+        inner_images: usize,
         groups: &[AtomType<T>],
-    ) -> (Self::Main, Self::LeadingIt, Self::InnerIt, Self::TrailingIt);
+    ) -> (Self::Main, Self::LeadingIter, Self::InnerIter, Self::TrailingIter);
 }
 
 pub trait GroupRecord {
