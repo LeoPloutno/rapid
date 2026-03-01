@@ -1,4 +1,5 @@
 #![feature(new_range_api, ptr_metadata)]
+#![allow(clippy::too_many_arguments)]
 // #![warn(missing_docs)]
 use std::{
     fmt::Display,
@@ -100,7 +101,7 @@ fn run<
     steps: usize,
     inner_images: usize,
     atom_types: &[AtomType<T>],
-    groups: usize,
+    groups_sizes: &[usize],
     adders: &mut (
              impl for<'a> FullFactory<
         'a,
@@ -121,17 +122,17 @@ fn run<
         Trailing = &'a mut MultiplierSender,
     > + ?Sized
          ),
-    mut positions_out: Option<
-        &mut (impl Iterator<Item: DerefMut<Target = CoordOut>> + ExactSizeIterator + DoubleEndedIterator + ?Sized),
+    positions_out: Option<
+        &mut (impl ExactSizeIterator<Item: DerefMut<Target = CoordOut> + Send> + DoubleEndedIterator + ?Sized),
     >,
-    mut momenta_out: Option<
-        &mut (impl Iterator<Item: DerefMut<Target = CoordOut>> + ExactSizeIterator + DoubleEndedIterator + ?Sized),
+    momenta_out: Option<
+        &mut (impl ExactSizeIterator<Item: DerefMut<Target = CoordOut> + Send> + DoubleEndedIterator + ?Sized),
     >,
-    mut physical_forces_out: Option<
-        &mut (impl Iterator<Item: DerefMut<Target = CoordOut>> + ExactSizeIterator + DoubleEndedIterator + ?Sized),
+    physical_forces_out: Option<
+        &mut (impl ExactSizeIterator<Item: DerefMut<Target = CoordOut> + Send> + DoubleEndedIterator + ?Sized),
     >,
-    mut exchange_forces_out: Option<
-        &mut (impl Iterator<Item: DerefMut<Target = CoordOut>> + ExactSizeIterator + DoubleEndedIterator + ?Sized),
+    exchange_forces_out: Option<
+        &mut (impl ExactSizeIterator<Item: DerefMut<Target = CoordOut> + Send> + DoubleEndedIterator + ?Sized),
     >,
     observables: ObservableOutputOption<
         &mut [impl for<'a> FullFactory<
@@ -272,9 +273,9 @@ fn run<
                     multiplier,
                     physical_potential_energy.clone(),
                     exchange_potential_energy.clone(),
-                    &*positions.read_whole().map_err(|_| CommError::Leading { group })?,
-                    &*physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
-                    &*exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &positions.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
                 )?;
                 barrier.wait();
             }
@@ -289,10 +290,10 @@ fn run<
                     physical_potential_energy.clone(),
                     exchange_potential_energy.clone(),
                     kinetic_energy.clone(),
-                    &*positions.read_whole().map_err(|_| CommError::Leading { group })?,
-                    &*momenta.read_whole().map_err(|_| CommError::Leading { group })?,
-                    &*physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
-                    &*exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &positions.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &momenta.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
                 )?;
                 barrier.wait();
             }
@@ -325,10 +326,10 @@ fn run<
             physical_potential,
             exchange_potential.as_deref_mut(),
             thermostat,
-            &mut *positions.write(),
-            &mut *momenta.write(),
-            &mut *physical_forces.write(),
-            &mut *exchange_forces.write(),
+            &mut positions.write(),
+            &mut momenta.write(),
+            &mut physical_forces.write(),
+            &mut exchange_forces.write(),
         )?;
 
         let mut iter = momenta
@@ -370,11 +371,11 @@ fn run<
                     multiplier,
                     physical_potential_energy.clone(),
                     exchange_potential_energy.clone(),
-                    &*positions.read_whole().map_err(|_| CommError::Inner { image, group })?,
-                    &*physical_forces
+                    &positions.read_whole().map_err(|_| CommError::Inner { image, group })?,
+                    &physical_forces
                         .read_whole()
                         .map_err(|_| CommError::Inner { image, group })?,
-                    &*exchange_forces
+                    &exchange_forces
                         .read_whole()
                         .map_err(|_| CommError::Inner { image, group })?,
                 )?;
@@ -391,12 +392,12 @@ fn run<
                     physical_potential_energy.clone(),
                     exchange_potential_energy.clone(),
                     kinetic_energy.clone(),
-                    &*positions.read_whole().map_err(|_| CommError::Inner { image, group })?,
-                    &*momenta.read_whole().map_err(|_| CommError::Inner { image, group })?,
-                    &*physical_forces
+                    &positions.read_whole().map_err(|_| CommError::Inner { image, group })?,
+                    &momenta.read_whole().map_err(|_| CommError::Inner { image, group })?,
+                    &physical_forces
                         .read_whole()
                         .map_err(|_| CommError::Inner { image, group })?,
-                    &*exchange_forces
+                    &exchange_forces
                         .read_whole()
                         .map_err(|_| CommError::Inner { image, group })?,
                 )?;
@@ -430,10 +431,10 @@ fn run<
             physical_potential,
             exchange_potential.as_deref_mut(),
             thermostat,
-            &mut *positions.write(),
-            &mut *momenta.write(),
-            &mut *physical_forces.write(),
-            &mut *exchange_forces.write(),
+            &mut positions.write(),
+            &mut momenta.write(),
+            &mut physical_forces.write(),
+            &mut exchange_forces.write(),
         )?;
 
         let mut iter = momenta
@@ -466,9 +467,9 @@ fn run<
                     multiplier,
                     physical_potential_energy.clone(),
                     exchange_potential_energy.clone(),
-                    &*positions.read_whole().map_err(|_| CommError::Leading { group })?,
-                    &*physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
-                    &*exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &positions.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
                 )?;
                 barrier.wait();
             }
@@ -483,10 +484,10 @@ fn run<
                     physical_potential_energy.clone(),
                     exchange_potential_energy.clone(),
                     kinetic_energy.clone(),
-                    &*positions.read_whole().map_err(|_| CommError::Leading { group })?,
-                    &*momenta.read_whole().map_err(|_| CommError::Leading { group })?,
-                    &*physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
-                    &*exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &positions.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &momenta.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                    &exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
                 )?;
                 barrier.wait();
             }
@@ -515,8 +516,8 @@ fn run<
         };
     }
 
-    let (leading_positions_out, inner_positions_out_iter, trailing_positions_out) =
-        if let Some(iter) = positions_out.as_deref_mut() {
+    let (mut leading_positions_out, mut inner_positions_out_iter, mut trailing_positions_out) =
+        if let Some(iter) = positions_out {
             assert_eq!(iter.len(), inner_images + 2);
 
             let leading = iter
@@ -529,8 +530,8 @@ fn run<
         } else {
             (None, None, None)
         };
-    let (leading_momenta_out, inner_momenta_out_iter, trailing_momenta_out) =
-        if let Some(iter) = momenta_out.as_deref_mut() {
+    let (mut leading_momenta_out, mut inner_momenta_out_iter, mut trailing_momenta_out) =
+        if let Some(iter) = momenta_out {
             assert_eq!(iter.len(), inner_images + 2);
 
             let leading = iter
@@ -543,8 +544,8 @@ fn run<
         } else {
             (None, None, None)
         };
-    let (leading_physical_forces_out, inner_physical_forces_out_iter, trailing_physical_forces_out) =
-        if let Some(iter) = physical_forces_out.as_deref_mut() {
+    let (mut leading_physical_forces_out, mut inner_physical_forces_out_iter, mut trailing_physical_forces_out) =
+        if let Some(iter) = physical_forces_out {
             assert_eq!(iter.len(), inner_images + 2);
 
             let leading = iter
@@ -557,8 +558,8 @@ fn run<
         } else {
             (None, None, None)
         };
-    let (leading_exchange_forces_out, inner_exchange_forces_out_iter, trailing_exchange_forces_out) =
-        if let Some(iter) = exchange_forces_out.as_deref_mut() {
+    let (mut leading_exchange_forces_out, mut inner_exchange_forces_out_iter, mut trailing_exchange_forces_out) =
+        if let Some(iter) = exchange_forces_out {
             assert_eq!(iter.len(), inner_images + 2);
 
             let leading = iter
@@ -583,9 +584,9 @@ fn run<
     ) = if let Some(observables) = quantum_observables {
         let n_observables = observables.len();
         let mut uninit_main_observables = Box::new_uninit_slice(n_observables);
-        let mut uninit_leading_observables = Box::new_uninit_slice(groups * n_observables);
-        let mut uninit_inner_observables = Box::new_uninit_slice(groups * inner_images * n_observables);
-        let mut uninit_trailing_observables = Box::new_uninit_slice(groups * n_observables);
+        let mut uninit_leading_observables = Box::new_uninit_slice(groups_sizes.len() * n_observables);
+        let mut uninit_inner_observables = Box::new_uninit_slice(groups_sizes.len() * inner_images * n_observables);
+        let mut uninit_trailing_observables = Box::new_uninit_slice(groups_sizes.len() * n_observables);
         for zip_items!(
             observable,
             uninit_main_observable,
@@ -595,16 +596,16 @@ fn run<
         ) in zip_iterators!(
             observables.iter_mut(),
             uninit_main_observables.iter_mut(),
-            StridesMut::from_slice(&mut *uninit_leading_observables, n_observables),
-            StridesMut::from_slice(&mut *uninit_inner_observables, n_observables),
-            StridesMut::from_slice(&mut *uninit_trailing_observables, n_observables)
+            StridesMut::from_slice(&mut uninit_leading_observables, n_observables),
+            StridesMut::from_slice(&mut uninit_inner_observables, n_observables),
+            StridesMut::from_slice(&mut uninit_trailing_observables, n_observables)
         ) {
             let (main_observable, leading_observables, inner_observables_iter, trailing_observables) =
-                observable.produce(inner_images, atom_types);
+                observable.produce(inner_images, atom_types, groups_sizes);
 
-            assert_eq!(leading_observables.len(), groups);
+            assert_eq!(leading_observables.len(), groups_sizes.len());
             assert_eq!(inner_observables_iter.len(), inner_images);
-            assert_eq!(trailing_observables.len(), groups);
+            assert_eq!(trailing_observables.len(), groups_sizes.len());
 
             uninit_main_observable.write(main_observable);
 
@@ -624,10 +625,12 @@ fn run<
             }
 
             for inner_observables in inner_observables_iter {
-                assert_eq!(inner_observables.len(), groups);
+                assert_eq!(inner_observables.len(), groups_sizes.len());
 
-                for (uninit_inner_observable, inner_observable) in
-                    uninit_inner_observables.by_ref().take(groups).zip(inner_observables)
+                for (uninit_inner_observable, inner_observable) in uninit_inner_observables
+                    .by_ref()
+                    .take(groups_sizes.len())
+                    .zip(inner_observables)
                 {
                     uninit_inner_observable.write(inner_observable);
                 }
@@ -656,9 +659,9 @@ fn run<
     ) = if let Some(observables) = debug_observables {
         let n_observables = observables.len();
         let mut uninit_main_observables = Box::new_uninit_slice(n_observables);
-        let mut uninit_leading_observables = Box::new_uninit_slice(groups * n_observables);
-        let mut uninit_inner_observables = Box::new_uninit_slice(groups * inner_images * n_observables);
-        let mut uninit_trailing_observables = Box::new_uninit_slice(groups * n_observables);
+        let mut uninit_leading_observables = Box::new_uninit_slice(groups_sizes.len() * n_observables);
+        let mut uninit_inner_observables = Box::new_uninit_slice(groups_sizes.len() * inner_images * n_observables);
+        let mut uninit_trailing_observables = Box::new_uninit_slice(groups_sizes.len() * n_observables);
         for zip_items!(
             observable,
             uninit_main_observable,
@@ -668,16 +671,16 @@ fn run<
         ) in zip_iterators!(
             observables.iter_mut(),
             uninit_main_observables.iter_mut(),
-            StridesMut::from_slice(&mut *uninit_leading_observables, n_observables),
-            StridesMut::from_slice(&mut *uninit_inner_observables, n_observables),
-            StridesMut::from_slice(&mut *uninit_trailing_observables, n_observables)
+            StridesMut::from_slice(&mut uninit_leading_observables, n_observables),
+            StridesMut::from_slice(&mut uninit_inner_observables, n_observables),
+            StridesMut::from_slice(&mut uninit_trailing_observables, n_observables)
         ) {
             let (main_observable, leading_observables, inner_observables_iter, trailing_observables) =
-                observable.produce(inner_images, atom_types);
+                observable.produce(inner_images, atom_types, groups_sizes);
 
-            assert_eq!(leading_observables.len(), groups);
+            assert_eq!(leading_observables.len(), groups_sizes.len());
             assert_eq!(inner_observables_iter.len(), inner_images);
-            assert_eq!(trailing_observables.len(), groups);
+            assert_eq!(trailing_observables.len(), groups_sizes.len());
 
             uninit_main_observable.write(main_observable);
 
@@ -697,10 +700,12 @@ fn run<
             }
 
             for inner_observables in inner_observables_iter {
-                assert_eq!(inner_observables.len(), groups);
+                assert_eq!(inner_observables.len(), groups_sizes.len());
 
-                for (uninit_inner_observable, inner_observable) in
-                    uninit_inner_observables.by_ref().take(groups).zip(inner_observables)
+                for (uninit_inner_observable, inner_observable) in uninit_inner_observables
+                    .by_ref()
+                    .take(groups_sizes.len())
+                    .zip(inner_observables)
                 {
                     uninit_inner_observable.write(inner_observable);
                 }
@@ -726,62 +731,72 @@ fn run<
     let barrier = &barrier;
     let shared_value = &shared_value;
 
-    let (main_adder, leading_adders, inner_adders_iter, trailing_adders) = adders.produce(inner_images, atom_types);
-    assert_eq!(leading_adders.len(), groups);
+    let (main_adder, leading_adders, inner_adders_iter, trailing_adders) =
+        adders.produce(inner_images, atom_types, groups_sizes);
+    assert_eq!(leading_adders.len(), groups_sizes.len());
     assert_eq!(inner_adders_iter.len(), inner_images);
-    assert_eq!(trailing_adders.len(), groups);
+    assert_eq!(trailing_adders.len(), groups_sizes.len());
 
     let (main_multiplier, leading_multipliers, inner_multipliers_iter, trailing_multipliers) =
-        multipliers.produce(inner_images, atom_types);
-    assert_eq!(leading_multipliers.len(), groups);
+        multipliers.produce(inner_images, atom_types, groups_sizes);
+    assert_eq!(leading_multipliers.len(), groups_sizes.len());
     assert_eq!(inner_multipliers_iter.len(), inner_images);
-    assert_eq!(trailing_multipliers.len(), groups);
+    assert_eq!(trailing_multipliers.len(), groups_sizes.len());
 
     let (leading_propagators, inner_propagators_iter, trailing_propagators) =
-        propagators.produce(inner_images, atom_types);
-    assert_eq!(leading_propagators.len(), groups);
+        propagators.produce(inner_images, atom_types, groups_sizes);
+    assert_eq!(leading_propagators.len(), groups_sizes.len());
     assert_eq!(inner_propagators_iter.len(), inner_images);
-    assert_eq!(trailing_propagators.len(), groups);
+    assert_eq!(trailing_propagators.len(), groups_sizes.len());
 
     let (leading_physical_potentials, inner_physical_potentials_iter, trailing_physical_potentials) =
-        physical_potentials.produce(inner_images, atom_types);
-    assert_eq!(leading_physical_potentials.len(), groups);
+        physical_potentials.produce(inner_images, atom_types, groups_sizes);
+    assert_eq!(leading_physical_potentials.len(), groups_sizes.len());
     assert_eq!(inner_physical_potentials_iter.len(), inner_images);
-    assert_eq!(trailing_physical_potentials.len(), groups);
+    assert_eq!(trailing_physical_potentials.len(), groups_sizes.len());
 
     let (leading_exchange_potentials, inner_exchange_potentials_iter, trailing_exchange_potentials) =
-        exchange_potentials.produce(inner_images, atom_types);
-    assert_eq!(leading_exchange_potentials.len(), groups);
+        exchange_potentials.produce(inner_images, atom_types, groups_sizes);
+    assert_eq!(leading_exchange_potentials.len(), groups_sizes.len());
     assert_eq!(inner_exchange_potentials_iter.len(), inner_images);
-    assert_eq!(trailing_exchange_potentials.len(), groups);
+    assert_eq!(trailing_exchange_potentials.len(), groups_sizes.len());
 
     let (leading_thermostats, inner_thermostats_iter, trailing_thermostats) =
-        thermostats.produce(inner_images, atom_types);
-    assert_eq!(leading_thermostats.len(), groups);
+        thermostats.produce(inner_images, atom_types, groups_sizes);
+    assert_eq!(leading_thermostats.len(), groups_sizes.len());
     assert_eq!(inner_thermostats_iter.len(), inner_images);
-    assert_eq!(trailing_thermostats.len(), groups);
+    assert_eq!(trailing_thermostats.len(), groups_sizes.len());
 
-    let (leading_positions, inner_positions_iter, trailing_positions) = positions.produce(inner_images, atom_types);
-    assert_eq!(leading_positions.len(), groups);
+    let (leading_positions, inner_positions_iter, trailing_positions) =
+        positions.produce(inner_images, atom_types, groups_sizes);
+    assert_eq!(leading_positions.len(), groups_sizes.len());
     assert_eq!(inner_positions_iter.len(), inner_images);
-    assert_eq!(trailing_positions.len(), groups);
+    assert_eq!(trailing_positions.len(), groups_sizes.len());
 
-    let (leading_momenta, inner_momenta_iter, trailing_momenta) = momenta.produce(inner_images, atom_types);
-    assert_eq!(leading_momenta.len(), groups);
+    let (leading_momenta, inner_momenta_iter, trailing_momenta) =
+        momenta.produce(inner_images, atom_types, groups_sizes);
+    assert_eq!(leading_momenta.len(), groups_sizes.len());
     assert_eq!(inner_momenta_iter.len(), inner_images);
-    assert_eq!(trailing_momenta.len(), groups);
+    assert_eq!(trailing_momenta.len(), groups_sizes.len());
 
     let (leading_physical_forces, inner_physical_forces_iter, trailing_physical_forces) =
-        physical_forces.produce(inner_images, atom_types);
-    assert_eq!(leading_physical_forces.len(), groups);
+        physical_forces.produce(inner_images, atom_types, groups_sizes);
+    assert_eq!(leading_physical_forces.len(), groups_sizes.len());
     assert_eq!(inner_physical_forces_iter.len(), inner_images);
-    assert_eq!(trailing_physical_forces.len(), groups);
+    assert_eq!(trailing_physical_forces.len(), groups_sizes.len());
 
     let (leading_exchange_forces, inner_exchange_forces_iter, trailing_exchange_forces) =
-        exchange_forces.produce(inner_images, atom_types);
-    assert_eq!(leading_exchange_forces.len(), groups);
+        exchange_forces.produce(inner_images, atom_types, groups_sizes);
+    assert_eq!(leading_exchange_forces.len(), groups_sizes.len());
     assert_eq!(inner_exchange_forces_iter.len(), inner_images);
-    assert_eq!(trailing_exchange_forces.len(), groups);
+    assert_eq!(trailing_exchange_forces.len(), groups_sizes.len());
+
+    let index_smallest_group = groups_sizes
+        .iter()
+        .enumerate()
+        .min_by(|(_, element_0), (_, element_1)| element_0.cmp(element_1))
+        .expect("`groups_sizes` should contain at least one element")
+        .0;
 
     thread::scope(|s| {
         let mut atom_types_iter = atom_types.iter();
@@ -791,21 +806,7 @@ fn run<
         let mut leading_debug_observables_iter = leading_debug_observables
             .as_deref_mut()
             .map(|observables| observables.chunks_exact_mut(n_debug_observables));
-        for zip_items!(
-            (atom_type, group),
-            adder,
-            multiplier,
-            mut quantum_observables,
-            mut debug_observables,
-            propagator,
-            physical_potential,
-            mut exchange_potential,
-            thermostat,
-            mut positions,
-            mut momenta,
-            mut physical_forces,
-            mut exchange_forces
-        ) in zip_iterators!(
+        let mut leading_iter = zip_iterators!(
             iter::successors(
                 Some((atom_types.first().expect("`types` should contain at least one type"), 0)),
                 |&(atom_type, group)| {
@@ -839,7 +840,24 @@ fn run<
             leading_momenta,
             leading_physical_forces,
             leading_exchange_forces
-        ) {
+        );
+
+        for zip_items!(
+            (atom_type, group),
+            adder,
+            multiplier,
+            mut quantum_observables,
+            mut debug_observables,
+            propagator,
+            physical_potential,
+            mut exchange_potential,
+            thermostat,
+            mut positions,
+            mut momenta,
+            mut physical_forces,
+            mut exchange_forces
+        ) in leading_iter.by_ref().take(index_smallest_group)
+        {
             s.spawn::<_, Result<_, Err>>(move || {
                 for step in 0..steps {
                     run_step_leading_group(
@@ -861,21 +879,152 @@ fn run<
                         &mut physical_forces,
                         &mut exchange_forces,
                     )?;
+
+                    barrier.wait();
                 }
+                Ok(())
+            });
+        }
+
+        {
+            let zip_items!(
+                (atom_type, group),
+                adder,
+                multiplier,
+                mut quantum_observables,
+                mut debug_observables,
+                propagator,
+                physical_potential,
+                mut exchange_potential,
+                thermostat,
+                mut positions,
+                mut momenta,
+                mut physical_forces,
+                mut exchange_forces
+            ) = leading_iter
+                .next()
+                .expect("The number of groups is greater than the index of the smalles one");
+            s.spawn::<_, Result<_, Err>>(move || {
+                for step in 0..steps {
+                    run_step_leading_group(
+                        step,
+                        barrier,
+                        shared_value,
+                        atom_type,
+                        group,
+                        adder,
+                        multiplier,
+                        quantum_observables.as_deref_mut(),
+                        debug_observables.as_deref_mut(),
+                        propagator,
+                        physical_potential,
+                        exchange_potential.as_deref_mut(),
+                        thermostat,
+                        &mut positions,
+                        &mut momenta,
+                        &mut physical_forces,
+                        &mut exchange_forces,
+                    )?;
+
+                    if let Some(positions_out) = leading_positions_out.as_deref_mut() {
+                        positions_out.write(
+                            step,
+                            &positions
+                                .read()
+                                .read_image()
+                                .map_err(|_| CommError::Leading { group })?,
+                        )?;
+                    }
+                    if let Some(momenta_out) = leading_momenta_out.as_deref_mut() {
+                        momenta_out.write(
+                            step,
+                            &momenta.read().read_image().map_err(|_| CommError::Leading { group })?,
+                        )?;
+                    }
+                    if let Some(physical_forces_out) = leading_physical_forces_out.as_deref_mut() {
+                        physical_forces_out.write(
+                            step,
+                            &physical_forces
+                                .read()
+                                .read_image()
+                                .map_err(|_| CommError::Leading { group })?,
+                        )?;
+                    }
+                    if let Some(exchange_forces_out) = leading_exchange_forces_out.as_deref_mut() {
+                        exchange_forces_out.write(
+                            step,
+                            &exchange_forces
+                                .read()
+                                .read_image()
+                                .map_err(|_| CommError::Leading { group })?,
+                        )?;
+                    }
+
+                    barrier.wait();
+                }
+                Ok(())
+            });
+        }
+
+        for zip_items!(
+            (atom_type, group),
+            adder,
+            multiplier,
+            mut quantum_observables,
+            mut debug_observables,
+            propagator,
+            physical_potential,
+            mut exchange_potential,
+            thermostat,
+            mut positions,
+            mut momenta,
+            mut physical_forces,
+            mut exchange_forces
+        ) in leading_iter
+        {
+            s.spawn::<_, Result<_, Err>>(move || {
+                for step in 0..steps {
+                    run_step_leading_group(
+                        step,
+                        barrier,
+                        shared_value,
+                        atom_type,
+                        group,
+                        adder,
+                        multiplier,
+                        quantum_observables.as_deref_mut(),
+                        debug_observables.as_deref_mut(),
+                        propagator,
+                        physical_potential,
+                        exchange_potential.as_deref_mut(),
+                        thermostat,
+                        &mut positions,
+                        &mut momenta,
+                        &mut physical_forces,
+                        &mut exchange_forces,
+                    )?;
+
+                    barrier.wait();
+                }
+
                 Ok(())
             });
         }
 
         let mut inner_quantum_observables_iter = inner_quantum_observables
             .as_deref_mut()
-            .map(|observables| observables.chunks_exact_mut(groups * n_quantum_observables));
+            .map(|observables| observables.chunks_exact_mut(groups_sizes.len() * n_quantum_observables));
         let mut inner_debug_observables_iter = inner_debug_observables
             .as_deref_mut()
-            .map(|observables| observables.chunks_exact_mut(groups * n_debug_observables));
+            .map(|observables| observables.chunks_exact_mut(groups_sizes.len() * n_debug_observables));
         for zip_items!(
             image,
             inner_adders,
             inner_multipliers,
+            mut inner_positions_out,
+            mut inner_momenta_out,
+            mut inner_physical_forces_out,
+            mut inner_exchange_forces_out,
             inner_quantum_observables,
             inner_debug_observables,
             inner_propagators,
@@ -890,6 +1039,30 @@ fn run<
             1..=inner_images,
             inner_adders_iter,
             inner_multipliers_iter,
+            iter::from_fn(|| {
+                match &mut inner_positions_out_iter {
+                    Some(iter) => iter.next().map(Some),
+                    None => Some(None),
+                }
+            }),
+            iter::from_fn(|| {
+                match &mut inner_momenta_out_iter {
+                    Some(iter) => iter.next().map(Some),
+                    None => Some(None),
+                }
+            }),
+            iter::from_fn(|| {
+                match &mut inner_physical_forces_out_iter {
+                    Some(iter) => iter.next().map(Some),
+                    None => Some(None),
+                }
+            }),
+            iter::from_fn(|| {
+                match &mut inner_exchange_forces_out_iter {
+                    Some(iter) => iter.next().map(Some),
+                    None => Some(None),
+                }
+            }),
             iter::from_fn(|| {
                 match &mut inner_quantum_observables_iter {
                     Some(iter) => iter.next().map(Some),
@@ -916,21 +1089,7 @@ fn run<
                 inner_quantum_observables.map(|observables| observables.chunks_exact_mut(n_quantum_observables));
             let mut debug_observables_iter =
                 inner_debug_observables.map(|observables| observables.chunks_exact_mut(n_debug_observables));
-            for zip_items!(
-                (atom_type, group),
-                adder,
-                multiplier,
-                mut quantum_observables,
-                mut debug_observables,
-                propagator,
-                physical_potential,
-                mut exchange_potential,
-                thermostat,
-                mut positions,
-                mut momenta,
-                mut physical_forces,
-                mut exchange_forces
-            ) in zip_iterators!(
+            let mut inner_iter = zip_iterators!(
                 iter::successors(
                     Some((atom_types.first().expect("`types` should contain at least one type"), 0)),
                     |&(atom_type, group)| {
@@ -964,7 +1123,24 @@ fn run<
                 inner_momenta,
                 inner_physical_forces,
                 inner_exchange_forces
-            ) {
+            );
+
+            for zip_items!(
+                (atom_type, group),
+                adder,
+                multiplier,
+                mut quantum_observables,
+                mut debug_observables,
+                propagator,
+                physical_potential,
+                mut exchange_potential,
+                thermostat,
+                mut positions,
+                mut momenta,
+                mut physical_forces,
+                mut exchange_forces
+            ) in inner_iter.by_ref().take(index_smallest_group)
+            {
                 s.spawn::<_, Result<_, Err>>(move || {
                     for step in 0..steps {
                         run_step_inner_group(
@@ -987,6 +1163,135 @@ fn run<
                             &mut physical_forces,
                             &mut exchange_forces,
                         )?;
+
+                        barrier.wait();
+                    }
+                    Ok(())
+                });
+            }
+
+            {
+                let zip_items!(
+                    (atom_type, group),
+                    adder,
+                    multiplier,
+                    mut quantum_observables,
+                    mut debug_observables,
+                    propagator,
+                    physical_potential,
+                    mut exchange_potential,
+                    thermostat,
+                    mut positions,
+                    mut momenta,
+                    mut physical_forces,
+                    mut exchange_forces
+                ) = inner_iter
+                    .next()
+                    .expect("The number of groups is greater than the index of the smalles one");
+
+                s.spawn::<_, Result<_, Err>>(move || {
+                    for step in 0..steps {
+                        run_step_inner_group(
+                            step,
+                            barrier,
+                            shared_value,
+                            image,
+                            atom_type,
+                            group,
+                            adder,
+                            multiplier,
+                            quantum_observables.as_deref_mut(),
+                            debug_observables.as_deref_mut(),
+                            propagator,
+                            physical_potential,
+                            exchange_potential.as_deref_mut(),
+                            thermostat,
+                            &mut positions,
+                            &mut momenta,
+                            &mut physical_forces,
+                            &mut exchange_forces,
+                        )?;
+
+                        if let Some(positions_out) = inner_positions_out.as_deref_mut() {
+                            positions_out.write(
+                                step,
+                                &positions
+                                    .read()
+                                    .read_image()
+                                    .map_err(|_| CommError::Leading { group })?,
+                            )?;
+                        }
+                        if let Some(momenta_out) = inner_momenta_out.as_deref_mut() {
+                            momenta_out.write(
+                                step,
+                                &momenta.read().read_image().map_err(|_| CommError::Leading { group })?,
+                            )?;
+                        }
+                        if let Some(physical_forces_out) = inner_physical_forces_out.as_deref_mut() {
+                            physical_forces_out.write(
+                                step,
+                                &physical_forces
+                                    .read()
+                                    .read_image()
+                                    .map_err(|_| CommError::Leading { group })?,
+                            )?;
+                        }
+                        if let Some(exchange_forces_out) = inner_exchange_forces_out.as_deref_mut() {
+                            exchange_forces_out.write(
+                                step,
+                                &exchange_forces
+                                    .read()
+                                    .read_image()
+                                    .map_err(|_| CommError::Leading { group })?,
+                            )?;
+                        }
+
+                        barrier.wait();
+                    }
+                    Ok(())
+                });
+            }
+
+            for zip_items!(
+                (atom_type, group),
+                adder,
+                multiplier,
+                mut quantum_observables,
+                mut debug_observables,
+                propagator,
+                physical_potential,
+                mut exchange_potential,
+                thermostat,
+                mut positions,
+                mut momenta,
+                mut physical_forces,
+                mut exchange_forces
+            ) in inner_iter
+            {
+                s.spawn::<_, Result<_, Err>>(move || {
+                    for step in 0..steps {
+                        run_step_inner_group(
+                            step,
+                            barrier,
+                            shared_value,
+                            image,
+                            atom_type,
+                            group,
+                            adder,
+                            multiplier,
+                            quantum_observables.as_deref_mut(),
+                            debug_observables.as_deref_mut(),
+                            propagator,
+                            physical_potential,
+                            exchange_potential.as_deref_mut(),
+                            thermostat,
+                            &mut positions,
+                            &mut momenta,
+                            &mut physical_forces,
+                            &mut exchange_forces,
+                        )?;
+
+                        barrier.wait();
                     }
                     Ok(())
                 });
@@ -1000,21 +1305,7 @@ fn run<
         let mut trailing_debug_observables_iter = trailing_debug_observables
             .as_deref_mut()
             .map(|observables| observables.chunks_exact_mut(n_debug_observables));
-        for zip_items!(
-            (atom_type, group),
-            adder,
-            multiplier,
-            mut quantum_observables,
-            mut debug_observables,
-            propagator,
-            physical_potential,
-            mut exchange_potential,
-            thermostat,
-            mut positions,
-            mut momenta,
-            mut physical_forces,
-            mut exchange_forces
-        ) in zip_iterators!(
+        let mut trailing_iter = zip_iterators!(
             iter::successors(
                 Some((atom_types.first().expect("`types` should contain at least one type"), 0)),
                 |&(atom_type, group)| {
@@ -1048,7 +1339,24 @@ fn run<
             trailing_momenta,
             trailing_physical_forces,
             trailing_exchange_forces
-        ) {
+        );
+
+        for zip_items!(
+            (atom_type, group),
+            adder,
+            multiplier,
+            mut quantum_observables,
+            mut debug_observables,
+            propagator,
+            physical_potential,
+            mut exchange_potential,
+            thermostat,
+            mut positions,
+            mut momenta,
+            mut physical_forces,
+            mut exchange_forces
+        ) in trailing_iter.by_ref().take(index_smallest_group)
+        {
             s.spawn::<_, Result<_, Err>>(move || {
                 for step in 0..steps {
                     run_step_trailing_group(
@@ -1070,7 +1378,137 @@ fn run<
                         &mut physical_forces,
                         &mut exchange_forces,
                     )?;
+
+                    barrier.wait();
                 }
+
+                Ok(())
+            });
+        }
+
+        {
+            let zip_items!(
+                (atom_type, group),
+                adder,
+                multiplier,
+                mut quantum_observables,
+                mut debug_observables,
+                propagator,
+                physical_potential,
+                mut exchange_potential,
+                thermostat,
+                mut positions,
+                mut momenta,
+                mut physical_forces,
+                mut exchange_forces
+            ) = trailing_iter
+                .next()
+                .expect("The number of groups is greater than the index of the smalles one");
+
+            s.spawn::<_, Result<_, Err>>(move || {
+                for step in 0..steps {
+                    run_step_trailing_group(
+                        step,
+                        barrier,
+                        shared_value,
+                        atom_type,
+                        group,
+                        adder,
+                        multiplier,
+                        quantum_observables.as_deref_mut(),
+                        debug_observables.as_deref_mut(),
+                        propagator,
+                        physical_potential,
+                        exchange_potential.as_deref_mut(),
+                        thermostat,
+                        &mut positions,
+                        &mut momenta,
+                        &mut physical_forces,
+                        &mut exchange_forces,
+                    )?;
+
+                    if let Some(positions_out) = trailing_positions_out.as_deref_mut() {
+                        positions_out.write(
+                            step,
+                            &positions
+                                .read()
+                                .read_image()
+                                .map_err(|_| CommError::Leading { group })?,
+                        )?;
+                    }
+                    if let Some(momenta_out) = trailing_momenta_out.as_deref_mut() {
+                        momenta_out.write(
+                            step,
+                            &momenta.read().read_image().map_err(|_| CommError::Leading { group })?,
+                        )?;
+                    }
+                    if let Some(physical_forces_out) = trailing_physical_forces_out.as_deref_mut() {
+                        physical_forces_out.write(
+                            step,
+                            &physical_forces
+                                .read()
+                                .read_image()
+                                .map_err(|_| CommError::Leading { group })?,
+                        )?;
+                    }
+                    if let Some(exchange_forces_out) = trailing_exchange_forces_out.as_deref_mut() {
+                        exchange_forces_out.write(
+                            step,
+                            &exchange_forces
+                                .read()
+                                .read_image()
+                                .map_err(|_| CommError::Leading { group })?,
+                        )?;
+                    }
+
+                    barrier.wait();
+                }
+
+                Ok(())
+            });
+        }
+
+        for zip_items!(
+            (atom_type, group),
+            adder,
+            multiplier,
+            mut quantum_observables,
+            mut debug_observables,
+            propagator,
+            physical_potential,
+            mut exchange_potential,
+            thermostat,
+            mut positions,
+            mut momenta,
+            mut physical_forces,
+            mut exchange_forces
+        ) in trailing_iter
+        {
+            s.spawn::<_, Result<_, Err>>(move || {
+                for step in 0..steps {
+                    run_step_trailing_group(
+                        step,
+                        barrier,
+                        shared_value,
+                        atom_type,
+                        group,
+                        adder,
+                        multiplier,
+                        quantum_observables.as_deref_mut(),
+                        debug_observables.as_deref_mut(),
+                        propagator,
+                        physical_potential,
+                        exchange_potential.as_deref_mut(),
+                        thermostat,
+                        &mut positions,
+                        &mut momenta,
+                        &mut physical_forces,
+                        &mut exchange_forces,
+                    )?;
+
+                    barrier.wait();
+                }
+
                 Ok(())
             });
         }
@@ -1151,9 +1589,10 @@ fn run<
                 }
                 _ => panic!("Nonsensical output combination"),
             }
+
             barrier.wait();
         }
 
-        todo!()
+        Ok(())
     })
 }

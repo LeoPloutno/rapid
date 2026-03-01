@@ -16,7 +16,7 @@ pub(crate) struct InnerArc<T: ?Sized> {
 
 impl<T: ?Sized> InnerArc<T> {
     const SHARED_COUNTER_ONE: usize = 1;
-    const UNIQUE_COUNTER_ONE: usize = 1 << usize::BITS / 2;
+    const UNIQUE_COUNTER_ONE: usize = 1 << (usize::BITS / 2);
     const SHARED_COUNTER_MAX: usize = {
         let mut accum = 0;
         let mut i = 0;
@@ -26,7 +26,7 @@ impl<T: ?Sized> InnerArc<T> {
         }
         accum
     };
-    const UNIQUE_COUNTER_MAX: usize = Self::SHARED_COUNTER_MAX << usize::BITS / 2;
+    const UNIQUE_COUNTER_MAX: usize = Self::SHARED_COUNTER_MAX << (usize::BITS / 2);
 
     pub(crate) const unsafe fn from_lock(lock: NonNull<InnerRwLock<T>>) -> (NonNull<Self>, Layout) {
         let (layout, offset) = match Layout::new::<AtomicUsize>()

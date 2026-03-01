@@ -1,4 +1,3 @@
-use atomic_wait;
 use std::{
     hint, process,
     sync::atomic::{self, AtomicU32, Ordering},
@@ -12,7 +11,7 @@ impl Lock {
     const EMPTY: u32 = 0;
     const WRITE_FLAG: u32 = 1;
     const COUNTER_ONE: u32 = 1 << Self::WRITE_FLAG.trailing_ones();
-    const COUNTER_MASK: u32 = !0 & !Self::WRITE_FLAG;
+    const COUNTER_MASK: u32 = !Self::WRITE_FLAG;
     const COUNTER_MAX: u32 = Self::COUNTER_MASK >> Self::COUNTER_MASK.trailing_zeros();
 
     /// Constructs an unlocked `Lock`.

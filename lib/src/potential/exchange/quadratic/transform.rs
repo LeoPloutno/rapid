@@ -14,7 +14,6 @@ pub trait LeadingNormalModesTransform<T, V> {
 
     /// Transforms the positions of the type in all images
     /// into the normal modes delegated to the first image.
-    #[must_use]
     fn cartesian_to_normal_modes(
         &mut self,
         images_type_positions: &ElementRwLock<GroupImageHandle<V>>,
@@ -23,7 +22,6 @@ pub trait LeadingNormalModesTransform<T, V> {
 
     /// Transforms all normal modes of the type into the positions
     /// of this group in the first image.
-    #[must_use]
     fn normal_modes_to_cartesian(
         &mut self,
         images_normal_modes: &ElementRwLock<UniqueArcSliceRwLock<V>>,
@@ -44,7 +42,6 @@ pub trait InnerNormalModesTransform<T, V> {
 
     /// Transforms the positions of this group in all images
     /// into the normal modes delegated to this image.
-    #[must_use]
     fn cartesian_to_normal_modes(
         &mut self,
         images_type_positions: &ElementRwLock<GroupImageHandle<V>>,
@@ -53,7 +50,6 @@ pub trait InnerNormalModesTransform<T, V> {
 
     /// Transforms all normal modes of this group into the positions
     /// of this group in this image.
-    #[must_use]
     fn normal_modes_to_cartesian(
         &mut self,
         images_normal_modes: &ElementRwLock<UniqueArcSliceRwLock<V>>,
@@ -74,7 +70,6 @@ pub trait TrailingNormalModesTransform<T, V> {
 
     /// Transforms the positions of this group in all images
     /// into the normal modes delegated to the last image.
-    #[must_use]
     fn cartesian_to_normal_modes(
         &mut self,
         images_type_positions: &ElementRwLock<GroupImageHandle<V>>,
@@ -83,7 +78,6 @@ pub trait TrailingNormalModesTransform<T, V> {
 
     /// Transforms all normal modes of this group into the positions
     /// of this group in the last image.
-    #[must_use]
     fn normal_modes_to_cartesian(
         &mut self,
         images_normal_modes: &ElementRwLock<UniqueArcSliceRwLock<V>>,

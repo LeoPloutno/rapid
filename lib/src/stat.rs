@@ -14,8 +14,8 @@ impl<D, B> Stat<D, B> {
         B: Deref,
     {
         match self {
-            Self::Distinguishable(dist) => Stat::Distinguishable(&*dist),
-            Self::Bosonic(boson) => Stat::Bosonic(&*boson),
+            Self::Distinguishable(dist) => Stat::Distinguishable(dist),
+            Self::Bosonic(boson) => Stat::Bosonic(boson),
         }
     }
 
@@ -25,8 +25,8 @@ impl<D, B> Stat<D, B> {
         B: DerefMut,
     {
         match self {
-            Self::Distinguishable(dist) => Stat::Distinguishable(&mut *dist),
-            Self::Bosonic(boson) => Stat::Bosonic(&mut *boson),
+            Self::Distinguishable(dist) => Stat::Distinguishable(dist),
+            Self::Bosonic(boson) => Stat::Bosonic(boson),
         }
     }
 }

@@ -10,7 +10,6 @@ where
     type Error;
 
     /// Write the coordinates of the atoms in all groups to the stream.
-    #[must_use]
     fn write(&mut self, step: usize, vectors: &[GroupTypeHandle<V>]) -> Result<(), Self::Error>;
 }
 
@@ -21,7 +20,6 @@ where
     type Input;
     type Error: From<E>;
 
-    #[must_use]
     fn write(
         &mut self,
         step: usize,
@@ -32,13 +30,10 @@ where
 pub trait ObservableOutput<T> {
     type Error;
 
-    #[must_use]
     fn write_step(&mut self, step: usize) -> Result<(), Self::Error>;
 
-    #[must_use]
     fn write_observable(&mut self, value: T) -> Result<(), Self::Error>;
 
-    #[must_use]
     fn new_line(&mut self) -> Result<(), Self::Error>;
 }
 
@@ -74,12 +69,9 @@ impl<S: DerefMut> ObservableStreamOption<S> {
     pub fn as_deref_mut(&mut self) -> ObservableStreamOption<&mut <S as Deref>::Target> {
         match self {
             Self::None => ObservableStreamOption::None,
-            Self::One(s) => ObservableStreamOption::One(&mut *s),
-            Self::Shared(s) => ObservableStreamOption::Shared(&mut *s),
-            Self::Separate { quantum, debug } => ObservableStreamOption::Separate {
-                quantum: &mut *quantum,
-                debug: &mut *debug,
-            },
+            Self::One(s) => ObservableStreamOption::One(s),
+            Self::Shared(s) => ObservableStreamOption::Shared(s),
+            Self::Separate { quantum, debug } => ObservableStreamOption::Separate { quantum, debug },
         }
     }
 }
@@ -95,19 +87,13 @@ impl<Q, D, S> ObservableOutputOption<Q, D, S> {
     {
         match self {
             Self::None => ObservableOutputOption::None,
-            Self::Quantum(Observables { observables, stream }) => ObservableOutputOption::Quantum(Observables {
-                observables: &mut *observables,
-                stream: &mut *stream,
-            }),
-            Self::Debug(Observables { observables, stream }) => ObservableOutputOption::Debug(Observables {
-                observables: &mut *observables,
-                stream: &mut *stream,
-            }),
-            Self::Shared { quantum, debug, stream } => ObservableOutputOption::Shared {
-                quantum: &mut *quantum,
-                debug: &mut *debug,
-                stream: &mut *stream,
-            },
+            Self::Quantum(Observables { observables, stream }) => {
+                ObservableOutputOption::Quantum(Observables { observables, stream })
+            }
+            Self::Debug(Observables { observables, stream }) => {
+                ObservableOutputOption::Debug(Observables { observables, stream })
+            }
+            Self::Shared { quantum, debug, stream } => ObservableOutputOption::Shared { quantum, debug, stream },
             Self::Separate {
                 quantum:
                     Observables {
@@ -121,12 +107,12 @@ impl<Q, D, S> ObservableOutputOption<Q, D, S> {
                     },
             } => ObservableOutputOption::Separate {
                 quantum: Observables {
-                    observables: &mut *quantum_observables,
-                    stream: &mut *quantum_stream,
+                    observables: quantum_observables,
+                    stream: quantum_stream,
                 },
                 debug: Observables {
-                    observables: &mut *debug_observables,
-                    stream: &mut *debug_stream,
+                    observables: debug_observables,
+                    stream: debug_stream,
                 },
             },
         }

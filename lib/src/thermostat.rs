@@ -14,7 +14,7 @@ pub trait Thermostat<T, V> {
     ///
     /// Returns the contribution of this group in this image to the
     /// change in the internal energy of the system.
-    #[must_use]
+    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn thermalize(
         &mut self,
         step: usize,

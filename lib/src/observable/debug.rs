@@ -20,7 +20,6 @@ where
     /// Calculates the quantity.
     ///
     /// Returns an error if a synchronization failure occurs.
-    #[must_use]
     fn calculate(&mut self, adder: &mut Adder, multiplier: &mut Multiplier) -> Result<Self::Output, Self::Error>;
 }
 
@@ -40,7 +39,6 @@ where
     /// to the quantity and sends it to a `MainDebugObservable`.
     ///
     /// Returns an error if a synchronization failure occurs.
-    #[must_use]
     fn calculate(
         &mut self,
         exchange_potential: Stat<&Dist, &Boson>,
@@ -72,7 +70,6 @@ where
     /// to the quantity and sends it to a `MainDebugObservable`.
     ///
     /// Returns an error if a synchronization failure occurs.
-    #[must_use]
     fn calculate(
         &mut self,
         exchange_potential: Stat<&Dist, &Boson>,
@@ -104,7 +101,6 @@ where
     /// to the quantity and sends it to a `MainDebugObservable`.
     ///
     /// Returns an error if a synchronization failure occurs.
-    #[must_use]
     fn calculate(
         &mut self,
         exchange_potential: Stat<&Dist, &Boson>,

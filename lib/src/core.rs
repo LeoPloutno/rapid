@@ -78,7 +78,8 @@ pub trait Factory<'a, T> {
     fn produce(
         &'a mut self,
         inner_images: usize,
-        groups: &[AtomType<T>],
+        atom_types: &[AtomType<T>],
+        groups_sizes: &[usize],
     ) -> (Self::LeadingIter, Self::InnerIter, Self::TrailingIter);
 }
 
@@ -94,7 +95,8 @@ pub trait FullFactory<'a, T> {
     fn produce(
         &'a mut self,
         inner_images: usize,
-        groups: &[AtomType<T>],
+        atom_types: &[AtomType<T>],
+        groups_sizes: &[usize],
     ) -> (Self::Main, Self::LeadingIter, Self::InnerIter, Self::TrailingIter);
 }
 
