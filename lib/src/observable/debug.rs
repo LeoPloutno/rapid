@@ -1,8 +1,6 @@
 use crate::{
     core::{GroupImageHandle, GroupTypeHandle},
     marker::{InnerIsLeading, InnerIsTrailing},
-    potential::exchange::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential},
-    stat::{Bosonic, Distinguishable, Stat},
     sync_ops::{SyncAddRecv, SyncAddSend, SyncMulRecv, SyncMulSend},
 };
 
@@ -25,12 +23,10 @@ where
 
 /// A trait for quantities which may be used to debug the simulation,
 /// operating in the first replica for a specific group of atoms.
-pub trait LeadingDebugObservable<T, V, Adder, Multiplier, Dist, Boson>
+pub trait LeadingDebugObservable<T, V, Adder, Multiplier>
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
 {
     type Output;
     type Error;
@@ -41,7 +37,6 @@ where
     /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
-        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -56,12 +51,10 @@ where
 
 /// A trait for quantities which may be used to debug the simulation,
 /// operating in an inner replica for a specific group of atoms.
-pub trait InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson>
+pub trait InnerDebugObservable<T, V, Adder, Multiplier>
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
 {
     type Output;
     type Error;
@@ -72,7 +65,6 @@ where
     /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
-        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -87,12 +79,10 @@ where
 
 /// A trait for quantities which may be used to debug the simulation,
 /// operating in the last replica for a specific group.
-pub trait TrailingDebugObservable<T, V, Adder, Multiplier, Dist, Boson>
+pub trait TrailingDebugObservable<T, V, Adder, Multiplier>
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
 {
     type Output;
     type Error;
@@ -103,7 +93,6 @@ where
     /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
-        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -116,20 +105,17 @@ where
     ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, Adder, Multiplier, Dist, Boson, U> LeadingDebugObservable<T, V, Adder, Multiplier, Dist, Boson> for U
+impl<T, V, Adder, Multiplier, U> LeadingDebugObservable<T, V, Adder, Multiplier> for U
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic + ?Sized,
-    U: InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson> + InnerIsLeading,
+    U: InnerDebugObservable<T, V, Adder, Multiplier> + InnerIsLeading + ?Sized,
 {
-    type Output = <Self as InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson>>::Output;
-    type Error = <Self as InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson>>::Error;
+    type Output = <Self as InnerDebugObservable<T, V, Adder, Multiplier>>::Output;
+    type Error = <Self as InnerDebugObservable<T, V, Adder, Multiplier>>::Error;
 
     fn calculate(
         &mut self,
-        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -142,7 +128,6 @@ where
     ) -> Result<(), Self::Error> {
         InnerDebugObservable::calculate(
             self,
-            exchange_potential,
             adder,
             multiplier,
             physical_potential_energy,
@@ -156,20 +141,17 @@ where
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, Boson, U> TrailingDebugObservable<T, V, Adder, Multiplier, Dist, Boson> for U
+impl<T, V, Adder, Multiplier, U> TrailingDebugObservable<T, V, Adder, Multiplier> for U
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic + ?Sized,
-    U: InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson> + InnerIsTrailing,
+    U: InnerDebugObservable<T, V, Adder, Multiplier> + InnerIsTrailing + ?Sized,
 {
-    type Output = <Self as InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson>>::Output;
-    type Error = <Self as InnerDebugObservable<T, V, Adder, Multiplier, Dist, Boson>>::Error;
+    type Output = <Self as InnerDebugObservable<T, V, Adder, Multiplier>>::Output;
+    type Error = <Self as InnerDebugObservable<T, V, Adder, Multiplier>>::Error;
 
     fn calculate(
         &mut self,
-        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -182,7 +164,6 @@ where
     ) -> Result<(), Self::Error> {
         InnerDebugObservable::calculate(
             self,
-            exchange_potential,
             adder,
             multiplier,
             physical_potential_energy,

@@ -12,17 +12,29 @@ use std::{
 use arc_rw_lock::ElementRwLock;
 
 use crate::{
-    core::{AtomType, CommError, Factory, FullFactory, GroupImageHandle, GroupTypeHandle},
+    core::{AtomType, CommError, Factory, FullFactory, GroupImageHandle, GroupTypeHandle, PropagationScheme},
     observable::{
         debug::{InnerDebugObservable, LeadingDebugObservable, MainDebugObservable, TrailingDebugObservable},
         quantum::{InnerQuantumObservable, LeadingQuantumObservable, MainQuantumObservable, TrailingQuantumObservable},
     },
-    output::{ObservableOutput, ObservableOutputOption, ObservableStreamOption, VectorsOutput},
+    output::{ObservableOutput, ObservableOutputOption, Observables, VectorsOutput},
     potential::{
-        exchange::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential},
+        exchange::{
+            InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
+            quadratic::{
+                InnerQuadraticExpansionExchangePotential, LeadingQuadraticExpansionExchangePotential,
+                TrailingQuadraticExpansionExchangePotential,
+            },
+        },
         physical::PhysicalPotential,
     },
-    propagator::{InnerPropagator, LeadingPropagator, TrailingPropagator},
+    propagator::{
+        InnerPropagator, LeadingPropagator, TrailingPropagator,
+        quadratic::{
+            InnerQuadraticExpansionPropagator, LeadingQuadraticExpansionPropagator,
+            TrailingQuadraticExpansionPropagator,
+        },
+    },
     stat::{Bosonic, Distinguishable, Stat},
     stride::StridesMut,
     sync_ops::{SyncAddRecv, SyncAddSend, SyncMulRecv, SyncMulSend},
@@ -52,32 +64,33 @@ fn run<
     MultiplierSender: SyncMulSend<T> + Send + ?Sized,
     CoordOut: VectorsOutput<N, T, V> + ?Sized,
     QObsMain: MainQuantumObservable<T, V, AdderReciever, MultiplierReciever, Output = Output> + Send + ?Sized,
-    QObsLeading: LeadingQuantumObservable<T, V, AdderSender, MultiplierSender, DistLeading, BosonLeading, Output = Output>
-        + Send
-        + ?Sized,
-    QObsInner: InnerQuantumObservable<T, V, AdderSender, MultiplierSender, DistInner, BosonInner, Output = Output> + Send + ?Sized,
-    QObsTrailing: TrailingQuantumObservable<T, V, AdderSender, MultiplierSender, DistTrailing, BosonTrailing, Output = Output>
-        + Send
-        + ?Sized,
+    QObsLeading: LeadingQuantumObservable<T, V, AdderSender, MultiplierSender, Output = Output> + Send + ?Sized,
+    QObsInner: InnerQuantumObservable<T, V, AdderSender, MultiplierSender, Output = Output> + Send + ?Sized,
+    QObsTrailing: TrailingQuantumObservable<T, V, AdderSender, MultiplierSender, Output = Output> + Send + ?Sized,
     DObsMain: MainDebugObservable<T, V, AdderReciever, MultiplierReciever, Output = Output> + ?Sized,
-    DObsLeading: LeadingDebugObservable<T, V, AdderSender, MultiplierSender, DistLeading, BosonLeading, Output = Output>
-        + Send
-        + ?Sized,
-    DObsInner: InnerDebugObservable<T, V, AdderSender, MultiplierSender, DistInner, BosonInner, Output = Output> + Send + ?Sized,
-    DObsTrailing: TrailingDebugObservable<T, V, AdderSender, MultiplierSender, DistTrailing, BosonTrailing, Output = Output>
-        + Send
-        + ?Sized,
+    DObsLeading: LeadingDebugObservable<T, V, AdderSender, MultiplierSender, Output = Output> + Send + ?Sized,
+    DObsInner: InnerDebugObservable<T, V, AdderSender, MultiplierSender, Output = Output> + Send + ?Sized,
+    DObsTrailing: TrailingDebugObservable<T, V, AdderSender, MultiplierSender, Output = Output> + Send + ?Sized,
     ObsOut: ObservableOutput<Output> + ?Sized,
     PropLeading: LeadingPropagator<T, V, Phys, DistLeading, BosonLeading, Therm> + Send + ?Sized,
+    PropLeadingQuad: LeadingQuadraticExpansionPropagator<T, V, Phys, DistLeadingQuad, BosonLeadingQuad, Therm> + Send + ?Sized,
     PropInner: InnerPropagator<T, V, Phys, DistInner, BosonInner, Therm> + Send + ?Sized,
+    PropInnerQuad: InnerQuadraticExpansionPropagator<T, V, Phys, DistInnerQuad, BosonInnerQuad, Therm> + Send + ?Sized,
     PropTrailing: TrailingPropagator<T, V, Phys, DistTrailing, BosonTrailing, Therm> + Send + ?Sized,
+    PropTrailingQuad: TrailingQuadraticExpansionPropagator<T, V, Phys, DistTrailingQuad, BosonTrailingQuad, Therm> + Send + ?Sized,
     Phys: PhysicalPotential<T, V> + Send + ?Sized,
     DistLeading: LeadingExchangePotential<T, V> + Distinguishable + Send + ?Sized,
+    DistLeadingQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + Send + ?Sized,
     DistInner: InnerExchangePotential<T, V> + Distinguishable + Send + ?Sized,
+    DistInnerQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + Send + ?Sized,
     DistTrailing: TrailingExchangePotential<T, V> + Distinguishable + Send + ?Sized,
+    DistTrailingQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + Send + ?Sized,
     BosonLeading: LeadingExchangePotential<T, V> + Bosonic + Send + ?Sized,
+    BosonLeadingQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + Send + ?Sized,
     BosonInner: InnerExchangePotential<T, V> + Bosonic + Send + ?Sized,
+    BosonInnerQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + Send + ?Sized,
     BosonTrailing: TrailingExchangePotential<T, V> + Bosonic + Send + ?Sized,
+    BosonTrailingQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + Send + ?Sized,
     Therm: Thermostat<T, V> + Send + ?Sized,
     Output,
     Err: From<CommError>
@@ -86,8 +99,11 @@ fn run<
         + From<CoordOut::Error>
         + From<ObsOut::Error>
         + From<PropLeading::Error>
+        + From<PropLeadingQuad::Error>
         + From<PropInner::Error>
+        + From<PropInnerQuad::Error>
         + From<PropTrailing::Error>
+        + From<PropTrailingQuad::Error>
         + From<QObsMain::Error>
         + From<QObsLeading::Error>
         + From<QObsInner::Error>
@@ -133,6 +149,44 @@ fn run<
     >,
     exchange_forces_out: Option<
         &mut (impl ExactSizeIterator<Item: DerefMut<Target = CoordOut> + Send> + DoubleEndedIterator + ?Sized),
+    >,
+    propagators_and_exchange_potentials: PropagationScheme<
+        &mut (
+                 impl for<'a> Factory<
+            'a,
+            T,
+            Leading = &'a mut PropLeading,
+            Inner = &'a mut PropInner,
+            Trailing = &'a mut PropTrailing,
+        > + ?Sized
+             ),
+        &mut (
+                 impl for<'a> Factory<
+            'a,
+            T,
+            Leading = &'a mut PropLeadingQuad,
+            Inner = &'a mut PropInnerQuad,
+            Trailing = &'a mut PropTrailingQuad,
+        > + ?Sized
+             ),
+        &mut (
+                 impl for<'a> Factory<
+            'a,
+            T,
+            Leading = Stat<&'a mut DistLeading, &'a mut BosonLeading>,
+            Inner = Stat<&'a mut DistInner, &'a mut BosonInner>,
+            Trailing = Stat<&'a mut DistTrailing, &'a mut BosonTrailing>,
+        > + ?Sized
+             ),
+        &mut (
+                 impl for<'a> Factory<
+            'a,
+            T,
+            Leading = Stat<&'a mut DistLeadingQuad, &'a mut BosonLeadingQuad>,
+            Inner = Stat<&'a mut DistInnerQuad, &'a mut BosonInnerQuad>,
+            Trailing = Stat<&'a mut DistTrailingQuad, &'a mut BosonTrailingQuad>,
+        > + ?Sized
+             ),
     >,
     observables: ObservableOutputOption<
         &mut [impl for<'a> FullFactory<
@@ -223,25 +277,48 @@ fn run<
                                   multiplier: &mut MultiplierSender,
                                   mut quantum_observables: Option<&mut [&mut QObsLeading]>,
                                   mut debug_observables: Option<&mut [&mut DObsLeading]>,
-                                  propagator: &mut PropLeading,
+                                  propagator_and_exchange_potential: PropagationScheme<
+        &mut PropLeading,
+        &mut PropLeadingQuad,
+        Stat<&mut DistLeading, &mut BosonLeading>,
+        Stat<&mut DistLeadingQuad, &mut BosonLeadingQuad>,
+    >,
                                   physical_potential: &mut Phys,
-                                  mut exchange_potential: Stat<&mut DistLeading, &mut BosonLeading>,
                                   thermostat: &mut Therm,
                                   positions: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
                                   momenta: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
                                   physical_forces: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
                                   exchange_forces: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>|
      -> Result<(), Err> {
-        let (group_physical_potential_energy, group_exchange_potential_energy) = propagator.propagate(
-            step,
-            physical_potential,
-            exchange_potential.as_deref_mut(),
-            thermostat,
-            &mut *positions.write(),
-            &mut *momenta.write(),
-            &mut *physical_forces.write(),
-            &mut *exchange_forces.write(),
-        )?;
+        let (group_physical_potential_energy, group_exchange_potential_energy) = match propagator_and_exchange_potential
+        {
+            PropagationScheme::Regular {
+                propagator,
+                mut exchange_potential,
+            } => propagator.propagate(
+                step,
+                physical_potential,
+                exchange_potential.as_deref_mut(),
+                thermostat,
+                &mut *positions.write(),
+                &mut *momenta.write(),
+                &mut *physical_forces.write(),
+                &mut *exchange_forces.write(),
+            )?,
+            PropagationScheme::QuadraticExpansion {
+                propagator,
+                mut exchange_potential,
+            } => propagator.propagate(
+                step,
+                physical_potential,
+                exchange_potential.as_deref_mut(),
+                thermostat,
+                &mut *positions.write(),
+                &mut *momenta.write(),
+                &mut *physical_forces.write(),
+                &mut *exchange_forces.write(),
+            )?,
+        };
 
         let mut iter = momenta
             .read()
@@ -268,7 +345,6 @@ fn run<
         if let Some(observables) = quantum_observables.as_deref_mut() {
             for observable in observables {
                 observable.calculate(
-                    exchange_potential.as_deref(),
                     adder,
                     multiplier,
                     physical_potential_energy.clone(),
@@ -284,7 +360,6 @@ fn run<
         if let Some(observables) = debug_observables.as_deref_mut() {
             for observable in observables {
                 observable.calculate(
-                    exchange_potential.as_deref(),
                     adder,
                     multiplier,
                     physical_potential_energy.clone(),
@@ -312,25 +387,48 @@ fn run<
                                 multiplier: &mut MultiplierSender,
                                 mut quantum_observables: Option<&mut [&mut QObsInner]>,
                                 mut debug_observables: Option<&mut [&mut DObsInner]>,
-                                propagator: &mut PropInner,
+                                propagator_and_exchange_potential: PropagationScheme<
+        &mut PropInner,
+        &mut PropInnerQuad,
+        Stat<&mut DistInner, &mut BosonInner>,
+        Stat<&mut DistInnerQuad, &mut BosonInnerQuad>,
+    >,
                                 physical_potential: &mut Phys,
-                                mut exchange_potential: Stat<&mut DistInner, &mut BosonInner>,
                                 thermostat: &mut Therm,
                                 positions: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
                                 momenta: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
                                 physical_forces: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
                                 exchange_forces: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>|
      -> Result<(), Err> {
-        let (group_physical_potential_energy, group_exchange_potential_energy) = propagator.propagate(
-            step,
-            physical_potential,
-            exchange_potential.as_deref_mut(),
-            thermostat,
-            &mut positions.write(),
-            &mut momenta.write(),
-            &mut physical_forces.write(),
-            &mut exchange_forces.write(),
-        )?;
+        let (group_physical_potential_energy, group_exchange_potential_energy) = match propagator_and_exchange_potential
+        {
+            PropagationScheme::Regular {
+                propagator,
+                mut exchange_potential,
+            } => propagator.propagate(
+                step,
+                physical_potential,
+                exchange_potential.as_deref_mut(),
+                thermostat,
+                &mut *positions.write(),
+                &mut *momenta.write(),
+                &mut *physical_forces.write(),
+                &mut *exchange_forces.write(),
+            )?,
+            PropagationScheme::QuadraticExpansion {
+                propagator,
+                mut exchange_potential,
+            } => propagator.propagate(
+                step,
+                physical_potential,
+                exchange_potential.as_deref_mut(),
+                thermostat,
+                &mut *positions.write(),
+                &mut *momenta.write(),
+                &mut *physical_forces.write(),
+                &mut *exchange_forces.write(),
+            )?,
+        };
 
         let mut iter = momenta
             .read()
@@ -366,7 +464,6 @@ fn run<
         if let Some(observables) = quantum_observables.as_deref_mut() {
             for observable in observables {
                 observable.calculate(
-                    exchange_potential.as_deref(),
                     adder,
                     multiplier,
                     physical_potential_energy.clone(),
@@ -386,7 +483,6 @@ fn run<
         if let Some(observables) = debug_observables.as_deref_mut() {
             for observable in observables {
                 observable.calculate(
-                    exchange_potential.as_deref(),
                     adder,
                     multiplier,
                     physical_potential_energy.clone(),
@@ -417,25 +513,48 @@ fn run<
                                    multiplier: &mut MultiplierSender,
                                    mut quantum_observables: Option<&mut [&mut QObsTrailing]>,
                                    mut debug_observables: Option<&mut [&mut DObsTrailing]>,
-                                   propagator: &mut PropTrailing,
+                                   propagator_and_exchange_potential: PropagationScheme<
+        &mut PropTrailing,
+        &mut PropTrailingQuad,
+        Stat<&mut DistTrailing, &mut BosonTrailing>,
+        Stat<&mut DistTrailingQuad, &mut BosonTrailingQuad>,
+    >,
                                    physical_potential: &mut Phys,
-                                   mut exchange_potential: Stat<&mut DistTrailing, &mut BosonTrailing>,
                                    thermostat: &mut Therm,
                                    positions: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
                                    momenta: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
                                    physical_forces: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
                                    exchange_forces: &mut ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>|
      -> Result<(), Err> {
-        let (group_physical_potential_energy, group_exchange_potential_energy) = propagator.propagate(
-            step,
-            physical_potential,
-            exchange_potential.as_deref_mut(),
-            thermostat,
-            &mut positions.write(),
-            &mut momenta.write(),
-            &mut physical_forces.write(),
-            &mut exchange_forces.write(),
-        )?;
+        let (group_physical_potential_energy, group_exchange_potential_energy) = match propagator_and_exchange_potential
+        {
+            PropagationScheme::Regular {
+                propagator,
+                mut exchange_potential,
+            } => propagator.propagate(
+                step,
+                physical_potential,
+                exchange_potential.as_deref_mut(),
+                thermostat,
+                &mut *positions.write(),
+                &mut *momenta.write(),
+                &mut *physical_forces.write(),
+                &mut *exchange_forces.write(),
+            )?,
+            PropagationScheme::QuadraticExpansion {
+                propagator,
+                mut exchange_potential,
+            } => propagator.propagate(
+                step,
+                physical_potential,
+                exchange_potential.as_deref_mut(),
+                thermostat,
+                &mut *positions.write(),
+                &mut *momenta.write(),
+                &mut *physical_forces.write(),
+                &mut *exchange_forces.write(),
+            )?,
+        };
 
         let mut iter = momenta
             .read()
@@ -462,7 +581,6 @@ fn run<
         if let Some(observables) = quantum_observables.as_deref_mut() {
             for observable in observables {
                 observable.calculate(
-                    exchange_potential.as_deref(),
                     adder,
                     multiplier,
                     physical_potential_energy.clone(),
@@ -478,7 +596,6 @@ fn run<
         if let Some(observables) = debug_observables.as_deref_mut() {
             for observable in observables {
                 observable.calculate(
-                    exchange_potential.as_deref(),
                     adder,
                     multiplier,
                     physical_potential_energy.clone(),
@@ -573,156 +690,208 @@ fn run<
             (None, None, None)
         };
 
-    let (quantum_observables, debug_observables, mut streams) = observables.split();
-
-    let (
-        n_quantum_observables,
-        mut main_quantum_observables,
-        mut leading_quantum_observables,
-        mut inner_quantum_observables,
-        mut trailing_quantum_observables,
-    ) = if let Some(observables) = quantum_observables {
-        let n_observables = observables.len();
-        let mut uninit_main_observables = Box::new_uninit_slice(n_observables);
-        let mut uninit_leading_observables = Box::new_uninit_slice(groups_sizes.len() * n_observables);
-        let mut uninit_inner_observables = Box::new_uninit_slice(groups_sizes.len() * inner_images * n_observables);
-        let mut uninit_trailing_observables = Box::new_uninit_slice(groups_sizes.len() * n_observables);
-        for zip_items!(
-            observable,
-            uninit_main_observable,
-            uninit_leading_observables,
-            mut uninit_inner_observables,
-            uninit_trailing_observables
-        ) in zip_iterators!(
-            observables.iter_mut(),
-            uninit_main_observables.iter_mut(),
-            StridesMut::from_slice(&mut uninit_leading_observables, n_observables),
-            StridesMut::from_slice(&mut uninit_inner_observables, n_observables),
-            StridesMut::from_slice(&mut uninit_trailing_observables, n_observables)
-        ) {
-            let (main_observable, leading_observables, inner_observables_iter, trailing_observables) =
-                observable.produce(inner_images, atom_types, groups_sizes);
-
-            assert_eq!(leading_observables.len(), groups_sizes.len());
-            assert_eq!(inner_observables_iter.len(), inner_images);
-            assert_eq!(trailing_observables.len(), groups_sizes.len());
-
-            uninit_main_observable.write(main_observable);
-
+    macro_rules! produce_observables {
+        ($observables:expr) => {{
+            let n_observables = $observables.len();
+            let mut uninit_main_observables = Box::new_uninit_slice(n_observables);
+            let mut uninit_leading_observables = Box::new_uninit_slice(groups_sizes.len() * n_observables);
+            let mut uninit_inner_observables = Box::new_uninit_slice(groups_sizes.len() * inner_images * n_observables);
+            let mut uninit_trailing_observables = Box::new_uninit_slice(groups_sizes.len() * n_observables);
             for zip_items!(
-                uninit_leading_observable,
-                uninit_trailing_observable,
-                leading_observable,
-                trailing_observable
-            ) in zip_iterators!(
+                observable,
+                uninit_main_observable,
                 uninit_leading_observables,
-                uninit_trailing_observables,
-                leading_observables,
-                trailing_observables
+                mut uninit_inner_observables,
+                uninit_trailing_observables
+            ) in zip_iterators!(
+                $observables.iter_mut(),
+                uninit_main_observables.iter_mut(),
+                StridesMut::from_slice(&mut uninit_leading_observables, n_observables),
+                StridesMut::from_slice(&mut uninit_inner_observables, n_observables),
+                StridesMut::from_slice(&mut uninit_trailing_observables, n_observables)
             ) {
-                uninit_leading_observable.write(leading_observable);
-                uninit_trailing_observable.write(trailing_observable);
-            }
+                let (main_observable, leading_observables, inner_observables_iter, trailing_observables) =
+                    observable.produce(inner_images, atom_types, groups_sizes);
 
-            for inner_observables in inner_observables_iter {
-                assert_eq!(inner_observables.len(), groups_sizes.len());
+                assert_eq!(leading_observables.len(), groups_sizes.len());
+                assert_eq!(inner_observables_iter.len(), inner_images);
+                assert_eq!(trailing_observables.len(), groups_sizes.len());
 
-                for (uninit_inner_observable, inner_observable) in uninit_inner_observables
-                    .by_ref()
-                    .take(groups_sizes.len())
-                    .zip(inner_observables)
-                {
-                    uninit_inner_observable.write(inner_observable);
+                uninit_main_observable.write(main_observable);
+
+                for zip_items!(
+                    uninit_leading_observable,
+                    uninit_trailing_observable,
+                    leading_observable,
+                    trailing_observable
+                ) in zip_iterators!(
+                    uninit_leading_observables,
+                    uninit_trailing_observables,
+                    leading_observables,
+                    trailing_observables
+                ) {
+                    uninit_leading_observable.write(leading_observable);
+                    uninit_trailing_observable.write(trailing_observable);
+                }
+
+                for inner_observables in inner_observables_iter {
+                    assert_eq!(inner_observables.len(), groups_sizes.len());
+
+                    for (uninit_inner_observable, inner_observable) in uninit_inner_observables
+                        .by_ref()
+                        .take(groups_sizes.len())
+                        .zip(inner_observables)
+                    {
+                        uninit_inner_observable.write(inner_observable);
+                    }
                 }
             }
-        }
-        // SAFETY: Initialized all elements above.
-        unsafe {
-            (
-                n_observables,
-                Some(uninit_main_observables.assume_init()),
-                Some(uninit_leading_observables.assume_init()),
-                Some(uninit_inner_observables.assume_init()),
-                Some(uninit_trailing_observables.assume_init()),
-            )
-        }
-    } else {
-        (0, None, None, None, None)
-    };
+            // SAFETY: Initialized all elements above.
+            unsafe {
+                (
+                    n_observables,
+                    uninit_main_observables.assume_init(),
+                    uninit_leading_observables.assume_init(),
+                    uninit_inner_observables.assume_init(),
+                    uninit_trailing_observables.assume_init(),
+                )
+            }
+        }};
+    }
 
     let (
-        n_debug_observables,
-        mut main_debug_observables,
-        mut leading_debug_observables,
-        mut inner_debug_observables,
-        mut trailing_debug_observables,
-    ) = if let Some(observables) = debug_observables {
-        let n_observables = observables.len();
-        let mut uninit_main_observables = Box::new_uninit_slice(n_observables);
-        let mut uninit_leading_observables = Box::new_uninit_slice(groups_sizes.len() * n_observables);
-        let mut uninit_inner_observables = Box::new_uninit_slice(groups_sizes.len() * inner_images * n_observables);
-        let mut uninit_trailing_observables = Box::new_uninit_slice(groups_sizes.len() * n_observables);
-        for zip_items!(
-            observable,
-            uninit_main_observable,
-            uninit_leading_observables,
-            mut uninit_inner_observables,
-            uninit_trailing_observables
-        ) in zip_iterators!(
-            observables.iter_mut(),
-            uninit_main_observables.iter_mut(),
-            StridesMut::from_slice(&mut uninit_leading_observables, n_observables),
-            StridesMut::from_slice(&mut uninit_inner_observables, n_observables),
-            StridesMut::from_slice(&mut uninit_trailing_observables, n_observables)
-        ) {
-            let (main_observable, leading_observables, inner_observables_iter, trailing_observables) =
-                observable.produce(inner_images, atom_types, groups_sizes);
-
-            assert_eq!(leading_observables.len(), groups_sizes.len());
-            assert_eq!(inner_observables_iter.len(), inner_images);
-            assert_eq!(trailing_observables.len(), groups_sizes.len());
-
-            uninit_main_observable.write(main_observable);
-
-            for zip_items!(
-                uninit_leading_observable,
-                uninit_trailing_observable,
-                leading_observable,
-                trailing_observable
-            ) in zip_iterators!(
-                uninit_leading_observables,
-                uninit_trailing_observables,
-                leading_observables,
-                trailing_observables
-            ) {
-                uninit_leading_observable.write(leading_observable);
-                uninit_trailing_observable.write(trailing_observable);
-            }
-
-            for inner_observables in inner_observables_iter {
-                assert_eq!(inner_observables.len(), groups_sizes.len());
-
-                for (uninit_inner_observable, inner_observable) in uninit_inner_observables
-                    .by_ref()
-                    .take(groups_sizes.len())
-                    .zip(inner_observables)
-                {
-                    uninit_inner_observable.write(inner_observable);
-                }
-            }
-        }
-        // SAFETY: Initialized all elements above.
-        unsafe {
+        mut main_observables,
+        (
+            n_quantum_observables,
+            mut leading_quantum_observables,
+            mut inner_quantum_observables,
+            mut trailing_quantum_observables,
+        ),
+        (
+            n_debug_observables,
+            mut leading_debug_observables,
+            mut inner_debug_observables,
+            mut trailing_debug_observables,
+        ),
+    ) = match observables {
+        ObservableOutputOption::None => (
+            ObservableOutputOption::None,
+            (0, None, None, None),
+            (0, None, None, None),
+        ),
+        ObservableOutputOption::Quantum(Observables { observables, stream }) => {
+            let (n_observables, main_observables, leading_observables, inner_observables, trailing_observables) =
+                produce_observables!(observables);
             (
-                n_observables,
-                Some(uninit_main_observables.assume_init()),
-                Some(uninit_leading_observables.assume_init()),
-                Some(uninit_inner_observables.assume_init()),
-                Some(uninit_trailing_observables.assume_init()),
+                ObservableOutputOption::Quantum(Observables {
+                    observables: main_observables,
+                    stream,
+                }),
+                (
+                    n_observables,
+                    Some(leading_observables),
+                    Some(inner_observables),
+                    Some(trailing_observables),
+                ),
+                (0, None, None, None),
             )
         }
-    } else {
-        (0, None, None, None, None)
+        ObservableOutputOption::Debug(Observables { observables, stream }) => {
+            let (n_observables, main_observables, leading_observables, inner_observables, trailing_observables) =
+                produce_observables!(observables);
+            (
+                ObservableOutputOption::Debug(Observables {
+                    observables: main_observables,
+                    stream,
+                }),
+                (0, None, None, None),
+                (
+                    n_observables,
+                    Some(leading_observables),
+                    Some(inner_observables),
+                    Some(trailing_observables),
+                ),
+            )
+        }
+        ObservableOutputOption::Shared {
+            quantum_observables,
+            debug_observables,
+            stream,
+        } => {
+            let (
+                n_quantum_observables,
+                main_quantum_observables,
+                leading_quantum_observables,
+                inner_quantum_observables,
+                trailing_quantum_observables,
+            ) = produce_observables!(quantum_observables);
+            let (
+                n_debug_observables,
+                main_debug_observables,
+                leading_debug_observables,
+                inner_debug_observables,
+                trailing_debug_observables,
+            ) = produce_observables!(debug_observables);
+            (
+                ObservableOutputOption::Shared {
+                    quantum_observables: main_quantum_observables,
+                    debug_observables: main_debug_observables,
+                    stream,
+                },
+                (
+                    n_quantum_observables,
+                    Some(leading_quantum_observables),
+                    Some(inner_quantum_observables),
+                    Some(trailing_quantum_observables),
+                ),
+                (
+                    n_debug_observables,
+                    Some(leading_debug_observables),
+                    Some(inner_debug_observables),
+                    Some(trailing_debug_observables),
+                ),
+            )
+        }
+        ObservableOutputOption::Separate { quantum, debug } => {
+            let (
+                n_quantum_observables,
+                main_quantum_observables,
+                leading_quantum_observables,
+                inner_quantum_observables,
+                trailing_quantum_observables,
+            ) = produce_observables!(quantum.observables);
+            let (
+                n_debug_observables,
+                main_debug_observables,
+                leading_debug_observables,
+                inner_debug_observables,
+                trailing_debug_observables,
+            ) = produce_observables!(debug.observables);
+            (
+                ObservableOutputOption::Separate {
+                    quantum: Observables {
+                        observables: main_quantum_observables,
+                        stream: quantum.stream,
+                    },
+                    debug: Observables {
+                        observables: main_debug_observables,
+                        stream: debug.stream,
+                    },
+                },
+                (
+                    n_quantum_observables,
+                    Some(leading_quantum_observables),
+                    Some(inner_quantum_observables),
+                    Some(trailing_quantum_observables),
+                ),
+                (
+                    n_debug_observables,
+                    Some(leading_debug_observables),
+                    Some(inner_debug_observables),
+                    Some(trailing_debug_observables),
+                ),
+            )
+        }
     };
 
     let barrier = Barrier::new(inner_images + 3);
@@ -742,6 +911,75 @@ fn run<
     assert_eq!(leading_multipliers.len(), groups_sizes.len());
     assert_eq!(inner_multipliers_iter.len(), inner_images);
     assert_eq!(trailing_multipliers.len(), groups_sizes.len());
+
+    let (
+        mut leading_propagators_and_exchange_potentials,
+        mut inner_propagators_and_exchange_potentials_iter,
+        mut trailing_propagators_and_exchange_potentials,
+    ) = match propagators_and_exchange_potentials {
+        PropagationScheme::Regular {
+            propagator,
+            exchange_potential,
+        } => {
+            let (leading_propagators, inner_propagators_iter, trailing_propagators) =
+                propagator.produce(inner_images, atom_types, groups_sizes);
+            assert_eq!(leading_propagators.len(), groups_sizes.len());
+            assert_eq!(inner_propagators_iter.len(), inner_images);
+            assert_eq!(trailing_propagators.len(), groups_sizes.len());
+
+            let (leading_exchange_potentials, inner_exchange_potentials_iter, trailing_exchange_potentials) =
+                exchange_potential.produce(inner_images, atom_types, groups_sizes);
+            assert_eq!(leading_exchange_potentials.len(), groups_sizes.len());
+            assert_eq!(inner_exchange_potentials_iter.len(), inner_images);
+            assert_eq!(trailing_exchange_potentials.len(), groups_sizes.len());
+
+            (
+                PropagationScheme::Regular {
+                    propagator: leading_propagators,
+                    exchange_potential: leading_exchange_potentials,
+                },
+                PropagationScheme::Regular {
+                    propagator: inner_propagators_iter,
+                    exchange_potential: inner_exchange_potentials_iter,
+                },
+                PropagationScheme::Regular {
+                    propagator: trailing_propagators,
+                    exchange_potential: trailing_exchange_potentials,
+                },
+            )
+        }
+        PropagationScheme::QuadraticExpansion {
+            propagator,
+            exchange_potential,
+        } => {
+            let (leading_propagators, inner_propagators_iter, trailing_propagators) =
+                propagator.produce(inner_images, atom_types, groups_sizes);
+            assert_eq!(leading_propagators.len(), groups_sizes.len());
+            assert_eq!(inner_propagators_iter.len(), inner_images);
+            assert_eq!(trailing_propagators.len(), groups_sizes.len());
+
+            let (leading_exchange_potentials, inner_exchange_potentials_iter, trailing_exchange_potentials) =
+                exchange_potential.produce(inner_images, atom_types, groups_sizes);
+            assert_eq!(leading_exchange_potentials.len(), groups_sizes.len());
+            assert_eq!(inner_exchange_potentials_iter.len(), inner_images);
+            assert_eq!(trailing_exchange_potentials.len(), groups_sizes.len());
+
+            (
+                PropagationScheme::QuadraticExpansion {
+                    propagator: leading_propagators,
+                    exchange_potential: leading_exchange_potentials,
+                },
+                PropagationScheme::QuadraticExpansion {
+                    propagator: inner_propagators_iter,
+                    exchange_potential: inner_exchange_potentials_iter,
+                },
+                PropagationScheme::QuadraticExpansion {
+                    propagator: trailing_propagators,
+                    exchange_potential: trailing_exchange_potentials,
+                },
+            )
+        }
+    };
 
     let (leading_propagators, inner_propagators_iter, trailing_propagators) =
         propagators.produce(inner_images, atom_types, groups_sizes);
@@ -832,9 +1070,31 @@ fn run<
                     None => Some(None),
                 }
             }),
-            leading_propagators,
+            iter::from_fn(|| {
+                match &mut leading_propagators_and_exchange_potentials {
+                    PropagationScheme::Regular {
+                        propagator,
+                        exchange_potential,
+                    } => match (propagator.next(), exchange_potential.next()) {
+                        (Some(propagator), Some(exchange_potential)) => Some(PropagationScheme::Regular {
+                            propagator,
+                            exchange_potential,
+                        }),
+                        _ => None,
+                    },
+                    PropagationScheme::QuadraticExpansion {
+                        propagator,
+                        exchange_potential,
+                    } => match (propagator.next(), exchange_potential.next()) {
+                        (Some(propagator), Some(exchange_potential)) => Some(PropagationScheme::QuadraticExpansion {
+                            propagator,
+                            exchange_potential,
+                        }),
+                        _ => None,
+                    },
+                }
+            }),
             leading_physical_potentials,
-            leading_exchange_potentials,
             leading_thermostats,
             leading_positions,
             leading_momenta,
@@ -848,9 +1108,8 @@ fn run<
             multiplier,
             mut quantum_observables,
             mut debug_observables,
-            propagator,
+            mut propagator_and_exchange_potential,
             physical_potential,
-            mut exchange_potential,
             thermostat,
             mut positions,
             mut momenta,
@@ -870,9 +1129,23 @@ fn run<
                         multiplier,
                         quantum_observables.as_deref_mut(),
                         debug_observables.as_deref_mut(),
-                        propagator,
+                        match &mut propagator_and_exchange_potential {
+                            PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                            PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                        },
                         physical_potential,
-                        exchange_potential.as_deref_mut(),
                         thermostat,
                         &mut positions,
                         &mut momenta,
@@ -893,9 +1166,8 @@ fn run<
                 multiplier,
                 mut quantum_observables,
                 mut debug_observables,
-                propagator,
+                mut propagator_and_exchange_potential,
                 physical_potential,
-                mut exchange_potential,
                 thermostat,
                 mut positions,
                 mut momenta,
@@ -916,9 +1188,23 @@ fn run<
                         multiplier,
                         quantum_observables.as_deref_mut(),
                         debug_observables.as_deref_mut(),
-                        propagator,
+                        match &mut propagator_and_exchange_potential {
+                            PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                            PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                        },
                         physical_potential,
-                        exchange_potential.as_deref_mut(),
                         thermostat,
                         &mut positions,
                         &mut momenta,
@@ -972,9 +1258,8 @@ fn run<
             multiplier,
             mut quantum_observables,
             mut debug_observables,
-            propagator,
+            mut propagator_and_exchange_potential,
             physical_potential,
-            mut exchange_potential,
             thermostat,
             mut positions,
             mut momenta,
@@ -994,9 +1279,23 @@ fn run<
                         multiplier,
                         quantum_observables.as_deref_mut(),
                         debug_observables.as_deref_mut(),
-                        propagator,
+                        match &mut propagator_and_exchange_potential {
+                            PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                            PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                        },
                         physical_potential,
-                        exchange_potential.as_deref_mut(),
                         thermostat,
                         &mut positions,
                         &mut momenta,
@@ -1027,9 +1326,8 @@ fn run<
             mut inner_exchange_forces_out,
             inner_quantum_observables,
             inner_debug_observables,
-            inner_propagators,
+            mut inner_propagators_and_exchange_potentials,
             inner_physical_potentials,
-            inner_exchange_potentials,
             inner_thermostats,
             inner_positions,
             inner_momenta,
@@ -1075,9 +1373,31 @@ fn run<
                     None => Some(None),
                 }
             }),
-            inner_propagators_iter,
+            iter::from_fn(|| {
+                match &mut inner_propagators_and_exchange_potentials_iter {
+                    PropagationScheme::Regular {
+                        propagator,
+                        exchange_potential,
+                    } => match (propagator.next(), exchange_potential.next()) {
+                        (Some(propagator), Some(exchange_potential)) => Some(PropagationScheme::Regular {
+                            propagator,
+                            exchange_potential,
+                        }),
+                        _ => None,
+                    },
+                    PropagationScheme::QuadraticExpansion {
+                        propagator,
+                        exchange_potential,
+                    } => match (propagator.next(), exchange_potential.next()) {
+                        (Some(propagator), Some(exchange_potential)) => Some(PropagationScheme::QuadraticExpansion {
+                            propagator,
+                            exchange_potential,
+                        }),
+                        _ => None,
+                    },
+                }
+            }),
             inner_physical_potentials_iter,
-            inner_exchange_potentials_iter,
             inner_thermostats_iter,
             inner_positions_iter,
             inner_momenta_iter,
@@ -1115,9 +1435,33 @@ fn run<
                         None => Some(None),
                     }
                 }),
-                inner_propagators,
+                iter::from_fn(|| {
+                    match &mut inner_propagators_and_exchange_potentials {
+                        PropagationScheme::Regular {
+                            propagator,
+                            exchange_potential,
+                        } => match (propagator.next(), exchange_potential.next()) {
+                            (Some(propagator), Some(exchange_potential)) => Some(PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential,
+                            }),
+                            _ => None,
+                        },
+                        PropagationScheme::QuadraticExpansion {
+                            propagator,
+                            exchange_potential,
+                        } => match (propagator.next(), exchange_potential.next()) {
+                            (Some(propagator), Some(exchange_potential)) => {
+                                Some(PropagationScheme::QuadraticExpansion {
+                                    propagator,
+                                    exchange_potential,
+                                })
+                            }
+                            _ => None,
+                        },
+                    }
+                }),
                 inner_physical_potentials,
-                inner_exchange_potentials,
                 inner_thermostats,
                 inner_positions,
                 inner_momenta,
@@ -1131,9 +1475,8 @@ fn run<
                 multiplier,
                 mut quantum_observables,
                 mut debug_observables,
-                propagator,
+                mut propagator_and_exchange_potential,
                 physical_potential,
-                mut exchange_potential,
                 thermostat,
                 mut positions,
                 mut momenta,
@@ -1154,9 +1497,23 @@ fn run<
                             multiplier,
                             quantum_observables.as_deref_mut(),
                             debug_observables.as_deref_mut(),
-                            propagator,
+                            match &mut propagator_and_exchange_potential {
+                                PropagationScheme::Regular {
+                                    propagator,
+                                    exchange_potential,
+                                } => PropagationScheme::Regular {
+                                    propagator,
+                                    exchange_potential: exchange_potential.as_deref_mut(),
+                                },
+                                PropagationScheme::QuadraticExpansion {
+                                    propagator,
+                                    exchange_potential,
+                                } => PropagationScheme::QuadraticExpansion {
+                                    propagator,
+                                    exchange_potential: exchange_potential.as_deref_mut(),
+                                },
+                            },
                             physical_potential,
-                            exchange_potential.as_deref_mut(),
                             thermostat,
                             &mut positions,
                             &mut momenta,
@@ -1177,9 +1534,8 @@ fn run<
                     multiplier,
                     mut quantum_observables,
                     mut debug_observables,
-                    propagator,
+                    mut propagator_and_exchange_potential,
                     physical_potential,
-                    mut exchange_potential,
                     thermostat,
                     mut positions,
                     mut momenta,
@@ -1202,9 +1558,23 @@ fn run<
                             multiplier,
                             quantum_observables.as_deref_mut(),
                             debug_observables.as_deref_mut(),
-                            propagator,
+                            match &mut propagator_and_exchange_potential {
+                                PropagationScheme::Regular {
+                                    propagator,
+                                    exchange_potential,
+                                } => PropagationScheme::Regular {
+                                    propagator,
+                                    exchange_potential: exchange_potential.as_deref_mut(),
+                                },
+                                PropagationScheme::QuadraticExpansion {
+                                    propagator,
+                                    exchange_potential,
+                                } => PropagationScheme::QuadraticExpansion {
+                                    propagator,
+                                    exchange_potential: exchange_potential.as_deref_mut(),
+                                },
+                            },
                             physical_potential,
-                            exchange_potential.as_deref_mut(),
                             thermostat,
                             &mut positions,
                             &mut momenta,
@@ -1258,9 +1628,8 @@ fn run<
                 multiplier,
                 mut quantum_observables,
                 mut debug_observables,
-                propagator,
+                mut propagator_and_exchange_potential,
                 physical_potential,
-                mut exchange_potential,
                 thermostat,
                 mut positions,
                 mut momenta,
@@ -1281,9 +1650,23 @@ fn run<
                             multiplier,
                             quantum_observables.as_deref_mut(),
                             debug_observables.as_deref_mut(),
-                            propagator,
+                            match &mut propagator_and_exchange_potential {
+                                PropagationScheme::Regular {
+                                    propagator,
+                                    exchange_potential,
+                                } => PropagationScheme::Regular {
+                                    propagator,
+                                    exchange_potential: exchange_potential.as_deref_mut(),
+                                },
+                                PropagationScheme::QuadraticExpansion {
+                                    propagator,
+                                    exchange_potential,
+                                } => PropagationScheme::QuadraticExpansion {
+                                    propagator,
+                                    exchange_potential: exchange_potential.as_deref_mut(),
+                                },
+                            },
                             physical_potential,
-                            exchange_potential.as_deref_mut(),
                             thermostat,
                             &mut positions,
                             &mut momenta,
@@ -1331,9 +1714,31 @@ fn run<
                     None => Some(None),
                 }
             }),
-            trailing_propagators,
+            iter::from_fn(|| {
+                match &mut trailing_propagators_and_exchange_potentials {
+                    PropagationScheme::Regular {
+                        propagator,
+                        exchange_potential,
+                    } => match (propagator.next(), exchange_potential.next()) {
+                        (Some(propagator), Some(exchange_potential)) => Some(PropagationScheme::Regular {
+                            propagator,
+                            exchange_potential,
+                        }),
+                        _ => None,
+                    },
+                    PropagationScheme::QuadraticExpansion {
+                        propagator,
+                        exchange_potential,
+                    } => match (propagator.next(), exchange_potential.next()) {
+                        (Some(propagator), Some(exchange_potential)) => Some(PropagationScheme::QuadraticExpansion {
+                            propagator,
+                            exchange_potential,
+                        }),
+                        _ => None,
+                    },
+                }
+            }),
             trailing_physical_potentials,
-            trailing_exchange_potentials,
             trailing_thermostats,
             trailing_positions,
             trailing_momenta,
@@ -1347,9 +1752,8 @@ fn run<
             multiplier,
             mut quantum_observables,
             mut debug_observables,
-            propagator,
+            mut propagator_and_exchange_potential,
             physical_potential,
-            mut exchange_potential,
             thermostat,
             mut positions,
             mut momenta,
@@ -1369,9 +1773,23 @@ fn run<
                         multiplier,
                         quantum_observables.as_deref_mut(),
                         debug_observables.as_deref_mut(),
-                        propagator,
+                        match &mut propagator_and_exchange_potential {
+                            PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                            PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                        },
                         physical_potential,
-                        exchange_potential.as_deref_mut(),
                         thermostat,
                         &mut positions,
                         &mut momenta,
@@ -1393,9 +1811,8 @@ fn run<
                 multiplier,
                 mut quantum_observables,
                 mut debug_observables,
-                propagator,
+                mut propagator_and_exchange_potential,
                 physical_potential,
-                mut exchange_potential,
                 thermostat,
                 mut positions,
                 mut momenta,
@@ -1417,9 +1834,23 @@ fn run<
                         multiplier,
                         quantum_observables.as_deref_mut(),
                         debug_observables.as_deref_mut(),
-                        propagator,
+                        match &mut propagator_and_exchange_potential {
+                            PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                            PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                        },
                         physical_potential,
-                        exchange_potential.as_deref_mut(),
                         thermostat,
                         &mut positions,
                         &mut momenta,
@@ -1474,9 +1905,8 @@ fn run<
             multiplier,
             mut quantum_observables,
             mut debug_observables,
-            propagator,
+            mut propagator_and_exchange_potential,
             physical_potential,
-            mut exchange_potential,
             thermostat,
             mut positions,
             mut momenta,
@@ -1496,9 +1926,23 @@ fn run<
                         multiplier,
                         quantum_observables.as_deref_mut(),
                         debug_observables.as_deref_mut(),
-                        propagator,
+                        match &mut propagator_and_exchange_potential {
+                            PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::Regular {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                            PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential,
+                            } => PropagationScheme::QuadraticExpansion {
+                                propagator,
+                                exchange_potential: exchange_potential.as_deref_mut(),
+                            },
+                        },
                         physical_potential,
-                        exchange_potential.as_deref_mut(),
                         thermostat,
                         &mut positions,
                         &mut momenta,
@@ -1531,13 +1975,9 @@ fn run<
             *shared_value.write().map_err(|_| CommError::Main)? = kinetic_energy;
             barrier.wait();
 
-            match (
-                streams.as_deref_mut(),
-                main_quantum_observables.as_deref_mut(),
-                main_debug_observables.as_deref_mut(),
-            ) {
-                (ObservableStreamOption::None, None, None) => {}
-                (ObservableStreamOption::One(stream), Some(observables), None) => {
+            match main_observables.as_deref_mut() {
+                ObservableOutputOption::None => {}
+                ObservableOutputOption::Quantum(Observables { observables, stream }) => {
                     stream.write_step(step)?;
                     for observable in observables {
                         stream.write_observable(observable.calculate(main_adder, main_multiplier)?)?;
@@ -1545,7 +1985,7 @@ fn run<
                     }
                     stream.new_line()?;
                 }
-                (ObservableStreamOption::One(stream), None, Some(observables)) => {
+                ObservableOutputOption::Debug(Observables { observables, stream }) => {
                     stream.write_step(step)?;
                     for observable in observables {
                         stream.write_observable(observable.calculate(main_adder, main_multiplier)?)?;
@@ -1553,7 +1993,11 @@ fn run<
                     }
                     stream.new_line()?;
                 }
-                (ObservableStreamOption::Shared(stream), Some(quantum_observables), Some(debug_observables)) => {
+                ObservableOutputOption::Shared {
+                    quantum_observables,
+                    debug_observables,
+                    stream,
+                } => {
                     stream.write_step(step)?;
                     for observable in quantum_observables {
                         stream.write_observable(observable.calculate(main_adder, main_multiplier)?)?;
@@ -1565,29 +2009,25 @@ fn run<
                     }
                     stream.new_line()?;
                 }
-                (
-                    ObservableStreamOption::Separate {
-                        quantum: quantum_stream,
-                        debug: debug_stream,
-                    },
-                    Some(quantum_observables),
-                    Some(debug_observables),
-                ) => {
-                    quantum_stream.write_step(step)?;
-                    for observable in quantum_observables {
-                        quantum_stream.write_observable(observable.calculate(main_adder, main_multiplier)?)?;
+                ObservableOutputOption::Separate { quantum, debug } => {
+                    quantum.stream.write_step(step)?;
+                    for observable in quantum.observables {
+                        quantum
+                            .stream
+                            .write_observable(observable.calculate(main_adder, main_multiplier)?)?;
                         barrier.wait();
                     }
-                    quantum_stream.new_line()?;
+                    quantum.stream.new_line()?;
 
-                    debug_stream.write_step(step)?;
-                    for observable in debug_observables {
-                        debug_stream.write_observable(observable.calculate(main_adder, main_multiplier)?)?;
+                    debug.stream.write_step(step)?;
+                    for observable in debug.observables {
+                        debug
+                            .stream
+                            .write_observable(observable.calculate(main_adder, main_multiplier)?)?;
                         barrier.wait();
                     }
-                    debug_stream.new_line()?;
+                    debug.stream.new_line()?;
                 }
-                _ => panic!("Nonsensical output combination"),
             }
 
             barrier.wait();

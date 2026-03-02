@@ -42,7 +42,7 @@ pub trait PhysicalPotential<T, V> {
 impl<T, V, U> PhysicalPotential<T, V> for U
 where
     T: Add<Output = T>,
-    U: AtomDecoupledPhysicalPotential<T, V> + GroupRecord,
+    U: AtomDecoupledPhysicalPotential<T, V> + GroupRecord + ?Sized,
 {
     fn calculate_potential_set_forces(&mut self, groups_positions: &[GroupTypeHandle<V>], group_forces: &mut [V]) -> T {
         let mut iter = groups_positions

@@ -48,8 +48,8 @@ pub enum ObservableOutputOption<Q, D, S> {
     Quantum(Observables<Q, S>),
     Debug(Observables<D, S>),
     Shared {
-        quantum: Q,
-        debug: D,
+        quantum_observables: Q,
+        debug_observables: D,
         stream: S,
     },
     Separate {
@@ -58,33 +58,10 @@ pub enum ObservableOutputOption<Q, D, S> {
     },
 }
 
-pub enum ObservableStreamOption<S> {
-    None,
-    One(S),
-    Shared(S),
-    Separate { quantum: S, debug: S },
-}
-
-impl<S: DerefMut> ObservableStreamOption<S> {
-    pub fn as_deref_mut(&mut self) -> ObservableStreamOption<&mut <S as Deref>::Target> {
-        match self {
-            Self::None => ObservableStreamOption::None,
-            Self::One(s) => ObservableStreamOption::One(s),
-            Self::Shared(s) => ObservableStreamOption::Shared(s),
-            Self::Separate { quantum, debug } => ObservableStreamOption::Separate { quantum, debug },
-        }
-    }
-}
-
-impl<Q, D, S> ObservableOutputOption<Q, D, S> {
+impl<Q: DerefMut, D: DerefMut, S: DerefMut> ObservableOutputOption<Q, D, S> {
     pub fn as_deref_mut(
         &mut self,
-    ) -> ObservableOutputOption<&mut <Q as Deref>::Target, &mut <D as Deref>::Target, &mut <S as Deref>::Target>
-    where
-        Q: DerefMut,
-        D: DerefMut,
-        S: DerefMut,
-    {
+    ) -> ObservableOutputOption<&mut <Q as Deref>::Target, &mut <D as Deref>::Target, &mut <S as Deref>::Target> {
         match self {
             Self::None => ObservableOutputOption::None,
             Self::Quantum(Observables { observables, stream }) => {
@@ -93,7 +70,15 @@ impl<Q, D, S> ObservableOutputOption<Q, D, S> {
             Self::Debug(Observables { observables, stream }) => {
                 ObservableOutputOption::Debug(Observables { observables, stream })
             }
-            Self::Shared { quantum, debug, stream } => ObservableOutputOption::Shared { quantum, debug, stream },
+            Self::Shared {
+                quantum_observables: quantum,
+                debug_observables: debug,
+                stream,
+            } => ObservableOutputOption::Shared {
+                quantum_observables: quantum,
+                debug_observables: debug,
+                stream,
+            },
             Self::Separate {
                 quantum:
                     Observables {
@@ -115,28 +100,6 @@ impl<Q, D, S> ObservableOutputOption<Q, D, S> {
                     stream: debug_stream,
                 },
             },
-        }
-    }
-    pub fn split(self) -> (Option<Q>, Option<D>, ObservableStreamOption<S>) {
-        match self {
-            Self::None => (None, None, ObservableStreamOption::None),
-            Self::Quantum(Observables { observables, stream }) => {
-                (Some(observables), None, ObservableStreamOption::One(stream))
-            }
-            Self::Debug(Observables { observables, stream }) => {
-                (None, Some(observables), ObservableStreamOption::One(stream))
-            }
-            Self::Shared { quantum, debug, stream } => {
-                (Some(quantum), Some(debug), ObservableStreamOption::Shared(stream))
-            }
-            Self::Separate { quantum, debug } => (
-                Some(quantum.observables),
-                Some(debug.observables),
-                ObservableStreamOption::Separate {
-                    quantum: quantum.stream,
-                    debug: debug.stream,
-                },
-            ),
         }
     }
 }

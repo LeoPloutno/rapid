@@ -55,7 +55,7 @@ pub trait TrailingQuadraticExpansionExchangePotential<'a, T, V> {
 
 impl<'a, T, V, U> LeadingQuadraticExpansionExchangePotential<'a, T, V> for U
 where
-    U: InnerQuadraticExpansionExchangePotential<'a, T, V> + InnerIsLeading,
+    U: InnerQuadraticExpansionExchangePotential<'a, T, V> + InnerIsLeading + ?Sized,
     U::QuadraticPotential: LeadingNormalModesTransform<T, V>,
     U::ResiduePotential: LeadingExchangePotential<T, V>,
 {
@@ -70,7 +70,7 @@ where
 
 impl<'a, T, V, U> TrailingQuadraticExpansionExchangePotential<'a, T, V> for U
 where
-    U: InnerQuadraticExpansionExchangePotential<'a, T, V> + InnerIsTrailing,
+    U: InnerQuadraticExpansionExchangePotential<'a, T, V> + InnerIsTrailing + ?Sized,
     U::QuadraticPotential: TrailingNormalModesTransform<T, V>,
     U::ResiduePotential: TrailingExchangePotential<T, V>,
 {

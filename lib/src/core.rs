@@ -1,4 +1,7 @@
-use std::{ops::Range, sync::LockResult};
+use std::{
+    ops::{Deref, DerefMut, Range},
+    sync::LockResult,
+};
 
 use arc_rw_lock::{MappedRwLockReadWholeGuard, MappedRwLockWriteGuard, UniqueArcElementRwLock, UniqueArcSliceRwLock};
 
@@ -102,4 +105,49 @@ pub trait FullFactory<'a, T> {
 
 pub trait GroupRecord {
     fn group_index(&self) -> usize;
+}
+
+pub enum PropagationScheme<Prop, PropQuad, ExchPot, ExchPotQuad> {
+    Regular {
+        propagator: Prop,
+        exchange_potential: ExchPot,
+    },
+    QuadraticExpansion {
+        propagator: PropQuad,
+        exchange_potential: ExchPotQuad,
+    },
+}
+
+impl<Prop, PropQuad, ExchPot, ExchPotQuad> PropagationScheme<Prop, PropQuad, ExchPot, ExchPotQuad>
+where
+    Prop: DerefMut,
+    PropQuad: DerefMut,
+    ExchPot: DerefMut,
+    ExchPotQuad: DerefMut,
+{
+    pub fn as_deref_mut(
+        &mut self,
+    ) -> PropagationScheme<
+        &mut <Prop as Deref>::Target,
+        &mut <PropQuad as Deref>::Target,
+        &mut <ExchPot as Deref>::Target,
+        &mut <ExchPotQuad as Deref>::Target,
+    > {
+        match self {
+            Self::Regular {
+                propagator,
+                exchange_potential,
+            } => PropagationScheme::Regular {
+                propagator,
+                exchange_potential,
+            },
+            Self::QuadraticExpansion {
+                propagator,
+                exchange_potential,
+            } => PropagationScheme::QuadraticExpansion {
+                propagator,
+                exchange_potential,
+            },
+        }
+    }
 }

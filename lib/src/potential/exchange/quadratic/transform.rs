@@ -91,7 +91,7 @@ pub trait TrailingNormalModesTransform<T, V> {
 
 impl<T, V, U> LeadingNormalModesTransform<T, V> for U
 where
-    U: InnerNormalModesTransform<T, V> + InnerIsLeading,
+    U: InnerNormalModesTransform<T, V> + InnerIsLeading + ?Sized,
 {
     type Error = <Self as InnerNormalModesTransform<T, V>>::Error;
 
@@ -118,7 +118,7 @@ where
 
 impl<T, V, U> TrailingNormalModesTransform<T, V> for U
 where
-    U: InnerNormalModesTransform<T, V> + InnerIsTrailing,
+    U: InnerNormalModesTransform<T, V> + InnerIsTrailing + ?Sized,
 {
     type Error = <Self as InnerNormalModesTransform<T, V>>::Error;
 

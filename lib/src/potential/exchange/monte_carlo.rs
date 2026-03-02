@@ -271,7 +271,7 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
 
 impl<T, V, U> LeadingMonteCarloExchangePotential<T, V> for U
 where
-    U: InnerMonteCarloExchangePotential<T, V> + InnerIsLeading,
+    U: InnerMonteCarloExchangePotential<T, V> + InnerIsLeading + ?Sized,
 {
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
@@ -387,7 +387,7 @@ where
 
 impl<T, V, U> TrailingMonteCarloExchangePotential<T, V> for U
 where
-    U: InnerMonteCarloExchangePotential<T, V> + InnerIsTrailing,
+    U: InnerMonteCarloExchangePotential<T, V> + InnerIsTrailing + ?Sized,
 {
     fn calculate_potential_diff_set_changed_forces(
         &mut self,

@@ -198,7 +198,7 @@ pub trait TrailingExchangePotential<T, V> {
 
 impl<T, V, U> LeadingExchangePotential<T, V> for U
 where
-    U: InnerExchangePotential<T, V> + InnerIsLeading,
+    U: InnerExchangePotential<T, V> + InnerIsLeading + ?Sized,
 {
     fn calculate_potential_set_forces(
         &mut self,
@@ -284,7 +284,7 @@ where
 
 impl<T, V, U> TrailingExchangePotential<T, V> for U
 where
-    U: InnerExchangePotential<T, V> + InnerIsTrailing,
+    U: InnerExchangePotential<T, V> + InnerIsTrailing + ?Sized,
 {
     fn calculate_potential_set_forces(
         &mut self,

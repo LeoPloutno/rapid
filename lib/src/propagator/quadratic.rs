@@ -14,11 +14,11 @@ use crate::{
 
 /// A trait for a propagator of a group in the first image.
 /// Uses quadratic expansion exchange potentials instead of regular ones.
-trait LeadingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm>
+pub trait LeadingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm>
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable,
-    Boson: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic,
+    Dist: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    Boson: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
 {
     type Error: From<Therm::Error>;
@@ -43,11 +43,11 @@ where
 
 /// A trait for a propagator of a group in an inner image.
 /// Uses quadratic expansion exchange potentials instead of regular ones.
-trait InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm>
+pub trait InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm>
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable,
-    Boson: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic,
+    Dist: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    Boson: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
 {
     type Error: From<Therm::Error>;
@@ -72,11 +72,11 @@ where
 
 /// A trait for a propagator of a group in the last image.
 /// Uses quadratic expansion exchange potentials instead of regular ones.
-trait TrailingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm>
+pub trait TrailingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm>
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable,
-    Boson: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic,
+    Dist: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    Boson: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
 {
     type Error: From<Therm::Error>;
@@ -102,14 +102,16 @@ where
 impl<T, V, Phys, Dist, Boson, Therm, U> LeadingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> for U
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
-    for<'a> Dist: InnerQuadraticExpansionExchangePotential<'a, T, V>
-        + LeadingQuadraticExpansionExchangePotential<'a, T, V>
-        + Distinguishable,
-    for<'a> Boson: InnerQuadraticExpansionExchangePotential<'a, T, V>
-        + LeadingQuadraticExpansionExchangePotential<'a, T, V>
-        + Bosonic,
+    Dist: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
+        + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
+        + Distinguishable
+        + ?Sized,
+    Boson: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
+        + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
+        + Bosonic
+        + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
-    U: InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsLeading,
+    U: InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsLeading + ?Sized,
 {
     type Error = <Self as InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm>>::Error;
 
@@ -141,14 +143,16 @@ where
 impl<T, V, Phys, Dist, Boson, Therm, U> TrailingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> for U
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
-    for<'a> Dist: InnerQuadraticExpansionExchangePotential<'a, T, V>
-        + TrailingQuadraticExpansionExchangePotential<'a, T, V>
-        + Distinguishable,
-    for<'a> Boson: InnerQuadraticExpansionExchangePotential<'a, T, V>
-        + TrailingQuadraticExpansionExchangePotential<'a, T, V>
-        + Bosonic,
+    Dist: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
+        + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
+        + Distinguishable
+        + ?Sized,
+    Boson: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
+        + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
+        + Bosonic
+        + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
-    U: InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsTrailing,
+    U: InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsTrailing + ?Sized,
 {
     type Error = <Self as InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm>>::Error;
 

@@ -101,7 +101,7 @@ where
     Dist: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
-    U: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsLeading,
+    U: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsLeading + ?Sized,
 {
     type Error = <Self as InnerPropagator<T, V, Phys, Dist, Boson, Therm>>::Error;
 
@@ -136,7 +136,7 @@ where
     Dist: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
-    U: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsTrailing,
+    U: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsTrailing + ?Sized,
 {
     type Error = <Self as InnerPropagator<T, V, Phys, Dist, Boson, Therm>>::Error;
 

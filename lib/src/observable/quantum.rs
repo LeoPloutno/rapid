@@ -1,8 +1,6 @@
 use crate::{
     core::{GroupImageHandle, GroupTypeHandle},
     marker::{InnerIsLeading, InnerIsTrailing},
-    potential::exchange::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential},
-    stat::{Bosonic, Distinguishable, Stat},
     sync_ops::{SyncAddRecv, SyncAddSend, SyncMulRecv, SyncMulSend},
 };
 
@@ -24,12 +22,10 @@ where
 }
 
 /// A trait for quantum estimators operating in the first replica for a specific group.
-pub trait LeadingQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>
+pub trait LeadingQuantumObservable<T, V, Adder, Multiplier>
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
 {
     type Output;
     type Error;
@@ -40,7 +36,6 @@ where
     /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
-        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -52,12 +47,10 @@ where
 }
 
 /// A trait for quantum estimators operating in an inner replica for a specific group.
-pub trait InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>
+pub trait InnerQuantumObservable<T, V, Adder, Multiplier>
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
 {
     type Output;
     type Error;
@@ -68,7 +61,6 @@ where
     /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
-        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -80,12 +72,10 @@ where
 }
 
 /// A trait for quantum estimators operating in the last replica for a specific group.
-pub trait TrailingQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>
+pub trait TrailingQuantumObservable<T, V, Adder, Multiplier>
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
 {
     type Output;
     type Error;
@@ -96,7 +86,6 @@ where
     /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
-        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -107,20 +96,17 @@ where
     ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, Adder, Multiplier, Dist, Boson, U> LeadingQuantumObservable<T, V, Adder, Multiplier, Dist, Boson> for U
+impl<T, V, Adder, Multiplier, U> LeadingQuantumObservable<T, V, Adder, Multiplier> for U
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: LeadingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic + ?Sized,
-    U: InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson> + InnerIsLeading,
+    U: InnerQuantumObservable<T, V, Adder, Multiplier> + InnerIsLeading + ?Sized,
 {
-    type Output = <Self as InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>>::Output;
-    type Error = <Self as InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>>::Error;
+    type Output = <Self as InnerQuantumObservable<T, V, Adder, Multiplier>>::Output;
+    type Error = <Self as InnerQuantumObservable<T, V, Adder, Multiplier>>::Error;
 
     fn calculate(
         &mut self,
-        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -131,7 +117,6 @@ where
     ) -> Result<(), Self::Error> {
         InnerQuantumObservable::calculate(
             self,
-            exchange_potential,
             adder,
             multiplier,
             physical_potential_energy,
@@ -143,20 +128,17 @@ where
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, Boson, U> TrailingQuantumObservable<T, V, Adder, Multiplier, Dist, Boson> for U
+impl<T, V, Adder, Multiplier, U> TrailingQuantumObservable<T, V, Adder, Multiplier> for U
 where
     Adder: SyncAddSend<T> + ?Sized,
     Multiplier: SyncMulSend<T> + ?Sized,
-    Dist: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: TrailingExchangePotential<T, V> + InnerExchangePotential<T, V> + Bosonic + ?Sized,
-    U: InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson> + InnerIsTrailing,
+    U: InnerQuantumObservable<T, V, Adder, Multiplier> + InnerIsTrailing + ?Sized,
 {
-    type Output = <Self as InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>>::Output;
-    type Error = <Self as InnerQuantumObservable<T, V, Adder, Multiplier, Dist, Boson>>::Error;
+    type Output = <Self as InnerQuantumObservable<T, V, Adder, Multiplier>>::Output;
+    type Error = <Self as InnerQuantumObservable<T, V, Adder, Multiplier>>::Error;
 
     fn calculate(
         &mut self,
-        exchange_potential: Stat<&Dist, &Boson>,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         physical_potential_energy: T,
@@ -167,7 +149,6 @@ where
     ) -> Result<(), Self::Error> {
         InnerQuantumObservable::calculate(
             self,
-            exchange_potential,
             adder,
             multiplier,
             physical_potential_energy,

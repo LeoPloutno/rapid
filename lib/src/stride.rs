@@ -1,11 +1,6 @@
 use std::{iter::FusedIterator, marker::PhantomData, num::NonZero, ptr::NonNull};
 
 #[cold]
-fn unlikely<T>(value: T) -> T {
-    value
-}
-
-#[cold]
 fn cold_path() {}
 
 pub(crate) struct StrideMut<'a, T> {
