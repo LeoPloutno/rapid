@@ -1,4 +1,6 @@
-use crate::marker::{InnerIsLeading, InnerIsTrailing};
+//! Traits for updating the forces and calculating the exchange potential energy.
+
+use crate::core::marker::{InnerIsLeading, InnerIsTrailing};
 
 #[cfg(feature = "monte_carlo")]
 mod monte_carlo;

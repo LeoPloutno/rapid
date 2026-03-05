@@ -1,7 +1,7 @@
 use arc_rw_lock::{ElementRwLock, UniqueArcSliceRwLock};
 
-use crate::{
-    core::GroupImageHandle,
+use crate::core::{
+    GroupImageHandle,
     marker::{InnerIsLeading, InnerIsTrailing},
 };
 
@@ -10,6 +10,7 @@ use crate::{
 /// amongst the first `n` modes, where `n` is the number of atoms of this type
 /// and `m` is the number of atoms in this group.
 pub trait LeadingNormalModesTransform<T, V> {
+    /// The type associated with an error returned by the implementor.
     type Error;
 
     /// Transforms the positions of the type in all images
@@ -38,6 +39,7 @@ pub trait LeadingNormalModesTransform<T, V> {
 /// amongst some `n` modes, where `n` is the number of atoms of this type
 /// and `m` is the number of atoms in this group.
 pub trait InnerNormalModesTransform<T, V> {
+    /// The type associated with an error returned by the implementor.
     type Error;
 
     /// Transforms the positions of this group in all images
@@ -66,6 +68,7 @@ pub trait InnerNormalModesTransform<T, V> {
 /// amongst the last `n` modes, where `n` is the number of atoms of this type
 /// and `m` is the number of atoms in this group.
 pub trait TrailingNormalModesTransform<T, V> {
+    /// The type associated with an error returned by the implementor.
     type Error;
 
     /// Transforms the positions of this group in all images

@@ -1,4 +1,4 @@
-use crate::marker::{InnerIsLeading, InnerIsTrailing};
+use crate::core::marker::{InnerIsLeading, InnerIsTrailing};
 
 use super::{
     super::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential},

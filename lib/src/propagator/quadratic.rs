@@ -1,6 +1,12 @@
+//! Traits for propagating the system using an exchange potential
+//! expanded to the second order.
+
 use crate::{
-    core::{GroupImageHandle, GroupTypeHandle},
-    marker::{InnerIsLeading, InnerIsTrailing},
+    ImageHandle,
+    core::{
+        marker::{InnerIsLeading, InnerIsTrailing},
+        stat::{Bosonic, Distinguishable, Stat},
+    },
     potential::{
         exchange::quadratic::{
             InnerQuadraticExpansionExchangePotential, LeadingQuadraticExpansionExchangePotential,
@@ -8,7 +14,6 @@ use crate::{
         },
         physical::PhysicalPotential,
     },
-    stat::{Bosonic, Distinguishable, Stat},
     thermostat::Thermostat,
 };
 
@@ -21,12 +26,14 @@ where
     Boson: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
 {
+    /// The type associated with an error returned by the implementor.
     type Error: From<Therm::Error>;
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///
     /// Returns the contribution of this group in the first image
-    /// to the physical and exchange potential energies.
+    /// to the physical and exchange potential energies,
+    /// as well as the heat absorbed by the system from the thermostat.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn propagate(
         &mut self,
@@ -34,11 +41,11 @@ where
         physical_potential: &mut Phys,
         exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        groups_positions: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_momenta: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_physical_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_exchange_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
-    ) -> Result<(T, T), Self::Error>;
+        groups_positions: &mut ImageHandle<V>,
+        groups_momenta: &mut ImageHandle<V>,
+        groups_physical_forces: &mut ImageHandle<V>,
+        groups_exchange_forces: &mut ImageHandle<V>,
+    ) -> Result<(T, T, T), Self::Error>;
 }
 
 /// A trait for a propagator of a group in an inner image.
@@ -50,12 +57,14 @@ where
     Boson: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
 {
+    /// The type associated with an error returned by the implementor.
     type Error: From<Therm::Error>;
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///
     /// Returns the contribution of this group in the first image
-    /// to the physical and exchange potential energies.
+    /// to the physical and exchange potential energies,
+    /// as well as the heat absorbed by the system from the thermostat.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn propagate(
         &mut self,
@@ -63,11 +72,11 @@ where
         physical_potential: &mut Phys,
         exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        groups_positions: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_momenta: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_physical_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_exchange_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
-    ) -> Result<(T, T), Self::Error>;
+        groups_positions: &mut ImageHandle<V>,
+        groups_momenta: &mut ImageHandle<V>,
+        groups_physical_forces: &mut ImageHandle<V>,
+        groups_exchange_forces: &mut ImageHandle<V>,
+    ) -> Result<(T, T, T), Self::Error>;
 }
 
 /// A trait for a propagator of a group in the last image.
@@ -79,12 +88,14 @@ where
     Boson: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
 {
+    /// The type associated with an error returned by the implementor.
     type Error: From<Therm::Error>;
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///
     /// Returns the contribution of this group in the first image
-    /// to the physical and exchange potential energies.
+    /// to the physical and exchange potential energies,
+    /// as well as the heat absorbed by the system from the thermostat.
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn propagate(
         &mut self,
@@ -92,11 +103,11 @@ where
         physical_potential: &mut Phys,
         exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        groups_positions: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_momenta: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_physical_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_exchange_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
-    ) -> Result<(T, T), Self::Error>;
+        groups_positions: &mut ImageHandle<V>,
+        groups_momenta: &mut ImageHandle<V>,
+        groups_physical_forces: &mut ImageHandle<V>,
+        groups_exchange_forces: &mut ImageHandle<V>,
+    ) -> Result<(T, T, T), Self::Error>;
 }
 
 impl<T, V, Phys, Dist, Boson, Therm, U> LeadingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> for U
@@ -121,11 +132,11 @@ where
         physical_potential: &mut Phys,
         exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        groups_positions: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_momenta: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_physical_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_exchange_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
-    ) -> Result<(T, T), Self::Error> {
+        groups_positions: &mut ImageHandle<V>,
+        groups_momenta: &mut ImageHandle<V>,
+        groups_physical_forces: &mut ImageHandle<V>,
+        groups_exchange_forces: &mut ImageHandle<V>,
+    ) -> Result<(T, T, T), Self::Error> {
         InnerQuadraticExpansionPropagator::propagate(
             self,
             step,
@@ -162,11 +173,11 @@ where
         physical_potential: &mut Phys,
         exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        groups_positions: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_momenta: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_physical_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
-        groups_exchange_forces: &mut GroupImageHandle<GroupTypeHandle<V>>,
-    ) -> Result<(T, T), Self::Error> {
+        groups_positions: &mut ImageHandle<V>,
+        groups_momenta: &mut ImageHandle<V>,
+        groups_physical_forces: &mut ImageHandle<V>,
+        groups_exchange_forces: &mut ImageHandle<V>,
+    ) -> Result<(T, T, T), Self::Error> {
         InnerQuadraticExpansionPropagator::propagate(
             self,
             step,

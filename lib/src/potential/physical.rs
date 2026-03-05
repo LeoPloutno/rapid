@@ -1,3 +1,5 @@
+//! Traits for updating the forces and calculating the physical potential energy.
+
 use std::ops::Add;
 
 use crate::core::{GroupRecord, GroupTypeHandle};

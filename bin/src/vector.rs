@@ -1,20 +1,16 @@
 mod simd_vector {
-    use lib::vector::Vector;
+    use lib::core::Vector;
     use std::{
         iter::Sum,
         ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
-        simd::{LaneCount, Simd, SimdElement, SupportedLaneCount},
+        simd::{Simd, SimdElement},
     };
 
-    pub struct SimdVector<T, const N: usize>(Simd<T, N>)
-    where
-        T: SimdElement,
-        LaneCount<N>: SupportedLaneCount;
+    pub struct SimdVector<T: SimdElement, const N: usize>(Simd<T, N>);
 
     impl<T, const N: usize> Add<Self> for SimdVector<T, N>
     where
         T: SimdElement + Add<Output = T>,
-        LaneCount<N>: SupportedLaneCount,
         Simd<T, N>: Add<Output = Simd<T, N>>,
     {
         type Output = Self;
@@ -27,7 +23,6 @@ mod simd_vector {
     impl<T, const N: usize> AddAssign<Self> for SimdVector<T, N>
     where
         T: SimdElement,
-        LaneCount<N>: SupportedLaneCount,
         Simd<T, N>: Add<Output = Simd<T, N>>,
     {
         fn add_assign(&mut self, rhs: Self) {
@@ -38,7 +33,6 @@ mod simd_vector {
     impl<T, const N: usize> Sub<Self> for SimdVector<T, N>
     where
         T: SimdElement + Sub<Output = T>,
-        LaneCount<N>: SupportedLaneCount,
         Simd<T, N>: Sub<Output = Simd<T, N>>,
     {
         type Output = Self;
@@ -51,7 +45,6 @@ mod simd_vector {
     impl<T, const N: usize> SubAssign<Self> for SimdVector<T, N>
     where
         T: SimdElement,
-        LaneCount<N>: SupportedLaneCount,
         Simd<T, N>: Sub<Output = Simd<T, N>>,
     {
         fn sub_assign(&mut self, rhs: Self) {
@@ -62,7 +55,6 @@ mod simd_vector {
     impl<T, const N: usize> Mul<T> for SimdVector<T, N>
     where
         T: SimdElement,
-        LaneCount<N>: SupportedLaneCount,
         Simd<T, N>: Mul<Output = Simd<T, N>>,
     {
         type Output = Self;
@@ -75,7 +67,6 @@ mod simd_vector {
     impl<T, const N: usize> MulAssign<T> for SimdVector<T, N>
     where
         T: SimdElement,
-        LaneCount<N>: SupportedLaneCount,
         Simd<T, N>: Mul<Output = Simd<T, N>>,
     {
         fn mul_assign(&mut self, rhs: T) {
@@ -86,7 +77,6 @@ mod simd_vector {
     impl<T, const N: usize> Div<T> for SimdVector<T, N>
     where
         T: SimdElement,
-        LaneCount<N>: SupportedLaneCount,
         Simd<T, N>: Div<Output = Simd<T, N>>,
     {
         type Output = Self;
@@ -99,7 +89,6 @@ mod simd_vector {
     impl<T, const N: usize> DivAssign<T> for SimdVector<T, N>
     where
         T: SimdElement,
-        LaneCount<N>: SupportedLaneCount,
         Simd<T, N>: Div<Output = Simd<T, N>>,
     {
         fn div_assign(&mut self, rhs: T) {
@@ -110,7 +99,6 @@ mod simd_vector {
     impl<T, const N: usize> Neg for SimdVector<T, N>
     where
         T: SimdElement,
-        LaneCount<N>: SupportedLaneCount,
         Simd<T, N>: Neg<Output = Simd<T, N>>,
     {
         type Output = Self;
@@ -123,7 +111,6 @@ mod simd_vector {
     impl<T, const N: usize> Vector<N> for SimdVector<T, N>
     where
         T: SimdElement + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Sum,
-        LaneCount<N>: SupportedLaneCount,
         Simd<T, N>: Add<Output = Simd<T, N>>
             + Sub<Output = Simd<T, N>>
             + Mul<Output = Simd<T, N>>
@@ -140,14 +127,18 @@ mod simd_vector {
             self.0.as_mut_array()
         }
 
-        fn magnitude_squared(&self) -> Self::Element {
+        fn magnitude_squared(self) -> Self::Element {
             (self.0 * self.0).to_array().into_iter().sum()
+        }
+
+        fn dot(self, rhs: Self) -> Self::Element {
+            (self.0 * rhs.0).to_array().into_iter().sum()
         }
     }
 }
 
 mod array_vector {
-    use lib::vector::Vector;
+    use lib::core::Vector;
     use std::{
         iter::Sum,
         mem::{self, MaybeUninit},
@@ -311,8 +302,12 @@ mod array_vector {
             &mut self.0
         }
 
-        fn magnitude_squared(&self) -> Self::Element {
-            self.0.iter().map(|elem| elem.clone() * elem.clone()).sum()
+        fn magnitude_squared(self) -> Self::Element {
+            self.0.into_iter().map(|elem| elem.clone() * elem).sum()
+        }
+
+        fn dot(self, rhs: Self) -> Self::Element {
+            self.0.into_iter().zip(rhs.0).map(|(lhs, rhs)| lhs * rhs).sum()
         }
     }
 }

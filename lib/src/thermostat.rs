@@ -1,6 +1,8 @@
+//! A trait for thermalizing the system.
+
 use arc_rw_lock::ElementRwLock;
 
-use crate::core::{GroupImageHandle, GroupTypeHandle};
+use crate::ImageHandle;
 
 /// A trait for thermostats.
 ///
@@ -8,6 +10,7 @@ use crate::core::{GroupImageHandle, GroupTypeHandle};
 /// in the canonical ensemble such that different energies
 /// are sampled while keeping the temperature fixed.
 pub trait Thermostat<T, V> {
+    /// The type associated with an error returned by the implementor.
     type Error;
 
     /// Performs thermalization of the system at a given step.
@@ -18,8 +21,8 @@ pub trait Thermostat<T, V> {
     fn thermalize(
         &mut self,
         step: usize,
-        images_groups_positions: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        images_groups_forces: &ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_forces: &ElementRwLock<ImageHandle<V>>,
         group_momenta: &mut [V],
     ) -> Result<T, Self::Error>;
 }

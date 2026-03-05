@@ -1,5 +1,5 @@
 use super::{InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential};
-use crate::marker::{InnerIsLeading, InnerIsTrailing};
+use crate::core::marker::{InnerIsLeading, InnerIsTrailing};
 
 #[derive(Clone, Copy, Debug)]
 pub enum NeighboringImage {
