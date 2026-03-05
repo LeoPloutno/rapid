@@ -13,101 +13,87 @@ where
     fn write(&mut self, step: usize, vectors: &[GroupTypeHandle<V>]) -> Result<(), Self::Error>;
 }
 
-pub trait ObservablesOutput<const N: usize, T, V, E>
-where
-    V: Vector<N, Element = T>,
-{
-    type Input;
-    type Error: From<E>;
-
-    fn write(
-        &mut self,
-        step: usize,
-        observables: &mut dyn Iterator<Item = Result<Self::Input, E>>,
-    ) -> Result<(), Self::Error>;
-}
-
-pub trait ObservableOutput<T> {
+pub trait ValuesOutput<T> {
     type Error;
 
     fn write_step(&mut self, step: usize) -> Result<(), Self::Error>;
 
-    fn write_observable(&mut self, value: T) -> Result<(), Self::Error>;
+    fn write_value(&mut self, value: T) -> Result<(), Self::Error>;
 
     fn new_line(&mut self) -> Result<(), Self::Error>;
 }
 
-pub struct Observables<O, S> {
-    pub observables: O,
-    pub stream: S,
+pub struct Estimators<T, U> {
+    pub estimators: T,
+    pub stream: U,
 }
 
 /// An enum which contains the output stream for the two kinds of observables.
-pub enum ObservableOutputOption<Q, D, S> {
+pub enum ObservablesOutputOption<Q, C, S> {
     None,
-    Quantum(Observables<Q, S>),
-    Debug(Observables<D, S>),
+    Quantum(Estimators<Q, S>),
+    Classical(Estimators<C, S>),
     Shared {
-        quantum_observables: Q,
-        debug_observables: D,
+        quantum_estimators: Q,
+        debug_estimators: C,
         stream: S,
     },
     Separate {
-        quantum: Observables<Q, S>,
-        debug: Observables<D, S>,
+        quantum: Estimators<Q, S>,
+        debug: Estimators<C, S>,
     },
 }
 
-impl<Q: DerefMut, D: DerefMut, S: DerefMut> ObservableOutputOption<Q, D, S> {
+impl<Q: DerefMut, C: DerefMut, S: DerefMut> ObservablesOutputOption<Q, C, S> {
     pub fn as_deref_mut(
         &mut self,
-    ) -> ObservableOutputOption<&mut <Q as Deref>::Target, &mut <D as Deref>::Target, &mut <S as Deref>::Target> {
+    ) -> ObservablesOutputOption<&mut <Q as Deref>::Target, &mut <C as Deref>::Target, &mut <S as Deref>::Target> {
         match self {
-            Self::None => ObservableOutputOption::None,
-            Self::Quantum(Observables { observables, stream }) => {
-                ObservableOutputOption::Quantum(Observables { observables, stream })
-            }
-            Self::Debug(Observables { observables, stream }) => {
-                ObservableOutputOption::Debug(Observables { observables, stream })
-            }
-            Self::Shared {
-                quantum_observables: quantum,
-                debug_observables: debug,
+            Self::None => ObservablesOutputOption::None,
+            Self::Quantum(Estimators {
+                estimators: observables,
                 stream,
-            } => ObservableOutputOption::Shared {
-                quantum_observables: quantum,
-                debug_observables: debug,
+            }) => ObservablesOutputOption::Quantum(Estimators {
+                estimators: observables,
+                stream,
+            }),
+            Self::Classical(Estimators {
+                estimators: observables,
+                stream,
+            }) => ObservablesOutputOption::Classical(Estimators {
+                estimators: observables,
+                stream,
+            }),
+            Self::Shared {
+                quantum_estimators: quantum,
+                debug_estimators: debug,
+                stream,
+            } => ObservablesOutputOption::Shared {
+                quantum_estimators: quantum,
+                debug_estimators: debug,
                 stream,
             },
             Self::Separate {
                 quantum:
-                    Observables {
-                        observables: quantum_observables,
+                    Estimators {
+                        estimators: quantum_observables,
                         stream: quantum_stream,
                     },
                 debug:
-                    Observables {
-                        observables: debug_observables,
+                    Estimators {
+                        estimators: debug_observables,
                         stream: debug_stream,
                     },
-            } => ObservableOutputOption::Separate {
-                quantum: Observables {
-                    observables: quantum_observables,
+            } => ObservablesOutputOption::Separate {
+                quantum: Estimators {
+                    estimators: quantum_observables,
                     stream: quantum_stream,
                 },
-                debug: Observables {
-                    observables: debug_observables,
+                debug: Estimators {
+                    estimators: debug_observables,
                     stream: debug_stream,
                 },
             },
         }
     }
-}
-
-/// An enum which contains the obseervables, if any.
-pub enum ObservableOption<Q, D> {
-    None,
-    Quantum(Q),
-    Debug(D),
-    All { quantum: Q, debug: D },
 }

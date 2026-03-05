@@ -1,3 +1,4 @@
+#![allow(unused)]
 use std::{iter::FusedIterator, marker::PhantomData, num::NonZero, ptr::NonNull};
 
 #[cold]
