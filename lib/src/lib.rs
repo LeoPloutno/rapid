@@ -838,27 +838,6 @@ pub fn run<
          ),
     mut step_finalization: impl FnMut(usize) -> Result<(), Err>,
 ) -> Result<(), Err> {
-    macro_rules! zip_items {
-        ($item1:pat, $item2:pat) => {
-            ($item1, $item2)
-        };
-        ($item:pat, $($items:pat),+) => {
-            ($item, zip_items!($($items),+))
-        };
-    }
-
-    macro_rules! zip_iterators {
-        ($iter:expr) => {
-            $iter
-        };
-        ($iter1:expr, $iter2:expr) => {
-            $iter1.into_iter().zip($iter2)
-        };
-        ($iter:expr, $($iters:expr),+) => {
-            $iter.zip(zip_iterators!($($iters),+))
-        };
-    }
-
     macro_rules! produce_estimators {
         ($estimators:expr) => {{
             let n_estimators = $estimators.len();
@@ -1387,7 +1366,7 @@ pub fn run<
                 mut exchange_forces
             ) = leading_iter
                 .next()
-                .expect("The number of groups is greater than the index of the smalles one");
+                .expect("the number of groups is greater than the index of the smalles one");
             s.spawn::<_, Result<_, Err>>(move || {
                 for step in 0..steps {
                     let step_result: Result<_, Err> = run_step_leading_group(
@@ -1761,7 +1740,7 @@ pub fn run<
                     mut exchange_forces
                 ) = inner_iter
                     .next()
-                    .expect("The number of groups is greater than the index of the smalles one");
+                    .expect("the number of groups is greater than the index of the smalles one");
 
                 s.spawn::<_, Result<_, Err>>(move || {
                     for step in 0..steps {
@@ -2044,7 +2023,7 @@ pub fn run<
                 mut exchange_forces
             ) = trailing_iter
                 .next()
-                .expect("The number of groups is greater than the index of the smalles one");
+                .expect("the number of groups is greater than the index of the smalles one");
 
             s.spawn::<_, Result<_, Err>>(move || {
                 for step in 0..steps {
@@ -2188,22 +2167,22 @@ pub fn run<
             barrier.wait();
             let physical_potential_energy = main_adder
                 .recieve_sum()?
-                .expect("All threads should have sent non-empty messages");
+                .expect("all threads should have sent non-empty messages");
             *shared_value.write().map_err(|_| CommError::Main)? = physical_potential_energy;
             barrier.wait();
             let exchange_potential_energy = main_adder
                 .recieve_sum()?
-                .expect("All threads should have sent non-empty messages");
+                .expect("all threads should have sent non-empty messages");
             *shared_value.write().map_err(|_| CommError::Main)? = exchange_potential_energy;
             barrier.wait();
             let heat = main_adder
                 .recieve_sum()?
-                .expect("All threads should have sent non-empty messages");
+                .expect("all threads should have sent non-empty messages");
             *shared_value.write().map_err(|_| CommError::Main)? = heat;
             barrier.wait();
             let kinetic_energy = main_adder
                 .recieve_sum()?
-                .expect("All threads should have sent non-empty messages");
+                .expect("all threads should have sent non-empty messages");
             *shared_value.write().map_err(|_| CommError::Main)? = kinetic_energy;
             barrier.wait();
 

@@ -181,6 +181,33 @@ pub mod factory {
     }
 }
 
+/// A macro that allows pattern-matching items of [zipped iterators](zip_iterators).
+#[macro_export]
+macro_rules! zip_items {
+    ($item1:pat, $item2:pat) => {
+        ($item1, $item2)
+    };
+    ($item:pat, $($items:pat),+) => {
+        ($item, zip_items!($($items),+))
+    };
+}
+pub use zip_items;
+
+/// A macro that automatically zips all provided iterators in a consistent manner.
+#[macro_export]
+macro_rules! zip_iterators {
+    ($iter:expr) => {
+        $iter
+    };
+    ($iter1:expr, $iter2:expr) => {
+        $iter1.into_iter().zip($iter2)
+    };
+    ($iter:expr, $($iters:expr),+) => {
+        $iter.into_iter().zip(zip_iterators!($($iters),+))
+    };
+}
+pub use zip_iterators;
+
 /// A trait for objects that can be used as vectors.
 pub trait Vector<const N: usize>:
     Sized
@@ -309,20 +336,20 @@ pub enum CommError {
 impl Display for CommError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
-            Self::Main => write!(f, "Something happened in the main thread"),
+            Self::Main => write!(f, "something happened in the main thread"),
             Self::Leading { group } => write!(
                 f,
-                "Something happened in a thread dedicated to group #{} in the first image",
+                "something happened in a thread dedicated to group #{} in the first image",
                 group
             ),
             Self::Inner { image, group } => write!(
                 f,
-                "Something happened in a thread dedicated to group #{} in image #{}",
+                "something happened in a thread dedicated to group #{} in image #{}",
                 group, image
             ),
             Self::Trailing { group } => write!(
                 f,
-                "Something happened in a thread dedicated to group #{} in the last image",
+                "something happened in a thread dedicated to group #{} in the last image",
                 group
             ),
         }

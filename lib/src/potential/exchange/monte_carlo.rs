@@ -27,7 +27,7 @@ pub trait LeadingMonteCarloExchangePotential<T, V>: LeadingExchangePotential<T, 
         type_positions_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group in the first image to the change in total exchange
     /// potential energy of the type after a change in the position of a single atom
@@ -45,7 +45,7 @@ pub trait LeadingMonteCarloExchangePotential<T, V>: LeadingExchangePotential<T, 
         type_positions_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group in the first image to the change in total exchange
     /// potential energy of the type after a change in the position of a single atom
@@ -62,7 +62,7 @@ pub trait LeadingMonteCarloExchangePotential<T, V>: LeadingExchangePotential<T, 
         type_positions_last_image: &[V],
         type_positions_next_image: &[V],
         type_positions: &[V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Updates the forces of this group in the first image after a change
     /// in the position of a single atom in either a neighboring or the first image.
@@ -77,7 +77,7 @@ pub trait LeadingMonteCarloExchangePotential<T, V>: LeadingExchangePotential<T, 
         type_positions_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<(), Self::Error>;
 
     /// Adds the updated forces to the forces of this group in the first image given a change
     /// in the position of a single atom in either a neighboring or the first image.
@@ -92,7 +92,7 @@ pub trait LeadingMonteCarloExchangePotential<T, V>: LeadingExchangePotential<T, 
         type_positions_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<(), Self::Error>;
 }
 
 /// A trait for exchange potentials of an inner image
@@ -114,7 +114,7 @@ pub trait InnerMonteCarloExchangePotential<T, V>: InnerExchangePotential<T, V> {
         type_positions_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this grop in this image to the change in total exchange
     /// potential energy of the type after a change in the position of a single atom
@@ -132,7 +132,7 @@ pub trait InnerMonteCarloExchangePotential<T, V>: InnerExchangePotential<T, V> {
         type_positions_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group in this image to the change in total exchange
     /// potential energy of the type after a change in the position of a single atom
@@ -149,7 +149,7 @@ pub trait InnerMonteCarloExchangePotential<T, V>: InnerExchangePotential<T, V> {
         type_positions_prev_image: &[V],
         type_positions_next_image: &[V],
         type_positions: &[V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Updates the forces of this group in this image after a change
     /// in the position of a single atom in either a neighboring or this image.
@@ -164,7 +164,7 @@ pub trait InnerMonteCarloExchangePotential<T, V>: InnerExchangePotential<T, V> {
         type_positions_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<(), Self::Error>;
 
     /// Adds the updated forces to the forces of this group in this image given a change
     /// in the position of a single atom in either a neighboring or this image.
@@ -179,7 +179,7 @@ pub trait InnerMonteCarloExchangePotential<T, V>: InnerExchangePotential<T, V> {
         type_positions_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<(), Self::Error>;
 }
 
 /// A trait for exchange potentials of the last image
@@ -201,7 +201,7 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
         type_positions_first_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group in the last image to the change in total exchange
     /// potential energy of the type after a change in the position of a single atom
@@ -219,7 +219,7 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
         type_positions_first_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group in the last image to the change in total exchange
     /// potential energy of the type after a change in the position of a single atom
@@ -236,7 +236,7 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
         type_positions_prev_image: &[V],
         type_positions_first_image: &[V],
         type_positions: &[V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Updates the forces of this group in the last image after a change
     /// in the position of a single atom in either a neighboring or the last image.
@@ -251,7 +251,7 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
         type_positions_first_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<(), Self::Error>;
 
     /// Adds the updated forces to the forces of this group in the last image given a change
     /// in the position of a single atom in either a neighboring or the last image.
@@ -266,7 +266,7 @@ pub trait TrailingMonteCarloExchangePotential<T, V>: TrailingExchangePotential<T
         type_positions_first_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<(), Self::Error>;
 }
 
 impl<T, V, U> LeadingMonteCarloExchangePotential<T, V> for U
@@ -282,7 +282,7 @@ where
         type_positions_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T {
+    ) -> Result<T, Self::Error> {
         InnerMonteCarloExchangePotential::calculate_potential_diff_set_changed_forces(
             self,
             changed_image,
@@ -304,7 +304,7 @@ where
         position_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T {
+    ) -> Result<T, Self::Error> {
         InnerMonteCarloExchangePotential::calculate_potential_diff_add_changed_forces(
             self,
             changed_image,
@@ -325,7 +325,7 @@ where
         type_positions_last_image: &[V],
         position_next_image: &[V],
         type_positions: &[V],
-    ) -> T {
+    ) -> Result<T, Self::Error> {
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::calculate_potential_diff(
             self,
@@ -347,7 +347,7 @@ where
         position_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T {
+    ) -> Result<(), Self::Error> {
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::set_changed_forces(
             self,
@@ -370,7 +370,7 @@ where
         position_next_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T {
+    ) -> Result<(), Self::Error> {
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::add_changed_forces(
             self,
@@ -398,7 +398,7 @@ where
         position_first_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T {
+    ) -> Result<T, Self::Error> {
         InnerMonteCarloExchangePotential::calculate_potential_diff_set_changed_forces(
             self,
             changed_image,
@@ -420,7 +420,7 @@ where
         position_first_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T {
+    ) -> Result<T, Self::Error> {
         InnerMonteCarloExchangePotential::calculate_potential_diff_add_changed_forces(
             self,
             changed_image,
@@ -441,7 +441,7 @@ where
         type_positions_prev_image: &[V],
         position_first_image: &[V],
         type_positions: &[V],
-    ) -> T {
+    ) -> Result<T, Self::Error> {
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::calculate_potential_diff(
             self,
@@ -463,7 +463,7 @@ where
         position_first_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T {
+    ) -> Result<(), Self::Error> {
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::set_changed_forces(
             self,
@@ -486,7 +486,7 @@ where
         position_first_image: &[V],
         type_positions: &[V],
         group_forces: &mut [V],
-    ) -> T {
+    ) -> Result<(), Self::Error> {
         #[allow(deprecated)]
         InnerMonteCarloExchangePotential::add_changed_forces(
             self,

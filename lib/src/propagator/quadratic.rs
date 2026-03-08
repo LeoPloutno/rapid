@@ -27,7 +27,7 @@ where
     Therm: Thermostat<T, V> + ?Sized,
 {
     /// The type associated with an error returned by the implementor.
-    type Error: From<Therm::Error>;
+    type Error;
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///
@@ -58,7 +58,7 @@ where
     Therm: Thermostat<T, V> + ?Sized,
 {
     /// The type associated with an error returned by the implementor.
-    type Error: From<Therm::Error>;
+    type Error;
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///
@@ -89,7 +89,7 @@ where
     Therm: Thermostat<T, V> + ?Sized,
 {
     /// The type associated with an error returned by the implementor.
-    type Error: From<Therm::Error>;
+    type Error;
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///

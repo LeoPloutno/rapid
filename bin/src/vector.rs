@@ -311,3 +311,6 @@ mod array_vector {
         }
     }
 }
+
+pub use array_vector::ArrayVector;
+pub use simd_vector::SimdVector;

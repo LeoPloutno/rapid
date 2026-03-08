@@ -19,7 +19,7 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
         old_value: V,
         groups_positions: &[GroupTypeHandle<V>],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group to the change in total physical
     /// potential energy of the image after a change in the position of a single atom
@@ -34,7 +34,7 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
         old_value: V,
         groups_positions: &[GroupTypeHandle<V>],
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group to the change in total physical
     /// potential energy of the image after a change in the position of a single atom.
@@ -48,7 +48,7 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
         changed_atom_index: usize,
         old_value: V,
         groups_positions: &[GroupTypeHandle<V>],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Updates the group_forces of this group after a change in the position of a single atom.
     #[deprecated = "Consider using `calculate_potential_diff_set_changed_forces` as a more efficient alternative"]
@@ -59,7 +59,7 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
         old_value: V,
         groups_positions: &[GroupTypeHandle<V>],
         group_forces: &mut [V],
-    );
+    ) -> Result<(), Self::Error>;
 
     /// Adds the updated group_forces to the group_forces of this group given a change
     /// in the position of a single atom.
@@ -71,13 +71,16 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
         old_value: V,
         groups_positions: &[GroupTypeHandle<V>],
         group_forces: &mut [V],
-    );
+    ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, U> MonteCarloPhysicalPotential<T, V> for U
+impl<T, V, E, U> MonteCarloPhysicalPotential<T, V> for U
 where
     T: Default,
-    U: MonteCarloAtomDecoupledPhysicalPotential<T, V> + PhysicalPotential<T, V> + GroupRecord + ?Sized,
+    U: MonteCarloAtomDecoupledPhysicalPotential<T, V, Error = E>
+        + PhysicalPotential<T, V, Error = E>
+        + GroupRecord
+        + ?Sized,
 {
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
@@ -86,7 +89,7 @@ where
         old_value: V,
         groups_positions: &[GroupTypeHandle<V>],
         group_forces: &mut [V],
-    ) -> T {
+    ) -> Result<T, Self::Error> {
         if changed_group_index == self.group_index() {
             MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff_set_changed_force(
                 self,
@@ -94,7 +97,7 @@ where
                 old_value,
                 groups_positions
                     .get(self.group_index())
-                    .expect("An index returned by `GroupRecord::group_index` should be valid in `groups_positions`")
+                    .expect("an index returned by `GroupRecord::group_index` should be valid in `groups_positions`")
                     .read()
                     .get(changed_atom_index)
                     .expect("`changed_atom_index` should be a valid index in its group"),
@@ -103,7 +106,7 @@ where
                     .expect("`changed_atom_index` should be a valid index in its group"),
             )
         } else {
-            T::default()
+            Ok(T::default())
         }
     }
 
@@ -114,7 +117,7 @@ where
         old_value: V,
         groups_positions: &[GroupTypeHandle<V>],
         group_forces: &mut [V],
-    ) -> T {
+    ) -> Result<T, Self::Error> {
         if changed_group_index == self.group_index() {
             MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff_add_changed_force(
                 self,
@@ -122,7 +125,7 @@ where
                 old_value,
                 groups_positions
                     .get(self.group_index())
-                    .expect("An index returned by `GroupRecord::group_index` should be valid in `groups_positions`")
+                    .expect("an index returned by `GroupRecord::group_index` should be valid in `groups_positions`")
                     .read()
                     .get(changed_atom_index)
                     .expect("`changed_atom_index` should be a valid index in its group"),
@@ -131,7 +134,7 @@ where
                     .expect("`changed_atom_index` should be a valid index in its group"),
             )
         } else {
-            T::default()
+            Ok(T::default())
         }
     }
 
@@ -141,7 +144,7 @@ where
         changed_atom_index: usize,
         old_value: V,
         groups_positions: &[GroupTypeHandle<V>],
-    ) -> T {
+    ) -> Result<T, Self::Error> {
         if changed_group_index == self.group_index() {
             #[allow(deprecated)]
             MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff(
@@ -150,13 +153,13 @@ where
                 old_value,
                 groups_positions
                     .get(self.group_index())
-                    .expect("An index returned by `GroupRecord::group_index` should be valid in `groups_positions`")
+                    .expect("an index returned by `GroupRecord::group_index` should be valid in `groups_positions`")
                     .read()
                     .get(changed_atom_index)
                     .expect("`changed_atom_index` should be a valid index in its group"),
             )
         } else {
-            T::default()
+            Ok(T::default())
         }
     }
 
@@ -167,7 +170,7 @@ where
         old_value: V,
         groups_positions: &[GroupTypeHandle<V>],
         group_forces: &mut [V],
-    ) {
+    ) -> Result<(), Self::Error> {
         if changed_group_index == self.group_index() {
             #[allow(deprecated)]
             MonteCarloAtomDecoupledPhysicalPotential::set_changed_force(
@@ -176,14 +179,16 @@ where
                 old_value,
                 groups_positions
                     .get(self.group_index())
-                    .expect("An index returned by `GroupRecord::group_index` should be valid in `groups_positions`")
+                    .expect("an index returned by `GroupRecord::group_index` should be valid in `groups_positions`")
                     .read()
                     .get(changed_atom_index)
                     .expect("`changed_atom_index` should be a valid index in its group"),
                 group_forces
                     .get_mut(changed_atom_index)
                     .expect("`changed_atom_index` should be a valid index in its group"),
-            );
+            )
+        } else {
+            Ok(())
         }
     }
 
@@ -194,7 +199,7 @@ where
         old_value: V,
         groups_positions: &[GroupTypeHandle<V>],
         group_forces: &mut [V],
-    ) {
+    ) -> Result<(), Self::Error> {
         if changed_group_index == self.group_index() {
             #[allow(deprecated)]
             MonteCarloAtomDecoupledPhysicalPotential::add_changed_force(
@@ -203,7 +208,7 @@ where
                 old_value,
                 groups_positions
                     .get(self.group_index())
-                    .expect("An index returned by `GroupRecord::group_index` should be valid in `groups_positions`")
+                    .expect("an index returned by `GroupRecord::group_index` should be valid in `groups_positions`")
                     .read()
                     .get(changed_atom_index)
                     .expect("`changed_atom_index` should be a valid index in its group"),
@@ -211,6 +216,8 @@ where
                     .get_mut(changed_atom_index)
                     .expect("`changed_atom_index` should be a valid index in its group"),
             )
+        } else {
+            Ok(())
         }
     }
 }

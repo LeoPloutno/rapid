@@ -5,3 +5,7 @@ edition = "2024"
 
 [dependencies]
 lib = { path = "../lib" }
+arc_rw_lock = { path = "../arc_rw_lock" }
+
+[profile.release]
+panic = "abort"

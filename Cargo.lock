@@ -23,6 +23,7 @@ dependencies = [
 name = "bin"
 version = "0.1.0"
 dependencies = [
+ "arc_rw_lock",
  "lib",
 ]
 
