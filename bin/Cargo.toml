@@ -6,6 +6,9 @@ edition = "2024"
 [dependencies]
 lib = { path = "../lib" }
 arc_rw_lock = { path = "../arc_rw_lock" }
+num = "*"
+rand = "*"
+rand_distr = "*"
 
 [profile.release]
 panic = "abort"

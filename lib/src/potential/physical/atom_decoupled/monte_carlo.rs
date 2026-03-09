@@ -2,9 +2,11 @@ use super::AtomDecoupledPhysicalPotential;
 
 /// A trait for atom-deoupled physical potentials that may be used in a Monte-Carlo algorithm.
 ///
-/// Any implementor of this trait automatically implements [`MonteCarloPhysicalPotential`].
+/// Any implementor of this trait automatically implements [`MonteCarloPhysicalPotential`]
+/// if the associated error type is convertible from [`InvalidIndexError`].
 ///
 /// [`MonteCarloPhysicalPotential`]: super::super::MonteCarloPhysicalPotential
+/// [`InvalidIndexError`]: crate::core::error::InvalidIndexError
 pub trait MonteCarloAtomDecoupledPhysicalPotential<T, V>: AtomDecoupledPhysicalPotential<T, V> {
     /// Calculates the change in the physical potential energy of this atom
     /// after a change in its position and updates the force of this atom accordingly.

@@ -1,15 +1,17 @@
 //! Core functionalities used throughout the whole project.
 
 use std::{
-    error::Error,
-    fmt::{Display, Formatter, Result as FmtResult},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Range, Sub, SubAssign},
     sync::LockResult,
 };
 
 use arc_rw_lock::{MappedRwLockReadWholeGuard, MappedRwLockWriteGuard, UniqueArcElementRwLock, UniqueArcSliceRwLock};
 
-use crate::core::stat::Stat;
+mod atoms;
+
+pub use atoms::{AtomType, GroupSizes, GroupSizesIter, GroupsIter};
+
+pub mod error;
 
 pub mod marker {
     //! Marker traits for allowing default implementations.
@@ -23,171 +25,19 @@ pub mod marker {
     pub trait InnerIsTrailing {}
 }
 
-pub mod stat {
-    //! Types and traits meant to distinguish between different types
-    //! of ensemble statistics.
+pub mod stat;
 
-    use std::ops::{Deref, DerefMut};
+pub mod sync_ops;
 
-    /// An enum differentiating between distinguishable and bosonic statistics.
-    #[derive(Clone, Copy, Debug)]
-    #[non_exhaustive]
-    pub enum Stat<D, B> {
-        /// Distinguishable statistics.
-        Distinguishable(D),
-        /// Bosonic statistics.
-        Bosonic(B),
-    }
-
-    impl<D, B> Stat<D, B> {
-        /// Converts from `Stat<D, B>` to
-        /// `Stat<&D::Target, &B::Target>`.
-        ///
-        /// Leaves the original `Stat` in-place,
-        /// creating a new one containing references to the inner types' `Deref::Target` types.
-        pub fn as_deref(&self) -> Stat<&<D as Deref>::Target, &<B as Deref>::Target>
-        where
-            D: Deref,
-            B: Deref,
-        {
-            match self {
-                Self::Distinguishable(dist) => Stat::Distinguishable(dist),
-                Self::Bosonic(boson) => Stat::Bosonic(boson),
-            }
-        }
-
-        /// Converts from `Stat<D, B>` to
-        /// `Stat<&mut D::Target, &mut B::Target>`.
-        ///
-        /// Leaves the original `Stat` in-place,
-        /// creating a new one containing mutable references to the inner types' `Deref::Target` types.
-        pub fn as_deref_mut(&mut self) -> Stat<&mut <D as Deref>::Target, &mut <B as Deref>::Target>
-        where
-            D: DerefMut,
-            B: DerefMut,
-        {
-            match self {
-                Self::Distinguishable(dist) => Stat::Distinguishable(dist),
-                Self::Bosonic(boson) => Stat::Bosonic(boson),
-            }
-        }
-    }
-
-    /// A trait for marking exchange potentials of distinguishable particles.
-    pub trait Distinguishable {}
-
-    /// A trait for marking exchange potentials of bosons.
-    pub trait Bosonic {}
-}
-
-pub mod sync_ops {
-    //! Traits for parallelized calculations.
-
-    /// A trait for objects which add up values and send the sum to a `SyncAddReciever`.
-    pub trait SyncAddSender<T> {
-        /// The type associated with an error returned by the implementor.
-        type Error;
-
-        /// Sends `value` to the adder.
-        fn send(&mut self, value: T) -> Result<(), Self::Error>;
-
-        /// Sends an empty message to the adder.
-        fn send_empty(&mut self) -> Result<(), Self::Error>;
-    }
-
-    /// A trait for objects which recieve the sum calculated by `SyncAddSender`s.
-    pub trait SyncAddReciever<T> {
-        /// The type associated with an error returned by the implementor.
-        type Error;
-
-        /// Recieves the sum of all non-empty messages.
-        fn recieve_sum(&mut self) -> Result<Option<T>, Self::Error>;
-    }
-
-    /// A trait for objects which multiply values and send the product to a `SyncAddReciever`.
-    pub trait SyncMulSender<T> {
-        /// The type associated with an error returned by the implementor.
-        type Error;
-
-        /// Sends `value` to the multiplier.
-        fn send(&mut self, value: T) -> Result<(), Self::Error>;
-
-        /// Sends an empty message to the multiplier.
-        fn send_empty(&mut self) -> Result<(), Self::Error>;
-    }
-
-    /// A trait for objects which recieve the product calculated by `SyncAddSender`s.
-    pub trait SyncMulReciever<T> {
-        /// The type associated with an error returned by the implementor.
-        type Error;
-
-        /// Recieves the product of all non-empty messages.
-        fn recieve_prod(&mut self) -> Result<Option<T>, Self::Error>;
-    }
-}
-
-pub mod factory {
-    //! Traits for producing different yet connected types of objects.
-    use crate::core::AtomType;
-
-    /// A trait for "factories" that produce iterators for leading, inner and trailing images.
-    pub trait Factory<'a, T> {
-        /// The object used in a leading thread.
-        type Leading: 'a;
-        /// The object used in an inner thread.
-        type Inner: 'a;
-        /// The object used in a trailing thread.
-        type Trailing: 'a;
-        /// The iterator producing `Leading` objects.
-        type LeadingIter: ExactSizeIterator<Item = Self::Leading>;
-        /// The iterator producing iterators that produce `Inner` objects.
-        type InnerIter: ExactSizeIterator<Item: ExactSizeIterator<Item = Self::Inner>>;
-        /// The iterator producing `Trailing` objects.
-        type TrailingIter: ExactSizeIterator<Item = Self::Trailing>;
-
-        /// Produces the iterators.
-        fn produce(
-            &'a mut self,
-            inner_images: usize,
-            atom_types: &[AtomType<T>],
-            groups_sizes: &[usize],
-        ) -> (Self::LeadingIter, Self::InnerIter, Self::TrailingIter);
-    }
-
-    /// A trait for "factories" that produce iterators for the main thread and leading, inner and trailing images.
-    pub trait FullFactory<'a, T> {
-        /// The object used in the main thread.
-        type Main: 'a;
-        /// The object used in a leading thread.
-        type Leading: 'a;
-        /// The object used in an inner thread.
-        type Inner: 'a;
-        /// The object used in a trailing thread.
-        type Trailing: 'a;
-        /// The iterator producing `Leading` objects.
-        type LeadingIter: ExactSizeIterator<Item = Self::Leading>;
-        /// The iterator producing iterators that produce `Inner` objects.
-        type InnerIter: ExactSizeIterator<Item: ExactSizeIterator<Item = Self::Inner>>;
-        /// The iterator producing `Trailing` objects.
-        type TrailingIter: ExactSizeIterator<Item = Self::Trailing>;
-
-        /// Produces the main object and the iterators.
-        fn produce(
-            &'a mut self,
-            inner_images: usize,
-            atom_types: &[AtomType<T>],
-            groups_sizes: &[usize],
-        ) -> (Self::Main, Self::LeadingIter, Self::InnerIter, Self::TrailingIter);
-    }
-}
+pub mod factory;
 
 /// A macro that allows pattern-matching items of [zipped iterators](zip_iterators).
 #[macro_export]
 macro_rules! zip_items {
-    ($item1:pat, $item2:pat) => {
+    ($item1:pat, $item2:pat $(,)?) => {
         ($item1, $item2)
     };
-    ($item:pat, $($items:pat),+) => {
+    ($item:pat, $($items:pat),+ $(,)?) => {
         ($item, zip_items!($($items),+))
     };
 }
@@ -199,10 +49,10 @@ macro_rules! zip_iterators {
     ($iter:expr) => {
         $iter
     };
-    ($iter1:expr, $iter2:expr) => {
+    ($iter1:expr, $iter2:expr $(,)?) => {
         $iter1.into_iter().zip($iter2)
     };
-    ($iter:expr, $($iters:expr),+) => {
+    ($iter:expr, $($iters:expr),+ $(,)?) => {
         $iter.into_iter().zip(zip_iterators!($($iters),+))
     };
 }
@@ -211,6 +61,7 @@ pub use zip_iterators;
 /// A trait for objects that can be used as vectors.
 pub trait Vector<const N: usize>:
     Sized
+    + From<[Self::Element; N]>
     + Add<Output = Self>
     + AddAssign
     + Sub<Output = Self>
@@ -235,21 +86,6 @@ pub trait Vector<const N: usize>:
 
     /// Calculates the dot product of `self` with `rhs`.
     fn dot(self, rhs: Self) -> Self::Element;
-}
-
-/// Information about atoms of the same type.
-#[derive(Clone, Debug)]
-pub struct AtomType<T> {
-    /// Unique identifier.
-    pub id: usize,
-    /// Atomic symbol
-    pub label: String,
-    /// The range of indices of groups allocated to this type.
-    pub groups: Range<usize>,
-    /// The mass of a single atom of this type.
-    pub mass: T,
-    /// Whether the atoms are distinguishable.
-    pub statistic: Stat<(), ()>,
 }
 
 /// A lock which grants mutable access to a single group
@@ -301,67 +137,10 @@ impl<G> GroupImageHandle<G> {
         self.0.as_ref().read_whole()
     }
 
-    /// Returns the index of the underlying image amongst all images.
+    /// Returns the index of the group.
     pub fn index(&self) -> usize {
         self.0.as_ref().element_offset()
     }
-}
-
-/// A miscellaneous error used by [`run`].
-///
-/// [`run`]: crate::run
-#[derive(Clone, Debug)]
-pub enum CommError {
-    /// The error arose in the main thread.
-    Main,
-    /// The error arose in a leading thread.
-    Leading {
-        /// The index of the group the thread is assigned to.
-        group: usize,
-    },
-    /// The error arose in an inner thread.
-    Inner {
-        /// The image the thread is assigned to.
-        image: usize,
-        /// The index of the group the thread is assigned to.
-        group: usize,
-    },
-    /// The error arose in a trailing thread.
-    Trailing {
-        /// The index of the group the thread is assigmed to.
-        group: usize,
-    },
-}
-
-impl Display for CommError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self {
-            Self::Main => write!(f, "something happened in the main thread"),
-            Self::Leading { group } => write!(
-                f,
-                "something happened in a thread dedicated to group #{} in the first image",
-                group
-            ),
-            Self::Inner { image, group } => write!(
-                f,
-                "something happened in a thread dedicated to group #{} in image #{}",
-                group, image
-            ),
-            Self::Trailing { group } => write!(
-                f,
-                "something happened in a thread dedicated to group #{} in the last image",
-                group
-            ),
-        }
-    }
-}
-
-impl Error for CommError {}
-
-/// A trait for objects that "know" which group they are responsible for.
-pub trait GroupRecord {
-    /// Returns the index of the group which is under the jurisdiction of the implementor.
-    fn group_index(&self) -> usize;
 }
 
 /// Exchange potential expansion scheme.

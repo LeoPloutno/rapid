@@ -6,9 +6,15 @@ mod simd_vector {
         simd::{Simd, SimdElement},
     };
 
-    pub struct SimdVector<T: SimdElement, const N: usize>(Simd<T, N>);
+    pub struct SimdVector<const N: usize, T: SimdElement>(Simd<T, N>);
 
-    impl<T, const N: usize> Add<Self> for SimdVector<T, N>
+    impl<const N: usize, T: SimdElement> From<[T; N]> for SimdVector<N, T> {
+        fn from(value: [T; N]) -> Self {
+            Self(value.into())
+        }
+    }
+
+    impl<const N: usize, T> Add<Self> for SimdVector<N, T>
     where
         T: SimdElement + Add<Output = T>,
         Simd<T, N>: Add<Output = Simd<T, N>>,
@@ -20,7 +26,7 @@ mod simd_vector {
         }
     }
 
-    impl<T, const N: usize> AddAssign<Self> for SimdVector<T, N>
+    impl<const N: usize, T> AddAssign<Self> for SimdVector<N, T>
     where
         T: SimdElement,
         Simd<T, N>: Add<Output = Simd<T, N>>,
@@ -30,7 +36,7 @@ mod simd_vector {
         }
     }
 
-    impl<T, const N: usize> Sub<Self> for SimdVector<T, N>
+    impl<const N: usize, T> Sub<Self> for SimdVector<N, T>
     where
         T: SimdElement + Sub<Output = T>,
         Simd<T, N>: Sub<Output = Simd<T, N>>,
@@ -42,7 +48,7 @@ mod simd_vector {
         }
     }
 
-    impl<T, const N: usize> SubAssign<Self> for SimdVector<T, N>
+    impl<const N: usize, T> SubAssign<Self> for SimdVector<N, T>
     where
         T: SimdElement,
         Simd<T, N>: Sub<Output = Simd<T, N>>,
@@ -52,7 +58,7 @@ mod simd_vector {
         }
     }
 
-    impl<T, const N: usize> Mul<T> for SimdVector<T, N>
+    impl<const N: usize, T> Mul<T> for SimdVector<N, T>
     where
         T: SimdElement,
         Simd<T, N>: Mul<Output = Simd<T, N>>,
@@ -64,7 +70,7 @@ mod simd_vector {
         }
     }
 
-    impl<T, const N: usize> MulAssign<T> for SimdVector<T, N>
+    impl<const N: usize, T> MulAssign<T> for SimdVector<N, T>
     where
         T: SimdElement,
         Simd<T, N>: Mul<Output = Simd<T, N>>,
@@ -74,7 +80,7 @@ mod simd_vector {
         }
     }
 
-    impl<T, const N: usize> Div<T> for SimdVector<T, N>
+    impl<const N: usize, T> Div<T> for SimdVector<N, T>
     where
         T: SimdElement,
         Simd<T, N>: Div<Output = Simd<T, N>>,
@@ -86,7 +92,7 @@ mod simd_vector {
         }
     }
 
-    impl<T, const N: usize> DivAssign<T> for SimdVector<T, N>
+    impl<const N: usize, T> DivAssign<T> for SimdVector<N, T>
     where
         T: SimdElement,
         Simd<T, N>: Div<Output = Simd<T, N>>,
@@ -96,7 +102,7 @@ mod simd_vector {
         }
     }
 
-    impl<T, const N: usize> Neg for SimdVector<T, N>
+    impl<const N: usize, T> Neg for SimdVector<N, T>
     where
         T: SimdElement,
         Simd<T, N>: Neg<Output = Simd<T, N>>,
@@ -108,7 +114,7 @@ mod simd_vector {
         }
     }
 
-    impl<T, const N: usize> Vector<N> for SimdVector<T, N>
+    impl<const N: usize, T> Vector<N> for SimdVector<N, T>
     where
         T: SimdElement + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Sum,
         Simd<T, N>: Add<Output = Simd<T, N>>
@@ -145,9 +151,15 @@ mod array_vector {
         ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     };
 
-    pub struct ArrayVector<T, const N: usize>([T; N]);
+    pub struct ArrayVector<const N: usize, T>([T; N]);
 
-    impl<T, const N: usize> Add<Self> for ArrayVector<T, N>
+    impl<const N: usize, T> From<[T; N]> for ArrayVector<N, T> {
+        fn from(value: [T; N]) -> Self {
+            Self(value)
+        }
+    }
+
+    impl<const N: usize, T> Add<Self> for ArrayVector<N, T>
     where
         T: Add<Output = T>,
     {
@@ -165,7 +177,7 @@ mod array_vector {
         }
     }
 
-    impl<T, const N: usize> AddAssign<Self> for ArrayVector<T, N>
+    impl<const N: usize, T> AddAssign<Self> for ArrayVector<N, T>
     where
         T: AddAssign,
     {
@@ -176,7 +188,7 @@ mod array_vector {
         }
     }
 
-    impl<T, const N: usize> Sub<Self> for ArrayVector<T, N>
+    impl<const N: usize, T> Sub<Self> for ArrayVector<N, T>
     where
         T: Sub<Output = T>,
     {
@@ -194,7 +206,7 @@ mod array_vector {
         }
     }
 
-    impl<T, const N: usize> SubAssign<Self> for ArrayVector<T, N>
+    impl<const N: usize, T> SubAssign<Self> for ArrayVector<N, T>
     where
         T: SubAssign,
     {
@@ -205,7 +217,7 @@ mod array_vector {
         }
     }
 
-    impl<T, const N: usize> Mul<T> for ArrayVector<T, N>
+    impl<const N: usize, T> Mul<T> for ArrayVector<N, T>
     where
         T: Clone + Mul<Output = T>,
     {
@@ -222,7 +234,7 @@ mod array_vector {
         }
     }
 
-    impl<T, const N: usize> MulAssign<T> for ArrayVector<T, N>
+    impl<const N: usize, T> MulAssign<T> for ArrayVector<N, T>
     where
         T: Clone + MulAssign,
     {
@@ -233,7 +245,7 @@ mod array_vector {
         }
     }
 
-    impl<T, const N: usize> Div<T> for ArrayVector<T, N>
+    impl<const N: usize, T> Div<T> for ArrayVector<N, T>
     where
         T: Clone + Div<Output = T>,
     {
@@ -250,7 +262,7 @@ mod array_vector {
         }
     }
 
-    impl<T, const N: usize> DivAssign<T> for ArrayVector<T, N>
+    impl<const N: usize, T> DivAssign<T> for ArrayVector<N, T>
     where
         T: Clone + DivAssign,
     {
@@ -261,7 +273,7 @@ mod array_vector {
         }
     }
 
-    impl<T, const N: usize> Neg for ArrayVector<T, N>
+    impl<const N: usize, T> Neg for ArrayVector<N, T>
     where
         T: Neg<Output = T>,
     {
@@ -278,7 +290,7 @@ mod array_vector {
         }
     }
 
-    impl<T, const N: usize> Vector<N> for ArrayVector<T, N>
+    impl<const N: usize, T> Vector<N> for ArrayVector<N, T>
     where
         T: Clone
             + Add<Output = T>

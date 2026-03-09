@@ -1,3 +1,8 @@
+pub mod constants {
+    pub const REDUCED_PLANK_CONSTANT: f32 = 1.0;
+    pub const BOLTZMANN_CONSTANT: f32 = 1.0;
+}
+
 mod unimplemented {
     use std::{
         error::Error,
@@ -16,10 +21,10 @@ mod unimplemented {
                 InnerExchangePotential,
                 quadratic::{InnerNormalModesTransform, InnerQuadraticExpansionExchangePotential},
             },
-            physical::PhysicalPotential,
+            physical::{AtomDecoupledPhysicalPotential, PhysicalPotential},
         },
         propagator::{InnerPropagator, quadratic::InnerQuadraticExpansionPropagator},
-        thermostat::Thermostat,
+        thermostat::{AtomDecoupledThermostat, Thermostat},
     };
 
     #[derive(Clone, Copy, Debug)]
@@ -33,45 +38,36 @@ mod unimplemented {
 
     impl Bosonic for Unimplemented {}
 
-    impl<T, V> PhysicalPotential<T, V> for Unimplemented {
+    impl<T, V> AtomDecoupledPhysicalPotential<T, V> for Unimplemented {
         type Error = UnimplementedError;
 
-        fn calculate_potential_set_forces(
+        fn calculate_potential_set_force(
             &mut self,
-            _groups_positions: &[lib::core::GroupTypeHandle<V>],
-            _group_forces: &mut [V],
+            _atom_index: usize,
+            _position: &V,
+            _force: &mut V,
         ) -> Result<T, Self::Error> {
             Err(UnimplementedError)
         }
 
-        fn calculate_potential_add_forces(
+        fn calculate_potential_add_force(
             &mut self,
-            _groups_positions: &[lib::core::GroupTypeHandle<V>],
-            _group_forces: &mut [V],
+            _atom_index: usize,
+            _position: &V,
+            _force: &mut V,
         ) -> Result<T, Self::Error> {
             Err(UnimplementedError)
         }
 
-        fn calculate_potential(
-            &mut self,
-            _groups_positions: &[lib::core::GroupTypeHandle<V>],
-        ) -> Result<T, Self::Error> {
+        fn calculate_potential(&mut self, _atom_index: usize, _position: &V) -> Result<T, Self::Error> {
             Err(UnimplementedError)
         }
 
-        fn set_forces(
-            &mut self,
-            _groups_positions: &[lib::core::GroupTypeHandle<V>],
-            _group_forces: &mut [V],
-        ) -> Result<(), Self::Error> {
+        fn set_force(&mut self, _atom_index: usize, _position: &V, _force: &mut V) -> Result<(), Self::Error> {
             Err(UnimplementedError)
         }
 
-        fn add_forces(
-            &mut self,
-            _groups_positions: &[lib::core::GroupTypeHandle<V>],
-            _group_forces: &mut [V],
-        ) -> Result<(), Self::Error> {
+        fn add_force(&mut self, _atom_index: usize, _position: &V, _force: &mut V) -> Result<(), Self::Error> {
             Err(UnimplementedError)
         }
     }
@@ -160,15 +156,17 @@ mod unimplemented {
         fn eigenvalues(&self, _eigenvalues: &mut [T]) {}
     }
 
-    impl<T, V> Thermostat<T, V> for Unimplemented {
+    impl<T, V> AtomDecoupledThermostat<T, V> for Unimplemented {
         type Error = UnimplementedError;
 
         fn thermalize(
             &mut self,
-            _step: usize,
-            _images_groups_positions: &ElementRwLock<ImageHandle<V>>,
-            _images_groups_forces: &ElementRwLock<ImageHandle<V>>,
-            _group_momenta: &mut [V],
+            _step_size: T,
+            _atom_index: usize,
+            _position: &V,
+            _physical_force: &V,
+            _exchange_force: &V,
+            _momentum: &mut V,
         ) -> Result<T, Self::Error> {
             Err(UnimplementedError)
         }
@@ -232,6 +230,24 @@ mod unimplemented {
     }
 
     impl Error for UnimplementedError {}
+}
+
+pub mod error {
+    use std::{
+        error::Error,
+        fmt::{Display, Formatter, Result as FmtResult},
+    };
+
+    #[derive(Clone, Copy, Debug)]
+    pub struct NumCastError;
+
+    impl Display for NumCastError {
+        fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+            write!(f, "failed to cast from a primitive")
+        }
+    }
+
+    impl Error for NumCastError {}
 }
 
 pub use unimplemented::{Unimplemented, UnimplementedError};

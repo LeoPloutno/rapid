@@ -18,7 +18,8 @@ use arc_rw_lock::ElementRwLock;
 
 use crate::{
     core::{
-        AtomType, CommError, GroupImageHandle, GroupTypeHandle, Scheme, SchemeDependent, Vector,
+        AtomType, GroupImageHandle, GroupTypeHandle, GroupsIter, Scheme, SchemeDependent, Vector,
+        error::CommError,
         factory::{Factory, FullFactory},
         stat::{Bosonic, Distinguishable, Stat},
         sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
@@ -700,7 +701,6 @@ pub fn run<
     steps: usize,
     inner_images: usize,
     atom_types: &[AtomType<T>],
-    groups_sizes: &[usize],
     adders: &mut (
              impl for<'a> FullFactory<
         'a,
@@ -839,31 +839,31 @@ pub fn run<
     mut step_finalization: impl FnMut(usize) -> Result<(), Err>,
 ) -> Result<(), Err> {
     macro_rules! produce_estimators {
-        ($estimators:expr) => {{
+        ($estimators:expr, $groups:expr) => {{
             let n_estimators = $estimators.len();
             let mut uninit_main_estimators = Box::new_uninit_slice(n_estimators);
-            let mut uninit_leading_estimators = Box::new_uninit_slice(groups_sizes.len() * n_estimators);
-            let mut uninit_inner_estimators = Box::new_uninit_slice(groups_sizes.len() * inner_images * n_estimators);
-            let mut uninit_trailing_estimators = Box::new_uninit_slice(groups_sizes.len() * n_estimators);
+            let mut uninit_leading_estimators = Box::new_uninit_slice($groups * n_estimators);
+            let mut uninit_inner_estimators = Box::new_uninit_slice($groups * inner_images * n_estimators);
+            let mut uninit_trailing_estimators = Box::new_uninit_slice($groups * n_estimators);
             for zip_items!(
                 estimator,
                 uninit_main_estimator,
                 uninit_leading_estimators,
                 mut uninit_inner_estimators,
-                uninit_trailing_estimators
+                uninit_trailing_estimators,
             ) in zip_iterators!(
                 $estimators.iter_mut(),
                 uninit_main_estimators.iter_mut(),
                 StridesMut::from_slice(&mut uninit_leading_estimators, n_estimators),
                 StridesMut::from_slice(&mut uninit_inner_estimators, n_estimators),
-                StridesMut::from_slice(&mut uninit_trailing_estimators, n_estimators)
+                StridesMut::from_slice(&mut uninit_trailing_estimators, n_estimators),
             ) {
                 let (main_estimator, leading_estimators, inner_estimators_iter, trailing_estimators) =
-                    estimator.produce(inner_images, atom_types, groups_sizes);
+                    estimator.produce(inner_images, atom_types);
 
-                assert_eq!(leading_estimators.len(), groups_sizes.len());
+                assert_eq!(leading_estimators.len(), $groups);
                 assert_eq!(inner_estimators_iter.len(), inner_images);
-                assert_eq!(trailing_estimators.len(), groups_sizes.len());
+                assert_eq!(trailing_estimators.len(), $groups);
 
                 uninit_main_estimator.write(main_estimator);
 
@@ -871,24 +871,22 @@ pub fn run<
                     uninit_leading_estimator,
                     uninit_trailing_estimator,
                     leading_estimator,
-                    trailing_estimator
+                    trailing_estimator,
                 ) in zip_iterators!(
                     uninit_leading_estimators,
                     uninit_trailing_estimators,
                     leading_estimators,
-                    trailing_estimators
+                    trailing_estimators,
                 ) {
                     uninit_leading_estimator.write(leading_estimator);
                     uninit_trailing_estimator.write(trailing_estimator);
                 }
 
                 for inner_estimators in inner_estimators_iter {
-                    assert_eq!(inner_estimators.len(), groups_sizes.len());
+                    assert_eq!(inner_estimators.len(), $groups);
 
-                    for (uninit_inner_estimator, inner_estimator) in uninit_inner_estimators
-                        .by_ref()
-                        .take(groups_sizes.len())
-                        .zip(inner_estimators)
+                    for (uninit_inner_estimator, inner_estimator) in
+                        uninit_inner_estimators.by_ref().take($groups).zip(inner_estimators)
                     {
                         uninit_inner_estimator.write(inner_estimator);
                     }
@@ -906,6 +904,8 @@ pub fn run<
             }
         }};
     }
+
+    let groups = atom_types.iter().map(|&AtomType { groups, .. }| groups.total()).sum();
 
     let (mut leading_positions_out, mut inner_positions_out_iter, mut trailing_positions_out) =
         if let Some(iter) = positions_out {
@@ -981,7 +981,7 @@ pub fn run<
         ),
         ObservablesOutputOption::Quantum(ObservablesOutput { estimators, stream }) => {
             let (n_estimators, main_estimators, leading_estimators, inner_estimators, trailing_estimators) =
-                produce_estimators!(estimators);
+                produce_estimators!(estimators, groups);
             (
                 ObservablesOutputOption::Quantum(ObservablesOutput {
                     estimators: main_estimators,
@@ -998,7 +998,7 @@ pub fn run<
         }
         ObservablesOutputOption::Classical(ObservablesOutput { estimators, stream }) => {
             let (n_estimators, main_estimators, leading_estimators, inner_estimators, trailing_estimators) =
-                produce_estimators!(estimators);
+                produce_estimators!(estimators, groups);
             (
                 ObservablesOutputOption::Classical(ObservablesOutput {
                     estimators: main_estimators,
@@ -1024,14 +1024,14 @@ pub fn run<
                 leading_quantum_estimators,
                 inner_quantum_estimators,
                 trailing_quantum_estimators,
-            ) = produce_estimators!(quantum_estimators);
+            ) = produce_estimators!(quantum_estimators, groups);
             let (
                 n_debug_estimators,
                 main_debug_estimators,
                 leading_debug_estimators,
                 inner_debug_estimators,
                 trailing_debug_estimators,
-            ) = produce_estimators!(debug_estimators);
+            ) = produce_estimators!(debug_estimators, groups);
             (
                 ObservablesOutputOption::Shared {
                     quantum_estimators: main_quantum_estimators,
@@ -1059,14 +1059,14 @@ pub fn run<
                 leading_quantum_estimators,
                 inner_quantum_estimators,
                 trailing_quantum_estimators,
-            ) = produce_estimators!(quantum.estimators);
+            ) = produce_estimators!(quantum.estimators, groups);
             let (
                 n_debug_estimators,
                 main_debug_estimators,
                 leading_debug_estimators,
                 inner_debug_estimators,
                 trailing_debug_estimators,
-            ) = produce_estimators!(debug.estimators);
+            ) = produce_estimators!(debug.estimators, groups);
             (
                 ObservablesOutputOption::Separate {
                     quantum: ObservablesOutput {
@@ -1100,17 +1100,16 @@ pub fn run<
     let barrier = &barrier;
     let shared_value = &shared_value;
 
-    let (main_adder, leading_adders, inner_adders_iter, trailing_adders) =
-        adders.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_adders.len(), groups_sizes.len());
+    let (main_adder, leading_adders, inner_adders_iter, trailing_adders) = adders.produce(inner_images, atom_types);
+    assert_eq!(leading_adders.len(), groups);
     assert_eq!(inner_adders_iter.len(), inner_images);
-    assert_eq!(trailing_adders.len(), groups_sizes.len());
+    assert_eq!(trailing_adders.len(), groups);
 
     let (main_multiplier, leading_multipliers, inner_multipliers_iter, trailing_multipliers) =
-        multipliers.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_multipliers.len(), groups_sizes.len());
+        multipliers.produce(inner_images, atom_types);
+    assert_eq!(leading_multipliers.len(), groups);
     assert_eq!(inner_multipliers_iter.len(), inner_images);
-    assert_eq!(trailing_multipliers.len(), groups_sizes.len());
+    assert_eq!(trailing_multipliers.len(), groups);
 
     let (
         mut leading_propagators_and_exchange_potentials,
@@ -1122,16 +1121,16 @@ pub fn run<
             exchange_potential,
         }) => {
             let (leading_propagators, inner_propagators_iter, trailing_propagators) =
-                propagator.produce(inner_images, atom_types, groups_sizes);
-            assert_eq!(leading_propagators.len(), groups_sizes.len());
+                propagator.produce(inner_images, atom_types);
+            assert_eq!(leading_propagators.len(), groups);
             assert_eq!(inner_propagators_iter.len(), inner_images);
-            assert_eq!(trailing_propagators.len(), groups_sizes.len());
+            assert_eq!(trailing_propagators.len(), groups);
 
             let (leading_exchange_potentials, inner_exchange_potentials_iter, trailing_exchange_potentials) =
-                exchange_potential.produce(inner_images, atom_types, groups_sizes);
-            assert_eq!(leading_exchange_potentials.len(), groups_sizes.len());
+                exchange_potential.produce(inner_images, atom_types);
+            assert_eq!(leading_exchange_potentials.len(), groups);
             assert_eq!(inner_exchange_potentials_iter.len(), inner_images);
-            assert_eq!(trailing_exchange_potentials.len(), groups_sizes.len());
+            assert_eq!(trailing_exchange_potentials.len(), groups);
 
             (
                 Scheme::Regular(SchemeDependent {
@@ -1153,16 +1152,16 @@ pub fn run<
             exchange_potential,
         }) => {
             let (leading_propagators, inner_propagators_iter, trailing_propagators) =
-                propagator.produce(inner_images, atom_types, groups_sizes);
-            assert_eq!(leading_propagators.len(), groups_sizes.len());
+                propagator.produce(inner_images, atom_types);
+            assert_eq!(leading_propagators.len(), groups);
             assert_eq!(inner_propagators_iter.len(), inner_images);
-            assert_eq!(trailing_propagators.len(), groups_sizes.len());
+            assert_eq!(trailing_propagators.len(), groups);
 
             let (leading_exchange_potentials, inner_exchange_potentials_iter, trailing_exchange_potentials) =
-                exchange_potential.produce(inner_images, atom_types, groups_sizes);
-            assert_eq!(leading_exchange_potentials.len(), groups_sizes.len());
+                exchange_potential.produce(inner_images, atom_types);
+            assert_eq!(leading_exchange_potentials.len(), groups);
             assert_eq!(inner_exchange_potentials_iter.len(), inner_images);
-            assert_eq!(trailing_exchange_potentials.len(), groups_sizes.len());
+            assert_eq!(trailing_exchange_potentials.len(), groups);
 
             (
                 Scheme::QuadraticExpansion(SchemeDependent {
@@ -1181,51 +1180,47 @@ pub fn run<
         }
     };
     let (leading_physical_potentials, inner_physical_potentials_iter, trailing_physical_potentials) =
-        physical_potentials.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_physical_potentials.len(), groups_sizes.len());
+        physical_potentials.produce(inner_images, atom_types);
+    assert_eq!(leading_physical_potentials.len(), groups);
     assert_eq!(inner_physical_potentials_iter.len(), inner_images);
-    assert_eq!(trailing_physical_potentials.len(), groups_sizes.len());
+    assert_eq!(trailing_physical_potentials.len(), groups);
 
     let (leading_thermostats, inner_thermostats_iter, trailing_thermostats) =
-        thermostats.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_thermostats.len(), groups_sizes.len());
+        thermostats.produce(inner_images, atom_types);
+    assert_eq!(leading_thermostats.len(), groups);
     assert_eq!(inner_thermostats_iter.len(), inner_images);
-    assert_eq!(trailing_thermostats.len(), groups_sizes.len());
+    assert_eq!(trailing_thermostats.len(), groups);
 
-    let (leading_positions, inner_positions_iter, trailing_positions) =
-        positions.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_positions.len(), groups_sizes.len());
+    let (leading_positions, inner_positions_iter, trailing_positions) = positions.produce(inner_images, atom_types);
+    assert_eq!(leading_positions.len(), groups);
     assert_eq!(inner_positions_iter.len(), inner_images);
-    assert_eq!(trailing_positions.len(), groups_sizes.len());
+    assert_eq!(trailing_positions.len(), groups);
 
-    let (leading_momenta, inner_momenta_iter, trailing_momenta) =
-        momenta.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_momenta.len(), groups_sizes.len());
+    let (leading_momenta, inner_momenta_iter, trailing_momenta) = momenta.produce(inner_images, atom_types);
+    assert_eq!(leading_momenta.len(), groups);
     assert_eq!(inner_momenta_iter.len(), inner_images);
-    assert_eq!(trailing_momenta.len(), groups_sizes.len());
+    assert_eq!(trailing_momenta.len(), groups);
 
     let (leading_physical_forces, inner_physical_forces_iter, trailing_physical_forces) =
-        physical_forces.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_physical_forces.len(), groups_sizes.len());
+        physical_forces.produce(inner_images, atom_types);
+    assert_eq!(leading_physical_forces.len(), groups);
     assert_eq!(inner_physical_forces_iter.len(), inner_images);
-    assert_eq!(trailing_physical_forces.len(), groups_sizes.len());
+    assert_eq!(trailing_physical_forces.len(), groups);
 
     let (leading_exchange_forces, inner_exchange_forces_iter, trailing_exchange_forces) =
-        exchange_forces.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_exchange_forces.len(), groups_sizes.len());
+        exchange_forces.produce(inner_images, atom_types);
+    assert_eq!(leading_exchange_forces.len(), groups);
     assert_eq!(inner_exchange_forces_iter.len(), inner_images);
-    assert_eq!(trailing_exchange_forces.len(), groups_sizes.len());
+    assert_eq!(trailing_exchange_forces.len(), groups);
 
-    let index_smallest_group = groups_sizes
-        .iter()
+    let index_smallest_group = GroupsIter::from_atom_types(atom_types)
         .enumerate()
-        .min_by(|(_, element_0), (_, element_1)| element_0.cmp(element_1))
-        .expect("`groups_sizes` should contain at least one element")
+        .min_by(|(_, (_, group_0_size)), (_, (_, group_1_size))| group_0_size.cmp(group_1_size))
+        .expect("the should be at least one group of atoms")
         .0;
 
     thread::scope(|s| {
         // Leading image.
-        let mut atom_types_iter = atom_types.iter();
         let mut leading_quantum_estimators_iter = leading_quantum_estimators
             .as_deref_mut()
             .map(|estimators| estimators.chunks_exact_mut(n_quantum_estimators));
@@ -1233,17 +1228,9 @@ pub fn run<
             .as_deref_mut()
             .map(|estimators| estimators.chunks_exact_mut(n_debug_estimators));
         let mut leading_iter = zip_iterators!(
-            iter::successors(
-                Some((atom_types.first().expect("`types` should contain at least one type"), 0)),
-                |&(atom_type, group)| {
-                    let group = group + 1;
-                    if atom_type.groups.contains(&group) {
-                        Some((atom_type, group))
-                    } else {
-                        atom_types_iter.next().map(|atom_type| (atom_type, group))
-                    }
-                }
-            ),
+            GroupsIter::from_atom_types(atom_types)
+                .enumerate()
+                .map(|(index, (atom_type, _))| (atom_type, index)),
             leading_adders,
             leading_multipliers,
             iter::from_fn(|| {
@@ -1289,7 +1276,7 @@ pub fn run<
             leading_positions,
             leading_momenta,
             leading_physical_forces,
-            leading_exchange_forces
+            leading_exchange_forces,
         );
 
         for zip_items!(
@@ -1304,7 +1291,7 @@ pub fn run<
             mut positions,
             mut momenta,
             mut physical_forces,
-            mut exchange_forces
+            mut exchange_forces,
         ) in leading_iter.by_ref().take(index_smallest_group)
         {
             s.spawn::<_, Result<_, Err>>(move || {
@@ -1363,7 +1350,7 @@ pub fn run<
                 mut positions,
                 mut momenta,
                 mut physical_forces,
-                mut exchange_forces
+                mut exchange_forces,
             ) = leading_iter
                 .next()
                 .expect("the number of groups is greater than the index of the smalles one");
@@ -1456,7 +1443,7 @@ pub fn run<
             mut positions,
             mut momenta,
             mut physical_forces,
-            mut exchange_forces
+            mut exchange_forces,
         ) in leading_iter
         {
             s.spawn::<_, Result<_, Err>>(move || {
@@ -1506,10 +1493,10 @@ pub fn run<
         // Inner images.
         let mut inner_quantum_estimators_iter = inner_quantum_estimators
             .as_deref_mut()
-            .map(|estimators| estimators.chunks_exact_mut(groups_sizes.len() * n_quantum_estimators));
+            .map(|estimators| estimators.chunks_exact_mut(groups * n_quantum_estimators));
         let mut inner_debug_estimators_iter = inner_debug_estimators
             .as_deref_mut()
-            .map(|estimators| estimators.chunks_exact_mut(groups_sizes.len() * n_debug_estimators));
+            .map(|estimators| estimators.chunks_exact_mut(groups * n_debug_estimators));
         for zip_items!(
             image,
             inner_adders,
@@ -1526,7 +1513,7 @@ pub fn run<
             inner_positions,
             inner_momenta,
             inner_physical_forces,
-            inner_exchange_forces
+            inner_exchange_forces,
         ) in zip_iterators!(
             1..=inner_images,
             inner_adders_iter,
@@ -1598,25 +1585,16 @@ pub fn run<
             inner_positions_iter,
             inner_momenta_iter,
             inner_physical_forces_iter,
-            inner_exchange_forces_iter
+            inner_exchange_forces_iter,
         ) {
-            let mut atom_types_iter = atom_types.iter();
             let mut quantum_estimators_iter =
                 inner_quantum_estimators.map(|estimators| estimators.chunks_exact_mut(n_quantum_estimators));
             let mut debug_estimators_iter =
                 inner_debug_estimators.map(|estimators| estimators.chunks_exact_mut(n_debug_estimators));
             let mut inner_iter = zip_iterators!(
-                iter::successors(
-                    Some((atom_types.first().expect("`types` should contain at least one type"), 0)),
-                    |&(atom_type, group)| {
-                        let group = group + 1;
-                        if atom_type.groups.contains(&group) {
-                            Some((atom_type, group))
-                        } else {
-                            atom_types_iter.next().map(|atom_type| (atom_type, group))
-                        }
-                    }
-                ),
+                GroupsIter::from_atom_types(atom_types)
+                    .enumerate()
+                    .map(|(index, (atom_type, _))| (atom_type, index)),
                 inner_adders,
                 inner_multipliers,
                 iter::from_fn(|| {
@@ -1662,7 +1640,7 @@ pub fn run<
                 inner_positions,
                 inner_momenta,
                 inner_physical_forces,
-                inner_exchange_forces
+                inner_exchange_forces,
             );
 
             for zip_items!(
@@ -1677,7 +1655,7 @@ pub fn run<
                 mut positions,
                 mut momenta,
                 mut physical_forces,
-                mut exchange_forces
+                mut exchange_forces,
             ) in inner_iter.by_ref().take(index_smallest_group)
             {
                 s.spawn::<_, Result<_, Err>>(move || {
@@ -1737,7 +1715,7 @@ pub fn run<
                     mut positions,
                     mut momenta,
                     mut physical_forces,
-                    mut exchange_forces
+                    mut exchange_forces,
                 ) = inner_iter
                     .next()
                     .expect("the number of groups is greater than the index of the smalles one");
@@ -1832,7 +1810,7 @@ pub fn run<
                 mut positions,
                 mut momenta,
                 mut physical_forces,
-                mut exchange_forces
+                mut exchange_forces,
             ) in inner_iter
             {
                 s.spawn::<_, Result<_, Err>>(move || {
@@ -1881,7 +1859,6 @@ pub fn run<
         }
 
         // Trailing image.
-        let mut atom_types_iter = atom_types.iter();
         let mut trailing_quantum_estimators_iter = trailing_quantum_estimators
             .as_deref_mut()
             .map(|estimators| estimators.chunks_exact_mut(n_quantum_estimators));
@@ -1889,17 +1866,9 @@ pub fn run<
             .as_deref_mut()
             .map(|estimators| estimators.chunks_exact_mut(n_debug_estimators));
         let mut trailing_iter = zip_iterators!(
-            iter::successors(
-                Some((atom_types.first().expect("`types` should contain at least one type"), 0)),
-                |&(atom_type, group)| {
-                    let group = group + 1;
-                    if atom_type.groups.contains(&group) {
-                        Some((atom_type, group))
-                    } else {
-                        atom_types_iter.next().map(|atom_type| (atom_type, group))
-                    }
-                }
-            ),
+            GroupsIter::from_atom_types(atom_types)
+                .enumerate()
+                .map(|(index, (atom_type, _))| (atom_type, index)),
             trailing_adders,
             trailing_multipliers,
             iter::from_fn(|| {
@@ -1945,7 +1914,7 @@ pub fn run<
             trailing_positions,
             trailing_momenta,
             trailing_physical_forces,
-            trailing_exchange_forces
+            trailing_exchange_forces,
         );
 
         for zip_items!(
@@ -1960,7 +1929,7 @@ pub fn run<
             mut positions,
             mut momenta,
             mut physical_forces,
-            mut exchange_forces
+            mut exchange_forces,
         ) in trailing_iter.by_ref().take(index_smallest_group)
         {
             s.spawn::<_, Result<_, Err>>(move || {
@@ -2020,7 +1989,7 @@ pub fn run<
                 mut positions,
                 mut momenta,
                 mut physical_forces,
-                mut exchange_forces
+                mut exchange_forces,
             ) = trailing_iter
                 .next()
                 .expect("the number of groups is greater than the index of the smalles one");
@@ -2115,7 +2084,7 @@ pub fn run<
             mut positions,
             mut momenta,
             mut physical_forces,
-            mut exchange_forces
+            mut exchange_forces,
         ) in trailing_iter
         {
             s.spawn::<_, Result<_, Err>>(move || {

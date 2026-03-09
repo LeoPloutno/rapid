@@ -4,9 +4,11 @@ mod monte_carlo;
 /// A trait for physical potentials that can be expressed as a sum
 /// of potentials that depend only on a single atom.
 ///
-/// Any implementor of this trait automatically implements [`PhysicalPotential`].
+/// Any implementor of this trait automatically implements [`PhysicalPotential`]
+/// if the associated error type is convertible from [`EmptyIteratorError`].
 ///
 /// [`PhysicalPotential`]: super::PhysicalPotential
+/// [`EmptyIteratorError`]: crate::core::error::EmptyIteratorError
 pub trait AtomDecoupledPhysicalPotential<T, V> {
     /// The type associated with an error returned by the implementor.
     type Error;
