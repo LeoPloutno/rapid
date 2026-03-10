@@ -4,14 +4,14 @@ mod monte_carlo;
 /// A trait for physical potentials that can be expressed as a sum
 /// of potentials that depend only on a single atom.
 ///
-/// Any implementor of this trait automatically implements [`PhysicalPotential`]
-/// if the associated error type is convertible from [`EmptyIteratorError`].
+/// Any implementor of this trait automatically implements [`PhysicalPotential`].
 ///
 /// [`PhysicalPotential`]: super::PhysicalPotential
-/// [`EmptyIteratorError`]: crate::core::error::EmptyIteratorError
 pub trait AtomDecoupledPhysicalPotential<T, V> {
     /// The type associated with an error returned by the implementor.
-    type Error;
+    type ErrorAtom;
+    /// The type associated with an error returned by the automatic implementor of [`PhysicalPotential`](super::PhysicalPotential).
+    type ErrorSystem: From<Self::ErrorAtom> + From<InvalidIndexError>;
 
     /// Calculates the contribution of this atom to the total physical potential energy
     /// of the image and sets the force of this atom accordingly.
@@ -23,7 +23,7 @@ pub trait AtomDecoupledPhysicalPotential<T, V> {
         atom_index: usize,
         position: &V,
         force: &mut V,
-    ) -> Result<T, Self::Error>;
+    ) -> Result<T, Self::ErrorAtom>;
 
     /// Calculates the contribution of this atom to the total physical potential energy
     /// of the image and adds the force arising from this potential to the force of this atom.
@@ -35,7 +35,7 @@ pub trait AtomDecoupledPhysicalPotential<T, V> {
         atom_index: usize,
         position: &V,
         force: &mut V,
-    ) -> Result<T, Self::Error>;
+    ) -> Result<T, Self::ErrorAtom>;
 
     /// Calculates the contribution of this atom to the total physical potential energy
     /// of the image.
@@ -44,16 +44,18 @@ pub trait AtomDecoupledPhysicalPotential<T, V> {
     /// - `position`: The position of this atom.
     #[deprecated = "Consider using `calculate_potential_set_force` as a more efficient alternative"]
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential(&mut self, atom_index: usize, position: &V) -> Result<T, Self::Error>;
+    fn calculate_potential(&mut self, atom_index: usize, position: &V) -> Result<T, Self::ErrorAtom>;
 
     /// Sets the force of this atom.
     #[deprecated = "Consider using `calculate_potential_set_force` as a more efficient alternative"]
-    fn set_force(&mut self, atom_index: usize, position: &V, force: &mut V) -> Result<(), Self::Error>;
+    fn set_force(&mut self, atom_index: usize, position: &V, force: &mut V) -> Result<(), Self::ErrorAtom>;
 
     /// Adds the force arising from this potential to the force of this atom.
     #[deprecated = "Consider using `calculate_potential_add_force` as a more efficient alternative"]
-    fn add_force(&mut self, atom_index: usize, position: &V, force: &mut V) -> Result<(), Self::Error>;
+    fn add_force(&mut self, atom_index: usize, position: &V, force: &mut V) -> Result<(), Self::ErrorAtom>;
 }
 
 #[cfg(feature = "monte_carlo")]
 pub use monte_carlo::MonteCarloAtomDecoupledPhysicalPotential;
+
+use crate::core::error::InvalidIndexError;

@@ -144,6 +144,7 @@ impl<G> GroupImageHandle<G> {
 }
 
 /// Exchange potential expansion scheme.
+#[derive(Clone, Copy, Debug)]
 pub enum Scheme<T, U> {
     /// Regular, unexpanded.
     Regular(T),

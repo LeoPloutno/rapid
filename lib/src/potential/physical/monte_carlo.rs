@@ -1,6 +1,8 @@
 use super::PhysicalPotential;
 use crate::{
-    ImageHandle, core::error::InvalidIndexError, potential::physical::MonteCarloAtomDecoupledPhysicalPotential,
+    ImageHandle,
+    core::error::InvalidIndexError,
+    potential::physical::{AtomDecoupledPhysicalPotential, MonteCarloAtomDecoupledPhysicalPotential},
 };
 
 /// A trait for physical potentials that may be used in a Monte-Carlo algorithm.
@@ -73,11 +75,12 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
     ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, E, U> MonteCarloPhysicalPotential<T, V> for U
+impl<T, V, U> MonteCarloPhysicalPotential<T, V> for U
 where
     T: Default,
-    E: From<InvalidIndexError>,
-    U: MonteCarloAtomDecoupledPhysicalPotential<T, V, Error = E> + PhysicalPotential<T, V, Error = E> + ?Sized,
+    U: MonteCarloAtomDecoupledPhysicalPotential<T, V>
+        + PhysicalPotential<T, V, Error = <Self as AtomDecoupledPhysicalPotential<T, V>>::ErrorSystem>
+        + ?Sized,
 {
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
@@ -90,16 +93,18 @@ where
         if changed_group_index == groups_positions.index() {
             let group_positions = groups_positions.read().read();
             let group_forces_len = group_forces.len();
-            MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff_set_changed_force(
-                self,
-                changed_atom_index,
-                old_value,
-                group_positions
-                    .get(changed_atom_index)
-                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_positions.len()))?,
-                group_forces
-                    .get_mut(changed_atom_index)
-                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
+            Ok(
+                MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff_set_changed_force(
+                    self,
+                    changed_atom_index,
+                    old_value,
+                    group_positions
+                        .get(changed_atom_index)
+                        .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_positions.len()))?,
+                    group_forces
+                        .get_mut(changed_atom_index)
+                        .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
+                )?,
             )
         } else {
             Ok(T::default())
@@ -117,16 +122,18 @@ where
         if changed_group_index == groups_positions.index() {
             let group_positions = groups_positions.read().read();
             let group_forces_len = group_forces.len();
-            MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff_add_changed_force(
-                self,
-                changed_atom_index,
-                old_value,
-                group_positions
-                    .get(changed_atom_index)
-                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_positions.len()))?,
-                group_forces
-                    .get_mut(changed_atom_index)
-                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
+            Ok(
+                MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff_add_changed_force(
+                    self,
+                    changed_atom_index,
+                    old_value,
+                    group_positions
+                        .get(changed_atom_index)
+                        .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_positions.len()))?,
+                    group_forces
+                        .get_mut(changed_atom_index)
+                        .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
+                )?,
             )
         } else {
             Ok(T::default())
@@ -143,14 +150,14 @@ where
         if changed_group_index == groups_positions.index() {
             let group_positions = groups_positions.read().read();
             #[allow(deprecated)]
-            MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff(
+            Ok(MonteCarloAtomDecoupledPhysicalPotential::calculate_potential_diff(
                 self,
                 changed_atom_index,
                 old_value,
                 group_positions
                     .get(changed_atom_index)
                     .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_positions.len()))?,
-            )
+            )?)
         } else {
             Ok(T::default())
         }
@@ -168,7 +175,7 @@ where
             let group_positions = groups_positions.read().read();
             let group_forces_len = group_forces.len();
             #[allow(deprecated)]
-            MonteCarloAtomDecoupledPhysicalPotential::set_changed_force(
+            Ok(MonteCarloAtomDecoupledPhysicalPotential::set_changed_force(
                 self,
                 changed_atom_index,
                 old_value,
@@ -178,7 +185,7 @@ where
                 group_forces
                     .get_mut(changed_atom_index)
                     .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
-            )
+            )?)
         } else {
             Ok(())
         }
@@ -196,7 +203,7 @@ where
             let group_positions = groups_positions.read().read();
             let group_forces_len = group_forces.len();
             #[allow(deprecated)]
-            MonteCarloAtomDecoupledPhysicalPotential::add_changed_force(
+            Ok(MonteCarloAtomDecoupledPhysicalPotential::add_changed_force(
                 self,
                 changed_atom_index,
                 old_value,
@@ -206,7 +213,7 @@ where
                 group_forces
                     .get_mut(changed_atom_index)
                     .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
-            )
+            )?)
         } else {
             Ok(())
         }

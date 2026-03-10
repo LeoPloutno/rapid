@@ -2,7 +2,7 @@
 
 use std::ops::Add;
 
-use crate::{ImageHandle, core::error::EmptyIteratorError};
+use crate::{ImageHandle, core::error::EmptyError};
 
 mod atom_decoupled;
 #[cfg(feature = "monte_carlo")]
@@ -55,9 +55,9 @@ pub trait PhysicalPotential<T, V> {
 impl<T, V, U> PhysicalPotential<T, V> for U
 where
     T: Add<Output = T>,
-    U: AtomDecoupledPhysicalPotential<T, V, Error: From<EmptyIteratorError>> + ?Sized,
+    U: AtomDecoupledPhysicalPotential<T, V, ErrorSystem: From<EmptyError>> + ?Sized,
 {
-    type Error = <Self as AtomDecoupledPhysicalPotential<T, V>>::Error;
+    type Error = <Self as AtomDecoupledPhysicalPotential<T, V>>::ErrorSystem;
 
     fn calculate_potential_set_forces(
         &mut self,
@@ -73,7 +73,7 @@ where
             .map(|(index, (position, force))| {
                 AtomDecoupledPhysicalPotential::calculate_potential_set_force(self, index, position, force)
             });
-        let first_atom_energy = iter.next().ok_or(EmptyIteratorError)??;
+        let first_atom_energy = iter.next().ok_or(EmptyError)??;
         iter.try_fold(first_atom_energy, |accum_energy, atom_energy| {
             Ok(accum_energy + atom_energy?)
         })
@@ -93,7 +93,7 @@ where
             .map(|(index, (position, force))| {
                 AtomDecoupledPhysicalPotential::calculate_potential_add_force(self, index, position, force)
             });
-        let first_atom_energy = iter.next().ok_or(EmptyIteratorError)??;
+        let first_atom_energy = iter.next().ok_or(EmptyError)??;
         iter.try_fold(first_atom_energy, |accum_energy, atom_energy| {
             Ok(accum_energy + atom_energy?)
         })
@@ -109,7 +109,7 @@ where
                 #[allow(deprecated)]
                 AtomDecoupledPhysicalPotential::calculate_potential(self, index, position)
             });
-        let first_atom_energy = iter.next().ok_or(EmptyIteratorError)??;
+        let first_atom_energy = iter.next().ok_or(EmptyError)??;
         iter.try_fold(first_atom_energy, |accum_energy, atom_energy| {
             Ok(accum_energy + atom_energy?)
         })

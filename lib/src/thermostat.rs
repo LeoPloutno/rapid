@@ -4,7 +4,7 @@ use std::ops::Add;
 
 use arc_rw_lock::ElementRwLock;
 
-use crate::{ImageHandle, core::error::EmptyIteratorError, zip_items, zip_iterators};
+use crate::{ImageHandle, core::error::EmptyError, zip_items, zip_iterators};
 
 mod atom_decoupled;
 
@@ -35,9 +35,9 @@ pub trait Thermostat<T, V> {
 impl<T, V, U> Thermostat<T, V> for U
 where
     T: Clone + Add<Output = T>,
-    U: AtomDecoupledThermostat<T, V, Error: From<EmptyIteratorError>>,
+    U: AtomDecoupledThermostat<T, V> + ?Sized,
 {
-    type Error = <Self as AtomDecoupledThermostat<T, V>>::Error;
+    type Error = <Self as AtomDecoupledThermostat<T, V>>::ErrorSystem;
 
     fn thermalize(
         &mut self,
@@ -67,7 +67,7 @@ where
                 )
             },
         );
-        let first_atom_energy_diff = iter.next().ok_or(EmptyIteratorError)??;
+        let first_atom_energy_diff = iter.next().ok_or(EmptyError)??;
         iter.try_fold(first_atom_energy_diff, |accum_energy_diff, atom_energy_diff| {
             Ok(accum_energy_diff + atom_energy_diff?)
         })

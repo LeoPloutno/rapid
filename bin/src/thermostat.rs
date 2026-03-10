@@ -2,7 +2,7 @@ mod langevin {
     use std::{array, ops::Mul};
 
     use lib::{
-        core::{Vector, error::EmptyIteratorError},
+        core::{Vector, error::EmptyError},
         thermostat::AtomDecoupledThermostat,
     };
     use num::Float;
@@ -40,7 +40,7 @@ mod langevin {
         V: Vector<N, Element = T> + Clone,
         R: Rng,
     {
-        type Error = EmptyIteratorError;
+        type Error = EmptyError;
 
         fn thermalize(
             &mut self,

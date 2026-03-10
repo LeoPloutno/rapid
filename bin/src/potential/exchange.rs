@@ -4,7 +4,7 @@ mod distinguishable {
     use lib::{
         core::{
             Vector,
-            error::{AccessError, EmptyIteratorError, InvalidRangeError},
+            error::{AccessError, EmptyError, InvalidRangeError},
             marker::{InnerIsLeading, InnerIsTrailing},
             stat::Distinguishable,
             zip_items, zip_iterators,
@@ -81,7 +81,7 @@ mod distinguishable {
                         * (connection_prev.clone().magnitude_squared() + connection_next.clone().magnitude_squared())
                 },
             );
-            let first = iter.next().ok_or(EmptyIteratorError)?;
+            let first = iter.next().ok_or(EmptyError)?;
             Ok(iter.fold(first, |accum, element| accum + element))
         }
 
@@ -115,7 +115,7 @@ mod distinguishable {
                         * (connection_prev.clone().magnitude_squared() + connection_next.clone().magnitude_squared())
                 },
             );
-            let first = iter.next().ok_or(EmptyIteratorError)?;
+            let first = iter.next().ok_or(EmptyError)?;
             Ok(iter.fold(first, |accum, element| accum + element))
         }
 
@@ -141,7 +141,7 @@ mod distinguishable {
                     * ((position.clone() - position_prev_image.clone()).magnitude_squared()
                         + (position.clone() - position_next_image.clone()).magnitude_squared())
             });
-            let first = iter.next().ok_or(EmptyIteratorError)?;
+            let first = iter.next().ok_or(EmptyError)?;
             Ok(iter.fold(first, |accum, element| accum + element))
         }
 

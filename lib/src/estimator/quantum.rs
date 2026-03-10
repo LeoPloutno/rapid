@@ -1,5 +1,7 @@
 //! Traits for calculating quantum observables.
 
+use arc_rw_lock::ElementRwLock;
+
 use crate::{
     ImageHandle,
     core::{
@@ -17,126 +19,128 @@ use crate::{
     },
 };
 
+pub mod atom_additive;
+pub mod atom_multiplicative;
+pub mod group_additive;
+
+pub struct AdditiveQuantumEstimator<E: ?Sized>(pub E);
+
 /// A trait for quantum estimators.
 /// The implementor of this trait recieves the calculations of
 /// the other quantum estimators and produces an output.
 pub trait MainQuantumEstimator<T, V, Adder, Multiplier>
 where
-    Adder: SyncAddReciever<T> + ?Sized,
-    Multiplier: SyncMulReciever<T> + ?Sized,
+    Adder: SyncAddReciever<Self::Output> + ?Sized,
+    Multiplier: SyncMulReciever<Self::Output> + ?Sized,
 {
-    /// The type associated with the output returned by the implementor.
+    /// The type of error `Self` returns.
     type Output;
-    /// The type associated with an error returned by the implementor.
+    /// The type of error `Self` returns.
     type Error;
 
     /// Calculates the observable.
-    ///
-    /// Returns an error if a synchronization failure occurs.
     fn calculate(&mut self, adder: &mut Adder, multiplier: &mut Multiplier) -> Result<Self::Output, Self::Error>;
 }
 
-/// A trait for quantum estimators operating in the first replica for a specific group.
+/// A trait for quantum estimators operating in the first image for a specific group.
 pub trait LeadingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
-    Adder: SyncAddSender<T> + ?Sized,
-    Multiplier: SyncMulSender<T> + ?Sized,
+    Adder: SyncAddSender<Self::Output> + ?Sized,
+    Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type associated with the output returned by the implementor.
+    /// The type of error `Self` returns.
     type Output;
-    /// The type associated with an error returned by the implementor.
+    /// The type of error `Self` returns.
     type Error;
 
-    /// Calculates the contribution of this group in the first replica
-    /// to the observable and sends it to a `MainQuantumEstimator`.
-    ///
-    /// Returns an error if a synchronization failure occurs.
+    /// Calculates the contribution of this group in the first image
+    /// to the observable and sends it to an [`MainQuantumEstimator`].
     fn calculate(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        groups_positions: &[ImageHandle<V>],
-        groups_physical_forces: &[ImageHandle<V>],
-        groups_exchange_forces: &[ImageHandle<V>],
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error>;
 }
 
-/// A trait for quantum estimators operating in an inner replica for a specific group.
+/// A trait for quantum estimators operating in an inner image for a specific group.
 pub trait InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
-    Adder: SyncAddSender<T> + ?Sized,
-    Multiplier: SyncMulSender<T> + ?Sized,
+    Adder: SyncAddSender<Self::Output> + ?Sized,
+    Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type associated with the output returned by the implementor.
+    /// The type of error `Self` returns.
     type Output;
-    /// The type associated with an error returned by the implementor.
+    /// The type of error `Self` returns.
     type Error;
 
-    /// Calculates the contribution of this group in this replica
-    /// to the observable and sends it to a `MainQuantumObservable`.
-    ///
-    /// Returns an error if a synchronization failure occurs.
+    /// Calculates the contribution of this group in this image
+    /// to the observable and sends it to a [`MainQuantumEstimator`].
     fn calculate(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        groups_positions: &[ImageHandle<V>],
-        groups_physical_forces: &[ImageHandle<V>],
-        groups_exchange_forces: &[ImageHandle<V>],
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error>;
 }
 
-/// A trait for quantum estimators operating in the last replica for a specific group.
+/// A trait for quantum estimators operating in the last image for a specific group.
 pub trait TrailingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
-    Adder: SyncAddSender<T> + ?Sized,
-    Multiplier: SyncMulSender<T> + ?Sized,
+    Adder: SyncAddSender<Self::Output> + ?Sized,
+    Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type associated with the output returned by the implementor.
+    /// The type of error `Self` returns.
     type Output;
-    /// The type associated with an error returned by the implementor.
+    /// The type of error `Self` returns.
     type Error;
 
-    /// Calculates the contribution of this group in the last replica
-    /// to the observable and sends it to a `MainQuantumEstimator`.
-    ///
-    /// Returns an error if a synchronization failure occurs.
+    /// Calculates the contribution of this group in the last image
+    /// to the observable and sends it to a [`MainQuantumEstimator`].
     fn calculate(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        groups_positions: &[ImageHandle<V>],
-        groups_physical_forces: &[ImageHandle<V>],
-        groups_exchange_forces: &[ImageHandle<V>],
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error>;
 }
 
 impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
     LeadingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for U
 where
-    Adder: SyncAddSender<T> + ?Sized,
-    Multiplier: SyncMulSender<T> + ?Sized,
+    Adder: SyncAddSender<
+            <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+        > + ?Sized,
+    Multiplier: SyncMulSender<
+            <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+        > + ?Sized,
     Dist: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
@@ -157,22 +161,22 @@ where
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        groups_positions: &[ImageHandle<V>],
-        groups_physical_forces: &[ImageHandle<V>],
-        groups_exchange_forces: &[ImageHandle<V>],
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
         InnerQuantumEstimator::calculate(
             self,
             adder,
             multiplier,
             exchange_potential,
-            physical_potential_energy,
-            exchange_potential_energy,
-            groups_positions,
-            groups_physical_forces,
-            groups_exchange_forces,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            images_groups_positions,
+            images_groups_physical_forces,
+            images_groups_exchange_forces,
         )
     }
 }
@@ -180,8 +184,12 @@ where
 impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
     TrailingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for U
 where
-    Adder: SyncAddSender<T> + ?Sized,
-    Multiplier: SyncMulSender<T> + ?Sized,
+    Adder: SyncAddSender<
+            <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+        > + ?Sized,
+    Multiplier: SyncMulSender<
+            <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+        > + ?Sized,
     Dist: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
@@ -202,22 +210,22 @@ where
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        groups_positions: &[ImageHandle<V>],
-        groups_physical_forces: &[ImageHandle<V>],
-        groups_exchange_forces: &[ImageHandle<V>],
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
         InnerQuantumEstimator::calculate(
             self,
             adder,
             multiplier,
             exchange_potential,
-            physical_potential_energy,
-            exchange_potential_energy,
-            groups_positions,
-            groups_physical_forces,
-            groups_exchange_forces,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            images_groups_positions,
+            images_groups_physical_forces,
+            images_groups_exchange_forces,
         )
     }
 }

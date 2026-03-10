@@ -62,17 +62,17 @@ impl Display for InvalidRangeError {
 
 impl Error for InvalidRangeError {}
 
-/// An error representing an attempt to access an element of an empty iterator.
+/// An error representing an attempt to access an empty container.
 #[derive(Clone, Copy, Debug)]
-pub struct EmptyIteratorError;
+pub struct EmptyError;
 
-impl Display for EmptyIteratorError {
+impl Display for EmptyError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "cannot yield from an empty iterator")
+        write!(f, "attempted to access an empty container")
     }
 }
 
-impl Error for EmptyIteratorError {}
+impl Error for EmptyError {}
 
 /// An error that represents invalid access.
 #[derive(Clone, Debug)]
@@ -81,8 +81,8 @@ pub enum AccessError {
     Index(InvalidIndexError),
     /// Invalid range indexing.
     Range(InvalidRangeError),
-    /// Accessing an empty iterator or slice.
-    Empty(EmptyIteratorError),
+    /// Accessing an empty container.
+    Empty(EmptyError),
 }
 
 impl From<InvalidIndexError> for AccessError {
@@ -97,8 +97,8 @@ impl From<InvalidRangeError> for AccessError {
     }
 }
 
-impl From<EmptyIteratorError> for AccessError {
-    fn from(value: EmptyIteratorError) -> Self {
+impl From<EmptyError> for AccessError {
+    fn from(value: EmptyError) -> Self {
         Self::Empty(value)
     }
 }
@@ -108,7 +108,7 @@ impl Display for AccessError {
         match self {
             Self::Index(err) => write!(f, "invalid index: {}", err),
             Self::Range(err) => write!(f, "invalid range: {}", err),
-            Self::Empty(_) => write!(f, "empty iterator"),
+            Self::Empty(_) => write!(f, "empty container"),
         }
     }
 }

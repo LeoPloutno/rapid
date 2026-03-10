@@ -1,14 +1,16 @@
+use crate::core::error::EmptyError;
+
 /// A trait for thermostats that decouple all atoms from each
 /// other such that each one can be thermalized independently.
 ///
-/// Any implementor of this trait automatically implements [`Thermostat`]
-/// if the associated error type is convertible from [`EmptyIteratorError`].
+/// Any implementor of this trait automatically implements [`Thermostat`].
 ///
 /// [`Thermostat`]: super::Thermostat
-/// [`EmptyIteratorError`]: crate::core::EmptyIteratorError
 pub trait AtomDecoupledThermostat<T, V> {
     /// The type associated with an error returned by the implementor.
-    type Error;
+    type ErrorAtom;
+    /// The type associated with an error returned by the automatic implementor of [`Thermostat`](super::Thermostat).
+    type ErrorSystem: From<Self::ErrorAtom> + From<EmptyError>;
 
     /// Thermalizes the atom.
     ///
@@ -23,5 +25,5 @@ pub trait AtomDecoupledThermostat<T, V> {
         physical_force: &V,
         exchange_force: &V,
         momentum: &mut V,
-    ) -> Result<T, Self::Error>;
+    ) -> Result<T, Self::ErrorAtom>;
 }

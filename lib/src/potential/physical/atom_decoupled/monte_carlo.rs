@@ -19,7 +19,7 @@ pub trait MonteCarloAtomDecoupledPhysicalPotential<T, V>: AtomDecoupledPhysicalP
         old_value: V,
         position: &V,
         force: &mut V,
-    ) -> Result<T, Self::Error>;
+    ) -> Result<T, Self::ErrorAtom>;
 
     /// Calculates the change in the physical potential energy of this atom
     /// after a change in its position and adds the updated force to the force
@@ -33,7 +33,7 @@ pub trait MonteCarloAtomDecoupledPhysicalPotential<T, V>: AtomDecoupledPhysicalP
         old_value: V,
         position: &V,
         force: &mut V,
-    ) -> Result<T, Self::Error>;
+    ) -> Result<T, Self::ErrorAtom>;
 
     /// Calculates the change in the physical potential energy of this atom
     /// after a change in its position.
@@ -41,7 +41,8 @@ pub trait MonteCarloAtomDecoupledPhysicalPotential<T, V>: AtomDecoupledPhysicalP
     /// Returns the change in potential energy.
     #[deprecated = "Consider using `calculate_potential_diff_set_changed_force` as a more efficient alternative"]
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential_diff(&mut self, atom_index: usize, old_value: V, position: &V) -> Result<T, Self::Error>;
+    fn calculate_potential_diff(&mut self, atom_index: usize, old_value: V, position: &V)
+    -> Result<T, Self::ErrorAtom>;
 
     /// Updates the force of this atom after a change to its position.
     #[deprecated = "Consider using `calculate_potential_diff_set_changed_force` as a more efficient alternative"]
@@ -51,7 +52,7 @@ pub trait MonteCarloAtomDecoupledPhysicalPotential<T, V>: AtomDecoupledPhysicalP
         old_value: V,
         position: &V,
         force: &mut V,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), Self::ErrorAtom>;
 
     /// Adds the updated force to the force of this atom given a change in its position.
     #[deprecated = "Consider using `calculate_potential_diff_add_changed_force` as a more efficient alternative"]
@@ -61,5 +62,5 @@ pub trait MonteCarloAtomDecoupledPhysicalPotential<T, V>: AtomDecoupledPhysicalP
         old_value: V,
         position: &V,
         force: &mut V,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), Self::ErrorAtom>;
 }
