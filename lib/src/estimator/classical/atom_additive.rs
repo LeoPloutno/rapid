@@ -8,14 +8,14 @@ use arc_rw_lock::ElementRwLock;
 use crate::{
     ImageHandle,
     core::{
-        Additive as AtomAdditiveQuantumEstimator, Scheme,
+        Additive as AtomAdditiveClassicalEstimator, Scheme,
         error::EmptyError,
         marker::{InnerIsLeading, InnerIsTrailing},
         stat::{Bosonic, Distinguishable, Stat},
         sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
     },
-    estimator::quantum::{
-        InnerQuantumEstimator, LeadingQuantumEstimator, MainQuantumEstimator, TrailingQuantumEstimator,
+    estimator::classical::{
+        InnerClassicalEstimator, LeadingClassicalEstimator, MainClassicalEstimator, TrailingClassicalEstimator,
     },
     potential::exchange::{
         InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
@@ -27,27 +27,27 @@ use crate::{
     zip_items, zip_iterators,
 };
 
-/// A trait for main quantum estimators that can be expressed as a sum
+/// A trait for main classical estimators that can be expressed as a sum
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomAdditiveQuantumEstimator<E>`]
-/// atomatically implements [`MainQuantumEstimator`].
-pub trait MainAtomAdditiveQuantumEstimator<T, V, Adder>
+/// For any type `E` that implements this trait, [`AtomAdditiveClassicalEstimator<E>`]
+/// atomatically implements [`MainClassicalEstimator`].
+pub trait MainAtomAdditiveClassicalEstimator<T, V, Adder>
 where
     Adder: SyncAddReciever<Self::Output> + ?Sized,
 {
-    /// The type of output `Self` and [`AtomAdditiveQuantumEstimator<Self>`] produce.
+    /// The type of output `Self` and [`AtomAdditiveClassicalEstimator<Self>`] produce.
     type Output;
-    /// The type of error [`AtomAdditiveQuantumEstimator<Self>`] returns.
+    /// The type of error [`AtomAdditiveClassicalEstimator<Self>`] returns.
     type Error: From<Adder::Error> + From<EmptyError>;
 }
 
-/// A trait for leading quantum estimators that can be expressed as a sum
+/// A trait for leading classical estimators that can be expressed as a sum
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomAdditiveQuantumEstimator<E>`]
-/// atomatically implements [`LeadingQuantumEstimator`].
-pub trait LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
+/// For any type `E` that implements this trait, [`AtomAdditiveClassicalEstimator<E>`]
+/// atomatically implements [`LeadingClassicalEstimator`].
+pub trait LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
 where
     T: Clone,
     Adder: SyncAddSender<Self::Output> + ?Sized,
@@ -56,11 +56,11 @@ where
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of output `Self` and [`AtomAdditiveQuantumEstimator<Self>`] produce.
+    /// The type of output `Self` and [`AtomAdditiveClassicalEstimator<Self>`] produce.
     type Output: Add<Output = Self::Output>;
     /// The type of error `Self` returns.
     type ErrorAtom;
-    /// The type of error [`AtomAdditiveQuantumEstimator<Self>`] returns.
+    /// The type of error [`AtomAdditiveClassicalEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Adder::Error> + From<EmptyError>;
 
     /// Calculates the contribution of this atom in the first image to the observable.
@@ -70,18 +70,21 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         position: &V,
+        momentum: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom>;
 }
 
-/// A trait for inner quantum estimators that can be expressed as a sum
+/// A trait for inner classical estimators that can be expressed as a sum
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomAdditiveQuantumEstimator<E>`]
-/// atomatically implements [`InnerQuantumEstimator`].
-pub trait InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
+/// For any type `E` that implements this trait, [`AtomAdditiveClassicalEstimator<E>`]
+/// atomatically implements [`InnerClassicalEstimator`].
+pub trait InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
 where
     T: Clone,
     Adder: SyncAddSender<Self::Output> + ?Sized,
@@ -90,11 +93,11 @@ where
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of output `Self` and [`AtomAdditiveQuantumEstimator<Self>`] produce.
+    /// The type of output `Self` and [`AtomAdditiveClassicalEstimator<Self>`] produce.
     type Output: Add<Output = Self::Output>;
     /// The type of error `Self` returns.
     type ErrorAtom;
-    /// The type of error [`AtomAdditiveQuantumEstimator<Self>`] returns.
+    /// The type of error [`AtomAdditiveClassicalEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Adder::Error> + From<EmptyError>;
 
     /// Calculates the contribution of this atom in this image to the observable.
@@ -104,18 +107,21 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         position: &V,
+        momentum: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom>;
 }
 
-/// A trait for trailing quantum estimators that can be expressed as a sum
+/// A trait for trailing classical estimators that can be expressed as a sum
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomAdditiveQuantumEstimator<E>`]
-/// atomatically implements [`TrailingQuantumEstimator`].
-pub trait TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
+/// For any type `E` that implements this trait, [`AtomAdditiveClassicalEstimator<E>`]
+/// atomatically implements [`TrailingClassicalEstimator`].
+pub trait TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
 where
     T: Clone,
     Adder: SyncAddSender<Self::Output> + ?Sized,
@@ -124,11 +130,11 @@ where
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of output `Self` and [`AtomAdditiveQuantumEstimator<Self>`] produce.
+    /// The type of output `Self` and [`AtomAdditiveClassicalEstimator<Self>`] produce.
     type Output: Add<Output = Self::Output>;
     /// The type of error `Self` returns.
     type ErrorAtom;
-    /// The type of error [`AtomAdditiveQuantumEstimator<Self>`] returns.
+    /// The type of error [`AtomAdditiveClassicalEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Adder::Error> + From<EmptyError>;
 
     /// Calculates the contribution of this atom in the last image to the observable.
@@ -138,18 +144,21 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         position: &V,
+        momentum: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom>;
 }
 
 impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, U>
-    LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for U
+    LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for U
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
@@ -161,13 +170,13 @@ where
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
+    U: InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
 {
-    type Output = <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
+    type Output = <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type ErrorAtom =
-        <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom;
+        <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom;
     type ErrorSystem =
-        <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+        <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -175,17 +184,23 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         position: &V,
+        momentum: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
-        InnerAtomAdditiveQuantumEstimator::calculate(
+        InnerAtomAdditiveClassicalEstimator::calculate(
             self,
             atom_index,
             exchange_potential,
             group_physical_potential_energy,
             group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
             position,
+            momentum,
             physical_force,
             exchange_force,
         )
@@ -193,11 +208,11 @@ where
 }
 
 impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, U>
-    TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for U
+    TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for U
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
@@ -209,13 +224,13 @@ where
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
+    U: InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
 {
-    type Output = <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
+    type Output = <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type ErrorAtom =
-        <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom;
+        <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom;
     type ErrorSystem =
-        <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+        <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -223,41 +238,47 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         position: &V,
+        momentum: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
-        InnerAtomAdditiveQuantumEstimator::calculate(
+        InnerAtomAdditiveClassicalEstimator::calculate(
             self,
             atom_index,
             exchange_potential,
             group_physical_potential_energy,
             group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
             position,
+            momentum,
             physical_force,
             exchange_force,
         )
     }
 }
 
-impl<T, V, Adder, U> MainAtomAdditiveQuantumEstimator<T, V, Adder> for AtomAdditiveQuantumEstimator<U>
+impl<T, V, Adder, U> MainAtomAdditiveClassicalEstimator<T, V, Adder> for AtomAdditiveClassicalEstimator<U>
 where
     Adder: SyncAddReciever<U::Output> + ?Sized,
-    U: MainAtomAdditiveQuantumEstimator<T, V, Adder> + ?Sized,
+    U: MainAtomAdditiveClassicalEstimator<T, V, Adder> + ?Sized,
 {
     type Output = U::Output;
     type Error = U::Error;
 }
 
-impl<T, V, Adder, Multiplier, U> MainQuantumEstimator<T, V, Adder, Multiplier> for AtomAdditiveQuantumEstimator<U>
+impl<T, V, Adder, Multiplier, U> MainClassicalEstimator<T, V, Adder, Multiplier> for AtomAdditiveClassicalEstimator<U>
 where
-    Adder: SyncAddReciever<<Self as MainAtomAdditiveQuantumEstimator<T, V, Adder>>::Output> + ?Sized,
-    Multiplier: SyncMulReciever<<Self as MainAtomAdditiveQuantumEstimator<T, V, Adder>>::Output> + ?Sized,
+    Adder: SyncAddReciever<<Self as MainAtomAdditiveClassicalEstimator<T, V, Adder>>::Output> + ?Sized,
+    Multiplier: SyncMulReciever<<Self as MainAtomAdditiveClassicalEstimator<T, V, Adder>>::Output> + ?Sized,
     U: ?Sized,
-    Self: MainAtomAdditiveQuantumEstimator<T, V, Adder>,
+    Self: MainAtomAdditiveClassicalEstimator<T, V, Adder>,
 {
-    type Output = <Self as MainAtomAdditiveQuantumEstimator<T, V, Adder>>::Output;
-    type Error = <Self as MainAtomAdditiveQuantumEstimator<T, V, Adder>>::Error;
+    type Output = <Self as MainAtomAdditiveClassicalEstimator<T, V, Adder>>::Output;
+    type Error = <Self as MainAtomAdditiveClassicalEstimator<T, V, Adder>>::Error;
 
     fn calculate(&mut self, adder: &mut Adder, _multiplier: &mut Multiplier) -> Result<Self::Output, Self::Error> {
         Ok(adder.recieve_sum()?.ok_or(EmptyError)?)
@@ -265,8 +286,8 @@ where
 }
 
 impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, U>
-    LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
-    for AtomAdditiveQuantumEstimator<U>
+    LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
+    for AtomAdditiveClassicalEstimator<U>
 where
     T: Clone,
     Adder: SyncAddSender<U::Output> + ?Sized,
@@ -274,7 +295,7 @@ where
     DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
+    U: LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
     type Output = U::Output;
     type ErrorAtom = U::ErrorAtom;
@@ -286,7 +307,10 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         position: &V,
+        momentum: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
@@ -295,7 +319,10 @@ where
             exchange_potential,
             group_physical_potential_energy,
             group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
             position,
+            momentum,
             physical_force,
             exchange_force,
         )
@@ -303,26 +330,27 @@ where
 }
 
 impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    LeadingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-    for AtomAdditiveQuantumEstimator<U>
+    LeadingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
+    for AtomAdditiveClassicalEstimator<U>
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
         > + ?Sized,
     Multiplier: SyncMulSender<
-            <Self as LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
         > + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     U: ?Sized,
-    Self: LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
+    Self: LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output = <Self as LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
+    type Output =
+        <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error =
-        <Self as LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+        <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -331,32 +359,41 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
         images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
         images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
         let mut iter = zip_iterators!(
             images_groups_positions.read().read().read(),
+            images_groups_momenta.read().read().read(),
             images_groups_physical_forces.read().read().read(),
             images_groups_exchange_forces.read().read().read()
         )
         .enumerate()
-        .map(|(index, zip_items!(position, physical_force, exchange_force))| {
-            LeadingAtomAdditiveQuantumEstimator::calculate(
-                self,
-                index,
-                exchange_potential.clone(),
-                group_physical_potential_energy.clone(),
-                group_exchange_potential_energy.clone(),
-                position,
-                physical_force,
-                exchange_force,
-            )
-        });
+        .map(
+            |(index, zip_items!(position, momentum, physical_force, exchange_force))| {
+                LeadingAtomAdditiveClassicalEstimator::calculate(
+                    self,
+                    index,
+                    exchange_potential.clone(),
+                    group_physical_potential_energy.clone(),
+                    group_exchange_potential_energy.clone(),
+                    group_heat.clone(),
+                    group_kinetic_energy.clone(),
+                    position,
+                    momentum,
+                    physical_force,
+                    exchange_force,
+                )
+            },
+        );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
         adder.send(
             iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                Ok::<_, <Self as LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
+                Ok::<_, <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
             })?,
         )?;
         Ok(())
@@ -364,7 +401,8 @@ where
 }
 
 impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, U>
-    InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for AtomAdditiveQuantumEstimator<U>
+    InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
+    for AtomAdditiveClassicalEstimator<U>
 where
     T: Clone,
     Adder: SyncAddSender<U::Output> + ?Sized,
@@ -372,7 +410,7 @@ where
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
+    U: InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
     type Output = U::Output;
     type ErrorAtom = U::ErrorAtom;
@@ -384,7 +422,10 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         position: &V,
+        momentum: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
@@ -393,7 +434,10 @@ where
             exchange_potential,
             group_physical_potential_energy,
             group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
             position,
+            momentum,
             physical_force,
             exchange_force,
         )
@@ -401,25 +445,26 @@ where
 }
 
 impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for AtomAdditiveQuantumEstimator<U>
+    InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
+    for AtomAdditiveClassicalEstimator<U>
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
         > + ?Sized,
     Multiplier: SyncMulSender<
-            <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     U: ?Sized,
-    Self: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
+    Self: InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output = <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
+    type Output = <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error =
-        <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+        <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -428,32 +473,41 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
         images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
         images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
         let mut iter = zip_iterators!(
             images_groups_positions.read().read().read(),
+            images_groups_momenta.read().read().read(),
             images_groups_physical_forces.read().read().read(),
             images_groups_exchange_forces.read().read().read()
         )
         .enumerate()
-        .map(|(index, zip_items!(position, physical_force, exchange_force))| {
-            InnerAtomAdditiveQuantumEstimator::calculate(
-                self,
-                index,
-                exchange_potential.clone(),
-                group_physical_potential_energy.clone(),
-                group_exchange_potential_energy.clone(),
-                position,
-                physical_force,
-                exchange_force,
-            )
-        });
+        .map(
+            |(index, zip_items!(position, momentum, physical_force, exchange_force))| {
+                InnerAtomAdditiveClassicalEstimator::calculate(
+                    self,
+                    index,
+                    exchange_potential.clone(),
+                    group_physical_potential_energy.clone(),
+                    group_exchange_potential_energy.clone(),
+                    group_heat.clone(),
+                    group_kinetic_energy.clone(),
+                    position,
+                    momentum,
+                    physical_force,
+                    exchange_force,
+                )
+            },
+        );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
         adder.send(
             iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                Ok::<_, <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
+                Ok::<_, <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
             })?,
         )?;
         Ok(())
@@ -461,8 +515,8 @@ where
 }
 
 impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, U>
-    TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
-    for AtomAdditiveQuantumEstimator<U>
+    TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
+    for AtomAdditiveClassicalEstimator<U>
 where
     T: Clone,
     Adder: SyncAddSender<U::Output> + ?Sized,
@@ -470,7 +524,7 @@ where
     DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
+    U: TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
     type Output = U::Output;
     type ErrorAtom = U::ErrorAtom;
@@ -482,7 +536,10 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         position: &V,
+        momentum: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
@@ -491,7 +548,10 @@ where
             exchange_potential,
             group_physical_potential_energy,
             group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
             position,
+            momentum,
             physical_force,
             exchange_force,
         )
@@ -499,26 +559,27 @@ where
 }
 
 impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    TrailingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-    for AtomAdditiveQuantumEstimator<U>
+    TrailingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
+    for AtomAdditiveClassicalEstimator<U>
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
         > + ?Sized,
     Multiplier: SyncMulSender<
-            <Self as TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
         > + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     U: ?Sized,
-    Self: TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
+    Self: TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output = <Self as TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
+    type Output =
+        <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error =
-        <Self as TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+        <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -527,32 +588,41 @@ where
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
         images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
         images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
         let mut iter = zip_iterators!(
             images_groups_positions.read().read().read(),
+            images_groups_momenta.read().read().read(),
             images_groups_physical_forces.read().read().read(),
             images_groups_exchange_forces.read().read().read()
         )
         .enumerate()
-        .map(|(index, zip_items!(position, physical_force, exchange_force))| {
-            TrailingAtomAdditiveQuantumEstimator::calculate(
-                self,
-                index,
-                exchange_potential.clone(),
-                group_physical_potential_energy.clone(),
-                group_exchange_potential_energy.clone(),
-                position,
-                physical_force,
-                exchange_force,
-            )
-        });
+        .map(
+            |(index, zip_items!(position, momentum, physical_force, exchange_force))| {
+                TrailingAtomAdditiveClassicalEstimator::calculate(
+                    self,
+                    index,
+                    exchange_potential.clone(),
+                    group_physical_potential_energy.clone(),
+                    group_exchange_potential_energy.clone(),
+                    group_heat.clone(),
+                    group_kinetic_energy.clone(),
+                    position,
+                    momentum,
+                    physical_force,
+                    exchange_force,
+                )
+            },
+        );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
         adder.send(
             iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                Ok::<_, <Self as TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
+                Ok::<_, <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
             })?,
         )?;
         Ok(())

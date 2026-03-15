@@ -21,9 +21,11 @@ use crate::{
 
 pub mod atom_additive;
 pub mod atom_multiplicative;
-pub mod group_additive;
 
-pub struct AdditiveQuantumEstimator<E: ?Sized>(pub E);
+/// A wrapper for implementors of `Additive` traits.
+pub struct AdditiveEstimator<T: ?Sized>(pub T);
+/// A wrapper for implementors of `Multiplicative` traits.
+pub struct MultiplicativeEstimator<T: ?Sized>(pub T);
 
 /// A trait for quantum estimators.
 /// The implementor of this trait recieves the calculations of
@@ -33,9 +35,9 @@ where
     Adder: SyncAddReciever<Self::Output> + ?Sized,
     Multiplier: SyncMulReciever<Self::Output> + ?Sized,
 {
-    /// The type of error `Self` returns.
+    /// The type associated with the output returned by the implementor.
     type Output;
-    /// The type of error `Self` returns.
+    /// The type associated with an error returned by the implementor.
     type Error;
 
     /// Calculates the observable.
@@ -52,9 +54,9 @@ where
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of error `Self` returns.
+    /// The type associated with the output returned by the implementor.
     type Output;
-    /// The type of error `Self` returns.
+    /// The type associated with an error returned by the implementor.
     type Error;
 
     /// Calculates the contribution of this group in the first image
@@ -82,9 +84,9 @@ where
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of error `Self` returns.
+    /// The type associated with the output returned by the implementor.
     type Output;
-    /// The type of error `Self` returns.
+    /// The type associated with an error returned by the implementor.
     type Error;
 
     /// Calculates the contribution of this group in this image
@@ -112,9 +114,9 @@ where
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of error `Self` returns.
+    /// The type associated with the output returned by the implementor.
     type Output;
-    /// The type of error `Self` returns.
+    /// The type associated with an error returned by the implementor.
     type Error;
 
     /// Calculates the contribution of this group in the last image
@@ -128,7 +130,7 @@ where
         group_exchange_potential_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
         images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-        groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error>;
 }
 
@@ -165,7 +167,7 @@ where
         group_exchange_potential_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
         images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+        images_images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
         InnerQuantumEstimator::calculate(
             self,
@@ -176,7 +178,7 @@ where
             group_exchange_potential_energy,
             images_groups_positions,
             images_groups_physical_forces,
-            images_groups_exchange_forces,
+            images_images_groups_exchange_forces,
         )
     }
 }

@@ -19,10 +19,13 @@ use crate::{
     },
 };
 
+pub mod atom_additive;
+pub mod atom_multiplicative;
+
 /// A trait for quantities calculated from the whole system treated as a classical one.
 /// The implementor of this trait recieves the calculations of
 /// the other classical estimators and produces an output.
-pub trait MainClassicalgEstimator<T, V, Adder, Multiplier>
+pub trait MainClassicalEstimator<T, V, Adder, Multiplier>
 where
     Adder: SyncAddReciever<Self::Output> + ?Sized,
     Multiplier: SyncMulReciever<Self::Output> + ?Sized,
@@ -33,13 +36,11 @@ where
     type Error;
 
     /// Calculates the quantity.
-    ///
-    /// Returns an error if a synchronization failure occurs.
     fn calculate(&mut self, adder: &mut Adder, multiplier: &mut Multiplier) -> Result<Self::Output, Self::Error>;
 }
 
 /// A trait for quantities calculated from the whole system treated as a classical one,
-/// operating in the first image for a specific group of atoms.
+/// operating in the first image for a specific group.
 pub trait LeadingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
     Adder: SyncAddSender<Self::Output> + ?Sized,
@@ -56,26 +57,24 @@ where
 
     /// Calculates the contribution of this group in the first image
     /// to the quantity and sends it to a [`MainClassicalEstimator`].
-    ///
-    /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        heat: T,
-        kinetic_energy: T,
-        groups_positions: &ElementRwLock<ImageHandle<V>>,
-        groups_momenta: &ElementRwLock<ImageHandle<V>>,
-        groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-        groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error>;
 }
 
 /// A trait for quantities calculated from the whole system treated as a classical one,
-/// operating in an inner image for a specific group of atoms.
+/// operating in an inner image for a specific group.
 pub trait InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
     Adder: SyncAddSender<Self::Output> + ?Sized,
@@ -92,21 +91,19 @@ where
 
     /// Calculates the contribution of this group in this image
     /// to the quantity and sends it to a [`MainClassicalEstimator`].
-    ///
-    /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        heat: T,
-        kinetic_energy: T,
-        groups_positions: &ElementRwLock<ImageHandle<V>>,
-        groups_momenta: &ElementRwLock<ImageHandle<V>>,
-        groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-        groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error>;
 }
 
@@ -128,21 +125,19 @@ where
 
     /// Calculates the contribution of this group in the last image
     /// to the quantity and sends it to a [`MainClassicalEstimator`].
-    ///
-    /// Returns an error if a synchronization failure occurs.
     fn calculate(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        heat: T,
-        kinetic_energy: T,
-        groups_positions: &ElementRwLock<ImageHandle<V>>,
-        groups_momenta: &ElementRwLock<ImageHandle<V>>,
-        groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-        groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error>;
 }
 
@@ -175,28 +170,28 @@ where
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        heat: T,
-        kinetic_energy: T,
-        groups_positions: &ElementRwLock<ImageHandle<V>>,
-        groups_momenta: &ElementRwLock<ImageHandle<V>>,
-        groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-        groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
         InnerClassicalEstimator::calculate(
             self,
             adder,
             multiplier,
             exchange_potential,
-            physical_potential_energy,
-            exchange_potential_energy,
-            heat,
-            kinetic_energy,
-            groups_positions,
-            groups_momenta,
-            groups_physical_forces,
-            groups_exchange_forces,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
+            images_groups_positions,
+            images_groups_momenta,
+            images_groups_physical_forces,
+            images_groups_exchange_forces,
         )
     }
 }
@@ -230,28 +225,28 @@ where
         adder: &mut Adder,
         multiplier: &mut Multiplier,
         exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        heat: T,
-        kinetic_energy: T,
-        groups_positions: &ElementRwLock<ImageHandle<V>>,
-        groups_momenta: &ElementRwLock<ImageHandle<V>>,
-        groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-        groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
         InnerClassicalEstimator::calculate(
             self,
             adder,
             multiplier,
             exchange_potential,
-            physical_potential_energy,
-            exchange_potential_energy,
-            heat,
-            kinetic_energy,
-            groups_positions,
-            groups_momenta,
-            groups_physical_forces,
-            groups_exchange_forces,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
+            images_groups_positions,
+            images_groups_momenta,
+            images_groups_physical_forces,
+            images_groups_exchange_forces,
         )
     }
 }

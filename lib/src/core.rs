@@ -160,3 +160,10 @@ pub struct SchemeDependent<Prop, ExchPot> {
     /// The exchange potential.
     pub exchange_potential: ExchPot,
 }
+
+/// A wrapper for implementors of `Decoupled` traits.
+pub struct Decoupled<T: ?Sized>(pub T);
+/// A wrapper for implementors of `Additive` traits.
+pub struct Additive<T: ?Sized>(pub T);
+/// A wrapper for implementors of `Multiplicative` traits.
+pub struct Multiplicative<T: ?Sized>(pub T);
