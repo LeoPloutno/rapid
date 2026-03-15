@@ -110,7 +110,7 @@ where
     ) -> Result<(T, T, T), Self::Error>;
 }
 
-impl<T, V, Phys, Dist, Boson, Therm, U> LeadingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> for U
+impl<T, V, Phys, Dist, Boson, Therm, P> LeadingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> for P
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
     Dist: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
@@ -122,7 +122,7 @@ where
         + Bosonic
         + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
-    U: InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsLeading + ?Sized,
+    P: InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsLeading + ?Sized,
 {
     type Error = <Self as InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm>>::Error;
 
@@ -151,7 +151,7 @@ where
     }
 }
 
-impl<T, V, Phys, Dist, Boson, Therm, U> TrailingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> for U
+impl<T, V, Phys, Dist, Boson, Therm, P> TrailingQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> for P
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
     Dist: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
@@ -163,7 +163,7 @@ where
         + Bosonic
         + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
-    U: InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsTrailing + ?Sized,
+    P: InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsTrailing + ?Sized,
 {
     type Error = <Self as InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm>>::Error;
 

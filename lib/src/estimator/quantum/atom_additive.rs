@@ -8,7 +8,7 @@ use arc_rw_lock::ElementRwLock;
 use crate::{
     ImageHandle,
     core::{
-        Additive as AtomAdditiveQuantumEstimator, Scheme,
+        Additive as AdditiveQuantumEstimator, Scheme,
         error::EmptyError,
         marker::{InnerIsLeading, InnerIsTrailing},
         stat::{Bosonic, Distinguishable, Stat},
@@ -30,22 +30,22 @@ use crate::{
 /// A trait for main quantum estimators that can be expressed as a sum
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomAdditiveQuantumEstimator<E>`]
+/// For any type `E` that implements this trait, [`AdditiveQuantumEstimator<E>`]
 /// atomatically implements [`MainQuantumEstimator`].
 pub trait MainAtomAdditiveQuantumEstimator<T, V, Adder>
 where
     Adder: SyncAddReciever<Self::Output> + ?Sized,
 {
-    /// The type of output `Self` and [`AtomAdditiveQuantumEstimator<Self>`] produce.
+    /// The type of output `Self` and [`AdditiveQuantumEstimator<Self>`] produce.
     type Output;
-    /// The type of error [`AtomAdditiveQuantumEstimator<Self>`] returns.
+    /// The type of error [`AdditiveQuantumEstimator<Self>`] returns.
     type Error: From<Adder::Error> + From<EmptyError>;
 }
 
 /// A trait for leading quantum estimators that can be expressed as a sum
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomAdditiveQuantumEstimator<E>`]
+/// For any type `E` that implements this trait, [`AdditiveQuantumEstimator<E>`]
 /// atomatically implements [`LeadingQuantumEstimator`].
 pub trait LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
 where
@@ -56,11 +56,11 @@ where
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of output `Self` and [`AtomAdditiveQuantumEstimator<Self>`] produce.
+    /// The type of output `Self` and [`AdditiveQuantumEstimator<Self>`] produce.
     type Output: Add<Output = Self::Output>;
     /// The type of error `Self` returns.
     type ErrorAtom;
-    /// The type of error [`AtomAdditiveQuantumEstimator<Self>`] returns.
+    /// The type of error [`AdditiveQuantumEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Adder::Error> + From<EmptyError>;
 
     /// Calculates the contribution of this atom in the first image to the observable.
@@ -79,7 +79,7 @@ where
 /// A trait for inner quantum estimators that can be expressed as a sum
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomAdditiveQuantumEstimator<E>`]
+/// For any type `E` that implements this trait, [`AdditiveQuantumEstimator<E>`]
 /// atomatically implements [`InnerQuantumEstimator`].
 pub trait InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
 where
@@ -90,11 +90,11 @@ where
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of output `Self` and [`AtomAdditiveQuantumEstimator<Self>`] produce.
+    /// The type of output `Self` and [`AdditiveQuantumEstimator<Self>`] produce.
     type Output: Add<Output = Self::Output>;
     /// The type of error `Self` returns.
     type ErrorAtom;
-    /// The type of error [`AtomAdditiveQuantumEstimator<Self>`] returns.
+    /// The type of error [`AdditiveQuantumEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Adder::Error> + From<EmptyError>;
 
     /// Calculates the contribution of this atom in this image to the observable.
@@ -113,7 +113,7 @@ where
 /// A trait for trailing quantum estimators that can be expressed as a sum
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomAdditiveQuantumEstimator<E>`]
+/// For any type `E` that implements this trait, [`AdditiveQuantumEstimator<E>`]
 /// atomatically implements [`TrailingQuantumEstimator`].
 pub trait TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
 where
@@ -124,11 +124,11 @@ where
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of output `Self` and [`AtomAdditiveQuantumEstimator<Self>`] produce.
+    /// The type of output `Self` and [`AdditiveQuantumEstimator<Self>`] produce.
     type Output: Add<Output = Self::Output>;
     /// The type of error `Self` returns.
     type ErrorAtom;
-    /// The type of error [`AtomAdditiveQuantumEstimator<Self>`] returns.
+    /// The type of error [`AdditiveQuantumEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Adder::Error> + From<EmptyError>;
 
     /// Calculates the contribution of this atom in the last image to the observable.
@@ -144,8 +144,8 @@ where
     ) -> Result<Self::Output, Self::ErrorAtom>;
 }
 
-impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, U>
-    LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for U
+impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, E>
+    LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for E
 where
     T: Clone,
     Adder: SyncAddSender<
@@ -161,7 +161,7 @@ where
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
+    E: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
 {
     type Output = <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type ErrorAtom =
@@ -192,8 +192,8 @@ where
     }
 }
 
-impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, U>
-    TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for U
+impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, E>
+    TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for E
 where
     T: Clone,
     Adder: SyncAddSender<
@@ -209,7 +209,7 @@ where
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
+    E: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
 {
     type Output = <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type ErrorAtom =
@@ -240,20 +240,20 @@ where
     }
 }
 
-impl<T, V, Adder, U> MainAtomAdditiveQuantumEstimator<T, V, Adder> for AtomAdditiveQuantumEstimator<U>
+impl<T, V, Adder, E> MainAtomAdditiveQuantumEstimator<T, V, Adder> for AdditiveQuantumEstimator<E>
 where
-    Adder: SyncAddReciever<U::Output> + ?Sized,
-    U: MainAtomAdditiveQuantumEstimator<T, V, Adder> + ?Sized,
+    Adder: SyncAddReciever<E::Output> + ?Sized,
+    E: MainAtomAdditiveQuantumEstimator<T, V, Adder> + ?Sized,
 {
-    type Output = U::Output;
-    type Error = U::Error;
+    type Output = E::Output;
+    type Error = E::Error;
 }
 
-impl<T, V, Adder, Multiplier, U> MainQuantumEstimator<T, V, Adder, Multiplier> for AtomAdditiveQuantumEstimator<U>
+impl<T, V, Adder, Multiplier, E> MainQuantumEstimator<T, V, Adder, Multiplier> for AdditiveQuantumEstimator<E>
 where
     Adder: SyncAddReciever<<Self as MainAtomAdditiveQuantumEstimator<T, V, Adder>>::Output> + ?Sized,
     Multiplier: SyncMulReciever<<Self as MainAtomAdditiveQuantumEstimator<T, V, Adder>>::Output> + ?Sized,
-    U: ?Sized,
+    E: ?Sized,
     Self: MainAtomAdditiveQuantumEstimator<T, V, Adder>,
 {
     type Output = <Self as MainAtomAdditiveQuantumEstimator<T, V, Adder>>::Output;
@@ -264,21 +264,20 @@ where
     }
 }
 
-impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, U>
-    LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
-    for AtomAdditiveQuantumEstimator<U>
+impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, E>
+    LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for AdditiveQuantumEstimator<E>
 where
     T: Clone,
-    Adder: SyncAddSender<U::Output> + ?Sized,
+    Adder: SyncAddSender<E::Output> + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
+    E: LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output = U::Output;
-    type ErrorAtom = U::ErrorAtom;
-    type ErrorSystem = U::ErrorSystem;
+    type Output = E::Output;
+    type ErrorAtom = E::ErrorAtom;
+    type ErrorSystem = E::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -302,9 +301,8 @@ where
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    LeadingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-    for AtomAdditiveQuantumEstimator<U>
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    LeadingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for AdditiveQuantumEstimator<E>
 where
     T: Clone,
     Adder: SyncAddSender<
@@ -317,7 +315,7 @@ where
     DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: ?Sized,
+    E: ?Sized,
     Self: LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
     type Output = <Self as LeadingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
@@ -363,20 +361,20 @@ where
     }
 }
 
-impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, U>
-    InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for AtomAdditiveQuantumEstimator<U>
+impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, E>
+    InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for AdditiveQuantumEstimator<E>
 where
     T: Clone,
-    Adder: SyncAddSender<U::Output> + ?Sized,
+    Adder: SyncAddSender<E::Output> + ?Sized,
     Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
+    E: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output = U::Output;
-    type ErrorAtom = U::ErrorAtom;
-    type ErrorSystem = U::ErrorSystem;
+    type Output = E::Output;
+    type ErrorAtom = E::ErrorAtom;
+    type ErrorSystem = E::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -400,8 +398,8 @@ where
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for AtomAdditiveQuantumEstimator<U>
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for AdditiveQuantumEstimator<E>
 where
     T: Clone,
     Adder: SyncAddSender<
@@ -414,7 +412,7 @@ where
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: ?Sized,
+    E: ?Sized,
     Self: InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
     type Output = <Self as InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
@@ -460,21 +458,20 @@ where
     }
 }
 
-impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, U>
-    TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
-    for AtomAdditiveQuantumEstimator<U>
+impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, E>
+    TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for AdditiveQuantumEstimator<E>
 where
     T: Clone,
-    Adder: SyncAddSender<U::Output> + ?Sized,
+    Adder: SyncAddSender<E::Output> + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
+    E: TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output = U::Output;
-    type ErrorAtom = U::ErrorAtom;
-    type ErrorSystem = U::ErrorSystem;
+    type Output = E::Output;
+    type ErrorAtom = E::ErrorAtom;
+    type ErrorSystem = E::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -498,9 +495,8 @@ where
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    TrailingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-    for AtomAdditiveQuantumEstimator<U>
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    TrailingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for AdditiveQuantumEstimator<E>
 where
     T: Clone,
     Adder: SyncAddSender<
@@ -513,7 +509,7 @@ where
     DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: ?Sized,
+    E: ?Sized,
     Self: TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
     type Output = <Self as TrailingAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;

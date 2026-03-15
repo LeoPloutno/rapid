@@ -105,13 +105,13 @@ where
     ) -> Result<(T, T, T), Self::Error>;
 }
 
-impl<T, V, Phys, Dist, Boson, Therm, U> LeadingPropagator<T, V, Phys, Dist, Boson, Therm> for U
+impl<T, V, Phys, Dist, Boson, Therm, P> LeadingPropagator<T, V, Phys, Dist, Boson, Therm> for P
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
     Dist: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
-    U: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsLeading + ?Sized,
+    P: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsLeading + ?Sized,
 {
     type Error = <Self as InnerPropagator<T, V, Phys, Dist, Boson, Therm>>::Error;
 
@@ -140,13 +140,13 @@ where
     }
 }
 
-impl<T, V, Phys, Dist, Boson, Therm, U> TrailingPropagator<T, V, Phys, Dist, Boson, Therm> for U
+impl<T, V, Phys, Dist, Boson, Therm, P> TrailingPropagator<T, V, Phys, Dist, Boson, Therm> for P
 where
     Phys: PhysicalPotential<T, V> + ?Sized,
     Dist: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
-    U: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsTrailing + ?Sized,
+    P: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + InnerIsTrailing + ?Sized,
 {
     type Error = <Self as InnerPropagator<T, V, Phys, Dist, Boson, Therm>>::Error;
 

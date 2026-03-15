@@ -8,7 +8,7 @@ use arc_rw_lock::ElementRwLock;
 use crate::{
     ImageHandle,
     core::{
-        Multiplicative as AtomMultiplicativeClassicalEstimator, Scheme,
+        Multiplicative as MultiplicativeClassicalEstimator, Scheme,
         error::EmptyError,
         marker::{InnerIsLeading, InnerIsTrailing},
         stat::{Bosonic, Distinguishable, Stat},
@@ -30,22 +30,22 @@ use crate::{
 /// A trait for main classical estimators that can be expressed as a product
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomMultiplicativeClassicalEstimator<E>`]
+/// For any type `E` that implements this trait, [`MultiplicativeClassicalEstimator<E>`]
 /// atomatically implements [`MainClassicalEstimator`].
 pub trait MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>
 where
     Multiplier: SyncMulReciever<Self::Output> + ?Sized,
 {
-    /// The type of output `Self` and [`AtomMultiplicativeClassicalEstimator<Self>`] produce.
+    /// The type of output `Self` and [`MultiplicativeClassicalEstimator<Self>`] produce.
     type Output;
-    /// The type of error [`AtomMultiplicativeClassicalEstimator<Self>`] returns.
+    /// The type of error [`MultiplicativeClassicalEstimator<Self>`] returns.
     type Error: From<Multiplier::Error> + From<EmptyError>;
 }
 
 /// A trait for leading classical estimators that can be expressed as a product
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomMultiplicativeClassicalEstimator<E>`]
+/// For any type `E` that implements this trait, [`MultiplicativeClassicalEstimator<E>`]
 /// atomatically implements [`LeadingClassicalEstimator`].
 pub trait LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
@@ -56,11 +56,11 @@ where
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of output `Self` and [`AtomMultiplicativeClassicalEstimator<Self>`] produce.
+    /// The type of output `Self` and [`MultiplicativeClassicalEstimator<Self>`] produce.
     type Output: Mul<Output = Self::Output>;
     /// The type of error `Self` returns.
     type ErrorAtom;
-    /// The type of error [`AtomMultiplicativeClassicalEstimator<Self>`] returns.
+    /// The type of error [`MultiplicativeClassicalEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Multiplier::Error> + From<EmptyError>;
 
     /// Calculates the contribution of this atom in the first image to the observable.
@@ -82,7 +82,7 @@ where
 /// A trait for inner classical estimators that can be expressed as a product
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomMultiplicativeClassicalEstimator<E>`]
+/// For any type `E` that implements this trait, [`MultiplicativeClassicalEstimator<E>`]
 /// atomatically implements [`InnerClassicalEstimator`].
 pub trait InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
@@ -93,11 +93,11 @@ where
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of output `Self` and [`AtomMultiplicativeClassicalEstimator<Self>`] produce.
+    /// The type of output `Self` and [`MultiplicativeClassicalEstimator<Self>`] produce.
     type Output: Mul<Output = Self::Output>;
     /// The type of error `Self` returns.
     type ErrorAtom;
-    /// The type of error [`AtomMultiplicativeClassicalEstimator<Self>`] returns.
+    /// The type of error [`MultiplicativeClassicalEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Multiplier::Error> + From<EmptyError>;
 
     /// Calculates the contribution of this atom in this image to the observable.
@@ -119,7 +119,7 @@ where
 /// A trait for trailing classical estimators that can be expressed as a product
 /// of observables that depend only on a single atom.
 ///
-/// For any type `E` that implements this trait, [`AtomMultiplicativeClassicalEstimator<E>`]
+/// For any type `E` that implements this trait, [`MultiplicativeClassicalEstimator<E>`]
 /// atomatically implements [`TrailingClassicalEstimator`].
 pub trait TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
@@ -130,11 +130,11 @@ where
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
-    /// The type of output `Self` and [`AtomMultiplicativeClassicalEstimator<Self>`] produce.
+    /// The type of output `Self` and [`MultiplicativeClassicalEstimator<Self>`] produce.
     type Output: Mul<Output = Self::Output>;
     /// The type of error `Self` returns.
     type ErrorAtom;
-    /// The type of error [`AtomMultiplicativeClassicalEstimator<Self>`] returns.
+    /// The type of error [`MultiplicativeClassicalEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Multiplier::Error> + From<EmptyError>;
 
     /// Calculates the contribution of this atom in the last image to the observable.
@@ -153,8 +153,8 @@ where
     ) -> Result<Self::Output, Self::ErrorAtom>;
 }
 
-impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad> for U
+impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
 where
     T: Clone,
     Multiplier: SyncMulSender<
@@ -170,7 +170,7 @@ where
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
+    E: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
 {
     type Output =
         <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
@@ -208,8 +208,8 @@ where
     }
 }
 
-impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad> for U
+impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
 where
     T: Clone,
     Multiplier: SyncMulSender<
@@ -225,7 +225,7 @@ where
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
+    E: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
         + InnerIsTrailing
         + ?Sized,
 {
@@ -265,22 +265,21 @@ where
     }
 }
 
-impl<T, V, Multiplier, U> MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>
-    for AtomMultiplicativeClassicalEstimator<U>
+impl<T, V, Multiplier, E> MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>
+    for MultiplicativeClassicalEstimator<E>
 where
-    Multiplier: SyncMulReciever<U::Output> + ?Sized,
-    U: MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier> + ?Sized,
+    Multiplier: SyncMulReciever<E::Output> + ?Sized,
+    E: MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier> + ?Sized,
 {
-    type Output = U::Output;
-    type Error = U::Error;
+    type Output = E::Output;
+    type Error = E::Error;
 }
 
-impl<T, V, Adder, Multiplier, U> MainClassicalEstimator<T, V, Adder, Multiplier>
-    for AtomMultiplicativeClassicalEstimator<U>
+impl<T, V, Adder, Multiplier, E> MainClassicalEstimator<T, V, Adder, Multiplier> for MultiplicativeClassicalEstimator<E>
 where
     Adder: SyncAddReciever<<Self as MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>>::Output> + ?Sized,
     Multiplier: SyncMulReciever<<Self as MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>>::Output> + ?Sized,
-    U: ?Sized,
+    E: ?Sized,
     Self: MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>,
 {
     type Output = <Self as MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>>::Output;
@@ -291,21 +290,21 @@ where
     }
 }
 
-impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
+impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
     LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-    for AtomMultiplicativeClassicalEstimator<U>
+    for MultiplicativeClassicalEstimator<E>
 where
     T: Clone,
-    Multiplier: SyncMulSender<U::Output> + ?Sized,
+    Multiplier: SyncMulSender<E::Output> + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
+    E: LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output = U::Output;
-    type ErrorAtom = U::ErrorAtom;
-    type ErrorSystem = U::ErrorSystem;
+    type Output = E::Output;
+    type ErrorAtom = E::ErrorAtom;
+    type ErrorSystem = E::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -335,9 +334,9 @@ where
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
     LeadingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-    for AtomMultiplicativeClassicalEstimator<U>
+    for MultiplicativeClassicalEstimator<E>
 where
     T: Clone,
     Adder: SyncAddSender<
@@ -350,7 +349,7 @@ where
     DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: ?Sized,
+    E: ?Sized,
     Self: LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
 {
     type Output =
@@ -415,21 +414,21 @@ where
     }
 }
 
-impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
+impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
     InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-    for AtomMultiplicativeClassicalEstimator<U>
+    for MultiplicativeClassicalEstimator<E>
 where
     T: Clone,
-    Multiplier: SyncMulSender<U::Output> + ?Sized,
+    Multiplier: SyncMulSender<E::Output> + ?Sized,
     Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
+    E: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output = U::Output;
-    type ErrorAtom = U::ErrorAtom;
-    type ErrorSystem = U::ErrorSystem;
+    type Output = E::Output;
+    type ErrorAtom = E::ErrorAtom;
+    type ErrorSystem = E::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -459,9 +458,9 @@ where
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
     InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-    for AtomMultiplicativeClassicalEstimator<U>
+    for MultiplicativeClassicalEstimator<E>
 where
     T: Clone,
     Adder: SyncAddSender<
@@ -474,7 +473,7 @@ where
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: ?Sized,
+    E: ?Sized,
     Self: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
 {
     type Output =
@@ -528,21 +527,21 @@ where
     }
 }
 
-impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
+impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
     TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-    for AtomMultiplicativeClassicalEstimator<U>
+    for MultiplicativeClassicalEstimator<E>
 where
     T: Clone,
-    Multiplier: SyncMulSender<U::Output> + ?Sized,
+    Multiplier: SyncMulSender<E::Output> + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
+    E: TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output = U::Output;
-    type ErrorAtom = U::ErrorAtom;
-    type ErrorSystem = U::ErrorSystem;
+    type Output = E::Output;
+    type ErrorAtom = E::ErrorAtom;
+    type ErrorSystem = E::ErrorSystem;
 
     fn calculate(
         &mut self,
@@ -572,9 +571,9 @@ where
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
     TrailingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-    for AtomMultiplicativeClassicalEstimator<U>
+    for MultiplicativeClassicalEstimator<E>
 where
     T: Clone,
     Adder:
@@ -605,7 +604,7 @@ where
     DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    U: ?Sized,
+    E: ?Sized,
     Self: TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
 {
     type Output = <Self as TrailingAtomMultiplicativeClassicalEstimator<

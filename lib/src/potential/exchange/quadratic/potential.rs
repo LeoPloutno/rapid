@@ -53,11 +53,11 @@ pub trait TrailingQuadraticExpansionExchangePotential<'a, T, V> {
     fn as_quadratic_expansion(&'a mut self) -> (Self::QuadraticPotential, Self::ResiduePotential);
 }
 
-impl<'a, T, V, U> LeadingQuadraticExpansionExchangePotential<'a, T, V> for U
+impl<'a, T, V, P> LeadingQuadraticExpansionExchangePotential<'a, T, V> for P
 where
-    U: InnerQuadraticExpansionExchangePotential<'a, T, V> + InnerIsLeading + ?Sized,
-    U::QuadraticPotential: LeadingNormalModesTransform<T, V>,
-    U::ResiduePotential: LeadingExchangePotential<T, V>,
+    P: InnerQuadraticExpansionExchangePotential<'a, T, V> + InnerIsLeading + ?Sized,
+    P::QuadraticPotential: LeadingNormalModesTransform<T, V>,
+    P::ResiduePotential: LeadingExchangePotential<T, V>,
 {
     type QuadraticPotential = <Self as InnerQuadraticExpansionExchangePotential<'a, T, V>>::QuadraticPotential;
 
@@ -68,11 +68,11 @@ where
     }
 }
 
-impl<'a, T, V, U> TrailingQuadraticExpansionExchangePotential<'a, T, V> for U
+impl<'a, T, V, P> TrailingQuadraticExpansionExchangePotential<'a, T, V> for P
 where
-    U: InnerQuadraticExpansionExchangePotential<'a, T, V> + InnerIsTrailing + ?Sized,
-    U::QuadraticPotential: TrailingNormalModesTransform<T, V>,
-    U::ResiduePotential: TrailingExchangePotential<T, V>,
+    P: InnerQuadraticExpansionExchangePotential<'a, T, V> + InnerIsTrailing + ?Sized,
+    P::QuadraticPotential: TrailingNormalModesTransform<T, V>,
+    P::ResiduePotential: TrailingExchangePotential<T, V>,
 {
     type QuadraticPotential = <Self as InnerQuadraticExpansionExchangePotential<'a, T, V>>::QuadraticPotential;
 

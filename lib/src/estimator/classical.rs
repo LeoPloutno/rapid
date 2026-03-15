@@ -141,8 +141,8 @@ where
     ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    LeadingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for U
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    LeadingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
 where
     Adder: SyncAddSender<
             <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
@@ -160,7 +160,7 @@ where
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
+    E: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
 {
     type Output = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Error;
@@ -196,8 +196,8 @@ where
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    TrailingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for U
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    TrailingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
 where
     Adder: SyncAddSender<
             <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
@@ -215,7 +215,7 @@ where
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
+    E: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
 {
     type Output = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Error;

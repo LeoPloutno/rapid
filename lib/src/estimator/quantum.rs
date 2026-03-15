@@ -134,8 +134,8 @@ where
     ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    LeadingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for U
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    LeadingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
 where
     Adder: SyncAddSender<
             <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
@@ -153,7 +153,7 @@ where
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
+    E: InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
 {
     type Output = <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error = <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Error;
@@ -183,8 +183,8 @@ where
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    TrailingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for U
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    TrailingQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
 where
     Adder: SyncAddSender<
             <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
@@ -202,7 +202,7 @@ where
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
+    E: InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
 {
     type Output = <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error = <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Error;

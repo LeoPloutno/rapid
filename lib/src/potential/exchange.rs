@@ -207,9 +207,9 @@ pub trait TrailingExchangePotential<T, V> {
     ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, U> LeadingExchangePotential<T, V> for U
+impl<T, V, P> LeadingExchangePotential<T, V> for P
 where
-    U: InnerExchangePotential<T, V> + InnerIsLeading + ?Sized,
+    P: InnerExchangePotential<T, V> + InnerIsLeading + ?Sized,
 {
     type Error = <Self as InnerExchangePotential<T, V>>::Error;
 
@@ -295,9 +295,9 @@ where
     }
 }
 
-impl<T, V, U> TrailingExchangePotential<T, V> for U
+impl<T, V, P> TrailingExchangePotential<T, V> for P
 where
-    U: InnerExchangePotential<T, V> + InnerIsTrailing + ?Sized,
+    P: InnerExchangePotential<T, V> + InnerIsTrailing + ?Sized,
 {
     type Error = <Self as InnerExchangePotential<T, V>>::Error;
 
