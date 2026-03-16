@@ -1,8 +1,8 @@
 mod langevin {
-    use std::{array, ops::Mul};
+    use std::{array, convert::Infallible, ops::Mul};
 
     use lib::{
-        core::{Vector, error::EmptyError},
+        core::{Decoupled, Vector, error::EmptyError},
         thermostat::AtomDecoupledThermostat,
     };
     use num::Float;
@@ -22,15 +22,15 @@ mod langevin {
     where
         T: Clone + From<f32> + PartialOrd + Mul<Output = T>,
     {
-        pub fn new(mass: T, temperature: T, gamma: T, rng: R) -> Self {
+        pub fn new(mass: T, temperature: T, gamma: T, rng: R) -> Decoupled<Self> {
             assert!(mass.clone() > 0.0.into(), "the mass must be positive");
             assert!(temperature.clone() > 0.0.into(), "the temperature must be positive");
-            Self {
+            Decoupled::new(Self {
                 mass,
                 beta_recip: T::from(BOLTZMANN_CONSTANT) * temperature,
                 gamma,
                 rng,
-            }
+            })
         }
     }
 
@@ -40,7 +40,8 @@ mod langevin {
         V: Vector<N, Element = T> + Clone,
         R: Rng,
     {
-        type Error = EmptyError;
+        type ErrorAtom = Infallible;
+        type ErrorSystem = EmptyError;
 
         fn thermalize(
             &mut self,
@@ -50,7 +51,7 @@ mod langevin {
             _physical_force: &V,
             _exchange_force: &V,
             momentum: &mut V,
-        ) -> Result<T, Self::Error> {
+        ) -> Result<T, Self::ErrorAtom> {
             let gamma_times_dt = self.gamma.clone() * step_size;
             let momentum_old = momentum.clone();
             let momentum_new = momentum_old.clone() * (<T as From<_>>::from(-0.5) * gamma_times_dt.clone()).exp()

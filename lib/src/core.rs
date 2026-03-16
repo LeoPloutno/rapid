@@ -162,8 +162,31 @@ pub struct SchemeDependent<Prop, ExchPot> {
 }
 
 /// A wrapper for implementors of `Decoupled` traits.
-pub struct Decoupled<T: ?Sized>(pub T);
+pub struct Decoupled<T: ?Sized>(pub(crate) T);
+
+impl<T> Decoupled<T> {
+    /// Wraps the provided value with `Decoupled`.
+    pub fn new(inner: T) -> Self {
+        Self(inner)
+    }
+}
+
 /// A wrapper for implementors of `Additive` traits.
-pub struct Additive<T: ?Sized>(pub T);
+pub struct Additive<T: ?Sized>(pub(crate) T);
+
+impl<T> Additive<T> {
+    /// Wraps the provided value with `Additive`.
+    pub fn new(inner: T) -> Self {
+        Self(inner)
+    }
+}
+
 /// A wrapper for implementors of `Multiplicative` traits.
-pub struct Multiplicative<T: ?Sized>(pub T);
+pub struct Multiplicative<T: ?Sized>(pub(crate) T);
+
+impl<T> Multiplicative<T> {
+    /// Wraps the provided value with `Multiplicative`.
+    pub fn new(inner: T) -> Self {
+        Self(inner)
+    }
+}

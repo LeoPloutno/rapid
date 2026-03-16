@@ -1,5 +1,6 @@
 //! Common errors.
 use std::{
+    convert::Infallible,
     error::Error,
     fmt::{Display, Formatter, Result as FmtResult},
     ops::Range,
@@ -16,6 +17,12 @@ impl InvalidIndexError {
     /// Constructs a new `InvalidIndexError`.
     pub fn new(index: usize, len: usize) -> Self {
         Self { index, len }
+    }
+}
+
+impl From<Infallible> for InvalidIndexError {
+    fn from(value: Infallible) -> Self {
+        match value {}
     }
 }
 
@@ -50,6 +57,12 @@ impl InvalidRangeError {
     }
 }
 
+impl From<Infallible> for InvalidRangeError {
+    fn from(value: Infallible) -> Self {
+        match value {}
+    }
+}
+
 impl Display for InvalidRangeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(
@@ -65,6 +78,12 @@ impl Error for InvalidRangeError {}
 /// An error representing an attempt to access an empty container.
 #[derive(Clone, Copy, Debug)]
 pub struct EmptyError;
+
+impl From<Infallible> for EmptyError {
+    fn from(value: Infallible) -> Self {
+        match value {}
+    }
+}
 
 impl Display for EmptyError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -83,6 +102,12 @@ pub enum AccessError {
     Range(InvalidRangeError),
     /// Accessing an empty container.
     Empty(EmptyError),
+}
+
+impl From<Infallible> for AccessError {
+    fn from(value: Infallible) -> Self {
+        match value {}
+    }
 }
 
 impl From<InvalidIndexError> for AccessError {
@@ -147,6 +172,12 @@ pub enum CommError {
         /// The index of the group the thread is assigmed to.
         group: usize,
     },
+}
+
+impl From<Infallible> for CommError {
+    fn from(value: Infallible) -> Self {
+        match value {}
+    }
 }
 
 impl Display for CommError {

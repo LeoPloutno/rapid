@@ -7,7 +7,7 @@ use crate::{
     core::{
         Scheme,
         marker::{InnerIsLeading, InnerIsTrailing},
-        stat::{Bosonic, Distinguishable, Stat},
+        stat::{Bosonic, Distinguishable},
         sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
     },
     potential::exchange::{
@@ -60,12 +60,28 @@ where
     type Error;
 
     /// Calculates the contribution of this group in the first image
-    /// to the observable and sends it to an [`MainQuantumEstimator`].
-    fn calculate(
+    /// to the observable and sends it to a [`MainQuantumEstimator`]
+    /// given that this group has distinguishable statistics.
+    fn calculate_distinguishable(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error>;
+
+    /// Calculates the contribution of this group in the first image
+    /// to the observable and sends it to a [`MainQuantumEstimator`]
+    /// given that this group has bosonic statistics.
+    fn calculate_bosonic(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
@@ -90,12 +106,28 @@ where
     type Error;
 
     /// Calculates the contribution of this group in this image
-    /// to the observable and sends it to a [`MainQuantumEstimator`].
-    fn calculate(
+    /// to the observable and sends it to a [`MainQuantumEstimator`]
+    /// given that this group has distinguishable statistics.
+    fn calculate_distinguishable(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error>;
+
+    /// Calculates the contribution of this group in this image
+    /// to the observable and sends it to a [`MainQuantumEstimator`]
+    /// given that this group has bosonic statistics.
+    fn calculate_bosonic(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
@@ -120,12 +152,28 @@ where
     type Error;
 
     /// Calculates the contribution of this group in the last image
-    /// to the observable and sends it to a [`MainQuantumEstimator`].
-    fn calculate(
+    /// to the observable and sends it to a [`MainQuantumEstimator`]
+    /// given that this group has distinguishable statistics.
+    fn calculate_distinguishable(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error>;
+
+    /// Calculates the contribution of this group in the last image
+    /// to the observable and sends it to a [`MainQuantumEstimator`]
+    /// given that this group has bosonic statistics.
+    fn calculate_bosonic(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
@@ -158,18 +206,18 @@ where
     type Output = <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error = <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Error;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
         images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-        images_images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
-        InnerQuantumEstimator::calculate(
+        InnerQuantumEstimator::calculate_distinguishable(
             self,
             adder,
             multiplier,
@@ -178,7 +226,31 @@ where
             group_exchange_potential_energy,
             images_groups_positions,
             images_groups_physical_forces,
-            images_images_groups_exchange_forces,
+            images_groups_exchange_forces,
+        )
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error> {
+        InnerQuantumEstimator::calculate_bosonic(
+            self,
+            adder,
+            multiplier,
+            exchange_potential,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            images_groups_positions,
+            images_groups_physical_forces,
+            images_groups_exchange_forces,
         )
     }
 }
@@ -207,18 +279,42 @@ where
     type Output = <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error = <Self as InnerQuantumEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Error;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
         images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
         images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
-        InnerQuantumEstimator::calculate(
+        InnerQuantumEstimator::calculate_distinguishable(
+            self,
+            adder,
+            multiplier,
+            exchange_potential,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            images_groups_positions,
+            images_groups_physical_forces,
+            images_groups_exchange_forces,
+        )
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error> {
+        InnerQuantumEstimator::calculate_bosonic(
             self,
             adder,
             multiplier,

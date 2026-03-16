@@ -12,6 +12,12 @@ pub trait LeadingExchangePotential<T, V> {
     /// The type associated with an error returned by the implementor.
     type Error;
 
+    /// Returns whether this exchange potential is invariant under
+    /// a cyclic permutation of the images.
+    fn is_cyclic(&self) -> bool {
+        false
+    }
+
     /// Calculates the contribution of this group in the first image to the total exchange potential energy
     /// of the type and sets the forces of this group in the first image accordingly.
     ///
@@ -78,6 +84,12 @@ pub trait LeadingExchangePotential<T, V> {
 pub trait InnerExchangePotential<T, V> {
     /// The type associated with an error returned by the implementor.
     type Error;
+
+    /// Returns whether this exchange potential is invariant under
+    /// a cyclic permutation of the images.
+    fn is_cyclic(&self) -> bool {
+        false
+    }
 
     /// Calculates the contribution of this group in this image to the total exchange potential energy
     /// of the type and sets the forces of this group in this image accordingly.
@@ -146,6 +158,12 @@ pub trait TrailingExchangePotential<T, V> {
     /// The type associated with an error returned by the implementor.
     type Error;
 
+    /// Returns whether this exchange potential is invariant under
+    /// a cyclic permutation of the images.
+    fn is_cyclic(&self) -> bool {
+        false
+    }
+
     /// Calculates the contribution of this group in the last image to the total exchange potential energy
     /// of the type and sets the forces of this group in the last image accordingly.
     ///
@@ -212,6 +230,10 @@ where
     P: InnerExchangePotential<T, V> + InnerIsLeading + ?Sized,
 {
     type Error = <Self as InnerExchangePotential<T, V>>::Error;
+
+    fn is_cyclic(&self) -> bool {
+        InnerExchangePotential::is_cyclic(self)
+    }
 
     fn calculate_potential_set_forces(
         &mut self,
@@ -300,6 +322,10 @@ where
     P: InnerExchangePotential<T, V> + InnerIsTrailing + ?Sized,
 {
     type Error = <Self as InnerExchangePotential<T, V>>::Error;
+
+    fn is_cyclic(&self) -> bool {
+        InnerExchangePotential::is_cyclic(self)
+    }
 
     fn calculate_potential_set_forces(
         &mut self,

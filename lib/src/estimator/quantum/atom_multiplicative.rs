@@ -11,7 +11,7 @@ use crate::{
         Multiplicative as MultiplicativeQuantumEstimator, Scheme,
         error::EmptyError,
         marker::{InnerIsLeading, InnerIsTrailing},
-        stat::{Bosonic, Distinguishable, Stat},
+        stat::{Bosonic, Distinguishable},
         sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
     },
     estimator::quantum::{
@@ -63,11 +63,25 @@ where
     /// The type of error [`MultiplicativeQuantumEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Multiplier::Error> + From<EmptyError>;
 
-    /// Calculates the contribution of this atom in the first image to the observable.
-    fn calculate(
+    /// Calculates the contribution of this atom in the first image to the observable
+    /// given that the whole group has distinguishable statistics.
+    fn calculate_distinguishable(
         &mut self,
         atom_index: usize,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        position: &V,
+        physical_force: &V,
+        exchange_force: &V,
+    ) -> Result<Self::Output, Self::ErrorAtom>;
+
+    /// Calculates the contribution of this atom in the first image to the observable
+    /// given that the whole group has bosonic statistics.
+    fn calculate_bosonic(
+        &mut self,
+        atom_index: usize,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         position: &V,
@@ -97,11 +111,25 @@ where
     /// The type of error [`MultiplicativeQuantumEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Multiplier::Error> + From<EmptyError>;
 
-    /// Calculates the contribution of this atom in this image to the observable.
-    fn calculate(
+    /// Calculates the contribution of this atom in this image to the observable
+    /// given that the whole group has distinguishable statistics.
+    fn calculate_distinguishable(
         &mut self,
         atom_index: usize,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        position: &V,
+        physical_force: &V,
+        exchange_force: &V,
+    ) -> Result<Self::Output, Self::ErrorAtom>;
+
+    /// Calculates the contribution of this atom in this image to the observable
+    /// given that the whole group has bosonic statistics.
+    fn calculate_bosonic(
+        &mut self,
+        atom_index: usize,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         position: &V,
@@ -131,11 +159,25 @@ where
     /// The type of error [`MultiplicativeQuantumEstimator<Self>`] returns.
     type ErrorSystem: From<Self::ErrorAtom> + From<Multiplier::Error> + From<EmptyError>;
 
-    /// Calculates the contribution of this atom in the last image to the observable.
-    fn calculate(
+    /// Calculates the contribution of this atom in the last image to the observable
+    /// given that the whole group has distinguishable statistics.
+    fn calculate_distinguishable(
         &mut self,
         atom_index: usize,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        position: &V,
+        physical_force: &V,
+        exchange_force: &V,
+    ) -> Result<Self::Output, Self::ErrorAtom>;
+
+    /// Calculates the contribution of this atom in the last image to the observable
+    /// given that the whole group has bosonic statistics.
+    fn calculate_bosonic(
+        &mut self,
+        atom_index: usize,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         position: &V,
@@ -170,17 +212,30 @@ where
     type ErrorSystem =
         <Self as InnerAtomMultiplicativeQuantumEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         atom_index: usize,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
-        InnerAtomMultiplicativeQuantumEstimator::calculate(
+        InnerAtomMultiplicativeQuantumEstimator::calculate_distinguishable(self, atom_index, exchange_potential, group_physical_potential_energy, group_exchange_potential_energy, position, physical_force, exchange_force)
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        atom_index: usize,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        position: &V,
+        physical_force: &V,
+        exchange_force: &V,
+    ) -> Result<Self::Output, Self::ErrorAtom> {
+        InnerAtomMultiplicativeQuantumEstimator::calculate_bosonic(
             self,
             atom_index,
             exchange_potential,
@@ -188,7 +243,7 @@ where
             group_exchange_potential_energy,
             position,
             physical_force,
-            exchange_force,
+            exchange_force
         )
     }
 }
@@ -221,17 +276,17 @@ where
     type ErrorSystem =
         <Self as InnerAtomMultiplicativeQuantumEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         atom_index: usize,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
-        InnerAtomMultiplicativeQuantumEstimator::calculate(
+        InnerAtomMultiplicativeQuantumEstimator::calculate_distinguishable(
             self,
             atom_index,
             exchange_potential,
@@ -239,7 +294,29 @@ where
             group_exchange_potential_energy,
             position,
             physical_force,
-            exchange_force,
+            exchange_force
+        )
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        atom_index: usize,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        position: &V,
+        physical_force: &V,
+        exchange_force: &V,
+    ) -> Result<Self::Output, Self::ErrorAtom> {
+        InnerAtomMultiplicativeQuantumEstimator::calculate_bosonic(
+            self,
+            atom_index,
+            exchange_potential,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            position,
+            physical_force,
+            exchange_force
         )
     }
 }
@@ -284,17 +361,38 @@ where
     type ErrorAtom = E::ErrorAtom;
     type ErrorSystem = E::ErrorSystem;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         atom_index: usize,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
-        self.0.calculate(
+        self.0.calculate_distinguishable(
+            atom_index,
+            exchange_potential,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            position,
+            physical_force,
+            exchange_force,
+        )
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        atom_index: usize,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        position: &V,
+        physical_force: &V,
+        exchange_force: &V,
+    ) -> Result<Self::Output, Self::ErrorAtom> {
+        self.0.calculate_bosonic(
             atom_index,
             exchange_potential,
             group_physical_potential_energy,
@@ -329,11 +427,11 @@ where
     type Error =
         <Self as LeadingAtomMultiplicativeQuantumEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         _adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
@@ -347,7 +445,56 @@ where
         )
         .enumerate()
         .map(|(index, zip_items!(position, physical_force, exchange_force))| {
-            LeadingAtomMultiplicativeQuantumEstimator::calculate(
+            LeadingAtomMultiplicativeQuantumEstimator::calculate_distinguishable(
+                self,
+                index,
+                exchange_potential.clone(),
+                group_physical_potential_energy.clone(),
+                group_exchange_potential_energy.clone(),
+                position,
+                physical_force,
+                exchange_force,
+            )
+        });
+        let first_atom_observable = iter.next().ok_or(EmptyError)??;
+        multiplier.send(
+            iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+                Ok::<
+                    _,
+                    <Self as LeadingAtomMultiplicativeQuantumEstimator<
+                        T,
+                        V,
+                        Multiplier,
+                        Dist,
+                        DistQuad,
+                        Boson,
+                        BosonQuad,
+                    >>::ErrorAtom,
+                >(accum_observable * atom_observable?)
+            })?,
+        )?;
+        Ok(())
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        _adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error> {
+        let mut iter = zip_iterators!(
+            images_groups_positions.read().read().read(),
+            images_groups_physical_forces.read().read().read(),
+            images_groups_exchange_forces.read().read().read()
+        )
+        .enumerate()
+        .map(|(index, zip_items!(position, physical_force, exchange_force))| {
+            LeadingAtomMultiplicativeQuantumEstimator::calculate_bosonic(
                 self,
                 index,
                 exchange_potential.clone(),
@@ -395,17 +542,38 @@ where
     type ErrorAtom = E::ErrorAtom;
     type ErrorSystem = E::ErrorSystem;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         atom_index: usize,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
-        self.0.calculate(
+        self.0.calculate_distinguishable(
+            atom_index,
+            exchange_potential,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            position,
+            physical_force,
+            exchange_force,
+        )
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        atom_index: usize,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        position: &V,
+        physical_force: &V,
+        exchange_force: &V,
+    ) -> Result<Self::Output, Self::ErrorAtom> {
+        self.0.calculate_bosonic(
             atom_index,
             exchange_potential,
             group_physical_potential_energy,
@@ -440,11 +608,11 @@ where
     type Error =
         <Self as InnerAtomMultiplicativeQuantumEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         _adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
@@ -458,7 +626,45 @@ where
         )
         .enumerate()
         .map(|(index, zip_items!(position, physical_force, exchange_force))| {
-            InnerAtomMultiplicativeQuantumEstimator::calculate(
+            InnerAtomMultiplicativeQuantumEstimator::calculate_distinguishable(
+                self,
+                index,
+                exchange_potential.clone(),
+                group_physical_potential_energy.clone(),
+                group_exchange_potential_energy.clone(),
+                position,
+                physical_force,
+                exchange_force,
+            )
+        });
+        let first_atom_observable = iter.next().ok_or(EmptyError)??;
+        multiplier.send(
+            iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+                Ok::<_, <Self as InnerAtomMultiplicativeQuantumEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable * atom_observable?)
+            })?,
+        )?;
+        Ok(())
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        _adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error> {
+        let mut iter = zip_iterators!(
+            images_groups_positions.read().read().read(),
+            images_groups_physical_forces.read().read().read(),
+            images_groups_exchange_forces.read().read().read()
+        )
+        .enumerate()
+        .map(|(index, zip_items!(position, physical_force, exchange_force))| {
+            InnerAtomMultiplicativeQuantumEstimator::calculate_bosonic(
                 self,
                 index,
                 exchange_potential.clone(),
@@ -495,17 +701,38 @@ where
     type ErrorAtom = E::ErrorAtom;
     type ErrorSystem = E::ErrorSystem;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         atom_index: usize,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
-        self.0.calculate(
+        self.0.calculate_distinguishable(
+            atom_index,
+            exchange_potential,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            position,
+            physical_force,
+            exchange_force,
+        )
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        atom_index: usize,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        position: &V,
+        physical_force: &V,
+        exchange_force: &V,
+    ) -> Result<Self::Output, Self::ErrorAtom> {
+        self.0.calculate_bosonic(
             atom_index,
             exchange_potential,
             group_physical_potential_energy,
@@ -540,11 +767,11 @@ where
     type Error =
         <Self as TrailingAtomMultiplicativeQuantumEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         _adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
         group_physical_potential_energy: T,
         group_exchange_potential_energy: T,
         images_groups_positions: &ElementRwLock<ImageHandle<V>>,
@@ -558,7 +785,56 @@ where
         )
         .enumerate()
         .map(|(index, zip_items!(position, physical_force, exchange_force))| {
-            TrailingAtomMultiplicativeQuantumEstimator::calculate(
+            TrailingAtomMultiplicativeQuantumEstimator::calculate_distinguishable(
+                self,
+                index,
+                exchange_potential.clone(),
+                group_physical_potential_energy.clone(),
+                group_exchange_potential_energy.clone(),
+                position,
+                physical_force,
+                exchange_force,
+            )
+        });
+        let first_atom_observable = iter.next().ok_or(EmptyError)??;
+        multiplier.send(
+            iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+                Ok::<
+                    _,
+                    <Self as TrailingAtomMultiplicativeQuantumEstimator<
+                        T,
+                        V,
+                        Multiplier,
+                        Dist,
+                        DistQuad,
+                        Boson,
+                        BosonQuad,
+                    >>::ErrorAtom,
+                >(accum_observable * atom_observable?)
+            })?,
+        )?;
+        Ok(())
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        _adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error> {
+        let mut iter = zip_iterators!(
+            images_groups_positions.read().read().read(),
+            images_groups_physical_forces.read().read().read(),
+            images_groups_exchange_forces.read().read().read()
+        )
+        .enumerate()
+        .map(|(index, zip_items!(position, physical_force, exchange_force))| {
+            TrailingAtomMultiplicativeQuantumEstimator::calculate_bosonic(
                 self,
                 index,
                 exchange_potential.clone(),

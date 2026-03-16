@@ -21,10 +21,10 @@ mod unimplemented {
                 InnerExchangePotential,
                 quadratic::{InnerNormalModesTransform, InnerQuadraticExpansionExchangePotential},
             },
-            physical::{AtomDecoupledPhysicalPotential, PhysicalPotential},
+            physical::PhysicalPotential,
         },
         propagator::{InnerPropagator, quadratic::InnerQuadraticExpansionPropagator},
-        thermostat::{AtomDecoupledThermostat, Thermostat},
+        thermostat::Thermostat,
     };
 
     #[derive(Clone, Copy, Debug)]
@@ -36,39 +36,9 @@ mod unimplemented {
 
     impl Distinguishable for Unimplemented {}
 
-    impl Bosonic for Unimplemented {}
-
-    impl<T, V> AtomDecoupledPhysicalPotential<T, V> for Unimplemented {
-        type Error = UnimplementedError;
-
-        fn calculate_potential_set_force(
-            &mut self,
-            _atom_index: usize,
-            _position: &V,
-            _force: &mut V,
-        ) -> Result<T, Self::Error> {
-            Err(UnimplementedError)
-        }
-
-        fn calculate_potential_add_force(
-            &mut self,
-            _atom_index: usize,
-            _position: &V,
-            _force: &mut V,
-        ) -> Result<T, Self::Error> {
-            Err(UnimplementedError)
-        }
-
-        fn calculate_potential(&mut self, _atom_index: usize, _position: &V) -> Result<T, Self::Error> {
-            Err(UnimplementedError)
-        }
-
-        fn set_force(&mut self, _atom_index: usize, _position: &V, _force: &mut V) -> Result<(), Self::Error> {
-            Err(UnimplementedError)
-        }
-
-        fn add_force(&mut self, _atom_index: usize, _position: &V, _force: &mut V) -> Result<(), Self::Error> {
-            Err(UnimplementedError)
+    impl Bosonic for Unimplemented {
+        fn is_cyclic(&self) -> bool {
+            true
         }
     }
 
@@ -156,22 +126,6 @@ mod unimplemented {
         fn eigenvalues(&self, _eigenvalues: &mut [T]) {}
     }
 
-    impl<T, V> AtomDecoupledThermostat<T, V> for Unimplemented {
-        type Error = UnimplementedError;
-
-        fn thermalize(
-            &mut self,
-            _step_size: T,
-            _atom_index: usize,
-            _position: &V,
-            _physical_force: &V,
-            _exchange_force: &V,
-            _momentum: &mut V,
-        ) -> Result<T, Self::Error> {
-            Err(UnimplementedError)
-        }
-    }
-
     impl<T, V, Phys, Dist, Boson, Therm> InnerPropagator<T, V, Phys, Dist, Boson, Therm> for Unimplemented
     where
         Phys: PhysicalPotential<T, V> + ?Sized,
@@ -230,24 +184,6 @@ mod unimplemented {
     }
 
     impl Error for UnimplementedError {}
-}
-
-pub mod error {
-    use std::{
-        error::Error,
-        fmt::{Display, Formatter, Result as FmtResult},
-    };
-
-    #[derive(Clone, Copy, Debug)]
-    pub struct NumCastError;
-
-    impl Display for NumCastError {
-        fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-            write!(f, "failed to cast from a primitive")
-        }
-    }
-
-    impl Error for NumCastError {}
 }
 
 pub use unimplemented::{Unimplemented, UnimplementedError};

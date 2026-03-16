@@ -19,7 +19,7 @@ use arc_rw_lock::ElementRwLock;
 use crate::{
     core::{
         AtomType, GroupImageHandle, GroupTypeHandle, GroupsIter, Scheme, SchemeDependent, Vector,
-        error::CommError,
+        error::{CommError, EmptyError},
         factory::{Factory, FullFactory},
         stat::{Bosonic, Distinguishable, Stat},
         sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
@@ -68,24 +68,15 @@ fn run_step_leading_group<
     const N: usize,
     T: Clone + Default + From<f32> + Add<Output = T> + Mul<Output = T>,
     V: Vector<N, Element = T> + Clone,
-    AdderSenderEst: SyncAddSender<Output> + ?Sized,
-    MultiplierSenderEst: SyncMulSender<Output> + ?Sized,
-    QuantumEst: LeadingQuantumEstimator<
-            T,
-            V,
-            AdderSenderEst,
-            MultiplierSenderEst,
-            Dist,
-            DistQuad,
-            Boson,
-            BosonQuad,
-            Output = Output,
-        > + ?Sized,
+    AdderSender: SyncAddSender<Output> + ?Sized,
+    MultiplierSender: SyncMulSender<Output> + ?Sized,
+    QuantumEst: LeadingQuantumEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
+        + ?Sized,
     ClassicalEst: LeadingClassicalEstimator<
             T,
             V,
-            AdderSenderEst,
-            MultiplierSenderEst,
+            AdderSender,
+            MultiplierSender,
             Dist,
             DistQuad,
             Boson,
@@ -101,19 +92,20 @@ fn run_step_leading_group<
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
     Output,
-    Err: From<CommError>
-        + From<AdderSenderEst::Error>
+    Err: From<AdderSender::Error>
         + From<Prop::Error>
         + From<PropQuad::Error>
         + From<QuantumEst::Error>
         + From<ClassicalEst::Error>
+        + From<CommError>
+        + From<EmptyError>
         + Send,
 >(
     step: usize,
     barrier: &Barrier,
     atom_type: &AtomType<T>,
-    adder: &mut AdderSenderEst,
-    multiplier: &mut MultiplierSenderEst,
+    adder: &mut AdderSender,
+    multiplier: &mut MultiplierSender,
     mut quantum_estimators: Option<&mut [&mut QuantumEst]>,
     mut classical_estimators: Option<&mut [&mut ClassicalEst]>,
     mut propagator_and_exchange_potential: Scheme<
@@ -163,7 +155,7 @@ fn run_step_leading_group<
         .read()
         .iter()
         .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared());
-    let tmp = iter.next().expect("`momenta` should contain at least one element");
+    let tmp = iter.next().ok_or(EmptyError)?;
     let group_kinetic_energy = iter.fold(tmp, |accum, elem| accum + elem);
 
     if let Some(estimators) = quantum_estimators.as_deref_mut() {
@@ -223,30 +215,12 @@ fn run_step_inner_group<
     const N: usize,
     T: Clone + From<f32> + Add<Output = T> + Mul<Output = T>,
     V: Vector<N, Element = T> + Clone,
-    AdderSenderEst: SyncAddSender<Output> + ?Sized,
-    MultiplierSenderEst: SyncMulSender<Output> + ?Sized,
-    QuantumEst: InnerQuantumEstimator<
-            T,
-            V,
-            AdderSenderEst,
-            MultiplierSenderEst,
-            Dist,
-            DistQuad,
-            Boson,
-            BosonQuad,
-            Output = Output,
-        > + ?Sized,
-    ClassicalEst: InnerClassicalEstimator<
-            T,
-            V,
-            AdderSenderEst,
-            MultiplierSenderEst,
-            Dist,
-            DistQuad,
-            Boson,
-            BosonQuad,
-            Output = Output,
-        > + ?Sized,
+    AdderSender: SyncAddSender<Output> + ?Sized,
+    MultiplierSender: SyncMulSender<Output> + ?Sized,
+    QuantumEst: InnerQuantumEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
+        + ?Sized,
+    ClassicalEst: InnerClassicalEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
+        + ?Sized,
     Prop: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + ?Sized,
     PropQuad: InnerQuadraticExpansionPropagator<T, V, Phys, DistQuad, BosonQuad, Therm> + ?Sized,
     Phys: PhysicalPotential<T, V> + ?Sized,
@@ -256,18 +230,19 @@ fn run_step_inner_group<
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + Send + ?Sized,
     Output,
-    Err: From<CommError>
-        + From<AdderSenderEst::Error>
+    Err: From<AdderSender::Error>
         + From<Prop::Error>
         + From<PropQuad::Error>
         + From<QuantumEst::Error>
-        + From<ClassicalEst::Error>,
+        + From<ClassicalEst::Error>
+        + From<EmptyError>
+        + From<CommError>,
 >(
     step: usize,
     barrier: &Barrier,
     atom_type: &AtomType<T>,
-    adder: &mut AdderSenderEst,
-    multiplier: &mut MultiplierSenderEst,
+    adder: &mut AdderSender,
+    multiplier: &mut MultiplierSender,
     mut quantum_estimators: Option<&mut [&mut QuantumEst]>,
     mut classical_estimators: Option<&mut [&mut ClassicalEst]>,
     mut propagator_and_exchange_potential: Scheme<
@@ -317,7 +292,7 @@ fn run_step_inner_group<
         .read()
         .iter()
         .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared());
-    let tmp = iter.next().expect("`momenta` should contain at least one element");
+    let tmp = iter.next().ok_or(EmptyError)?;
     let group_kinetic_energy = iter.fold(tmp, |accum, elem| accum + elem);
 
     if let Some(estimators) = quantum_estimators.as_deref_mut() {
@@ -377,24 +352,15 @@ fn run_step_trailing_group<
     const N: usize,
     T: Clone + Default + From<f32> + Add<Output = T> + Mul<Output = T>,
     V: Vector<N, Element = T> + Clone,
-    AdderSenderEst: SyncAddSender<Output> + ?Sized,
-    MultiplierSenderEst: SyncMulSender<Output> + ?Sized,
-    QuantumEst: TrailingQuantumEstimator<
-            T,
-            V,
-            AdderSenderEst,
-            MultiplierSenderEst,
-            Dist,
-            DistQuad,
-            Boson,
-            BosonQuad,
-            Output = Output,
-        > + ?Sized,
+    AdderSender: SyncAddSender<Output> + ?Sized,
+    MultiplierSender: SyncMulSender<Output> + ?Sized,
+    QuantumEst: TrailingQuantumEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
+        + ?Sized,
     ClassicalEst: TrailingClassicalEstimator<
             T,
             V,
-            AdderSenderEst,
-            MultiplierSenderEst,
+            AdderSender,
+            MultiplierSender,
             Dist,
             DistQuad,
             Boson,
@@ -410,19 +376,20 @@ fn run_step_trailing_group<
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
     Output,
-    Err: From<CommError>
-        + From<AdderSenderEst::Error>
+    Err: From<AdderSender::Error>
         + From<Prop::Error>
         + From<PropQuad::Error>
         + From<QuantumEst::Error>
         + From<ClassicalEst::Error>
+        + From<EmptyError>
+        + From<CommError>
         + Send,
 >(
     step: usize,
     barrier: &Barrier,
     atom_type: &AtomType<T>,
-    adder: &mut AdderSenderEst,
-    multiplier: &mut MultiplierSenderEst,
+    adder: &mut AdderSender,
+    multiplier: &mut MultiplierSender,
     mut quantum_estimators: Option<&mut [&mut QuantumEst]>,
     mut classical_estimators: Option<&mut [&mut ClassicalEst]>,
     mut propagator_and_exchange_potential: Scheme<
@@ -472,7 +439,7 @@ fn run_step_trailing_group<
         .read()
         .iter()
         .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared());
-    let tmp = iter.next().expect("`momenta` should contain at least one element");
+    let tmp = iter.next().ok_or(EmptyError)?;
     let group_kinetic_energy = iter.fold(tmp, |accum, elem| accum + elem);
 
     if let Some(estimators) = quantum_estimators.as_deref_mut() {
@@ -534,17 +501,17 @@ pub fn run<
     const N: usize,
     T: Clone + Default + From<f32> + Add<Output = T> + Mul<Output = T> + Div<Output = T> + Display + Send + Sync,
     V: Vector<N, Element = T> + Clone + Display + Send,
-    AdderRecieverEst: SyncAddReciever<Output> + ?Sized,
-    AdderSenderEst: SyncAddSender<Output> + Send + ?Sized,
-    MultiplierRecieverEst: SyncMulReciever<Output> + ?Sized,
-    MultiplierSenderEst: SyncMulSender<Output> + Send + ?Sized,
+    AdderReciever: SyncAddReciever<Output> + ?Sized,
+    AdderSender: SyncAddSender<Output> + Send + ?Sized,
+    MultiplierReciever: SyncMulReciever<Output> + ?Sized,
+    MultiplierSender: SyncMulSender<Output> + Send + ?Sized,
     VecsOut: VectorsOutput<N, T, V> + ?Sized,
-    QuantumEstMain: MainQuantumEstimator<T, V, AdderRecieverEst, MultiplierRecieverEst, Output = Output> + Send + ?Sized,
+    QuantumEstMain: MainQuantumEstimator<T, V, AdderReciever, MultiplierReciever, Output = Output> + Send + ?Sized,
     QuantumEstLeading: LeadingQuantumEstimator<
             T,
             V,
-            AdderSenderEst,
-            MultiplierSenderEst,
+            AdderSender,
+            MultiplierSender,
             DistLeading,
             DistQuadLeading,
             BosonLeading,
@@ -555,8 +522,8 @@ pub fn run<
     QuantumEstInner: InnerQuantumEstimator<
             T,
             V,
-            AdderSenderEst,
-            MultiplierSenderEst,
+            AdderSender,
+            MultiplierSender,
             DistInner,
             DistQuadInner,
             BosonInner,
@@ -567,8 +534,8 @@ pub fn run<
     QuantumEstTrailing: TrailingQuantumEstimator<
             T,
             V,
-            AdderSenderEst,
-            MultiplierSenderEst,
+            AdderSender,
+            MultiplierSender,
             DistTrailing,
             DistQuadTrailing,
             BosonTrailing,
@@ -576,12 +543,12 @@ pub fn run<
             Output = Output,
         > + Send
         + ?Sized,
-    ClassicalEstMain: MainClassicalEstimator<T, V, AdderRecieverEst, MultiplierRecieverEst, Output = Output> + ?Sized,
+    ClassicalEstMain: MainClassicalEstimator<T, V, AdderReciever, MultiplierReciever, Output = Output> + ?Sized,
     ClassicalEstLeading: LeadingClassicalEstimator<
             T,
             V,
-            AdderSenderEst,
-            MultiplierSenderEst,
+            AdderSender,
+            MultiplierSender,
             DistLeading,
             DistQuadLeading,
             BosonLeading,
@@ -592,8 +559,8 @@ pub fn run<
     ClassicalEstInner: InnerClassicalEstimator<
             T,
             V,
-            AdderSenderEst,
-            MultiplierSenderEst,
+            AdderSender,
+            MultiplierSender,
             DistInner,
             DistQuadInner,
             BosonInner,
@@ -604,8 +571,8 @@ pub fn run<
     ClassicalEstTrailing: TrailingClassicalEstimator<
             T,
             V,
-            AdderSenderEst,
-            MultiplierSenderEst,
+            AdderSender,
+            MultiplierSender,
             DistTrailing,
             DistQuadTrailing,
             BosonTrailing,
@@ -635,9 +602,8 @@ pub fn run<
     BosonQuadTrailing: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + Send + ?Sized,
     Therm: Thermostat<T, V> + Send + ?Sized,
     Output,
-    Err: From<CommError>
-        + From<AdderRecieverEst::Error>
-        + From<AdderSenderEst::Error>
+    Err: From<AdderReciever::Error>
+        + From<AdderSender::Error>
         + From<VecsOut::Error>
         + From<ValsOut::Error>
         + From<PropLeading::Error>
@@ -654,6 +620,8 @@ pub fn run<
         + From<ClassicalEstLeading::Error>
         + From<ClassicalEstInner::Error>
         + From<ClassicalEstTrailing::Error>
+        + From<EmptyError>
+        + From<CommError>
         + Send,
 >(
     steps: usize,
@@ -663,20 +631,20 @@ pub fn run<
              impl for<'a> FullFactory<
         'a,
         T,
-        Main = &'a mut AdderRecieverEst,
-        Leading = &'a mut AdderSenderEst,
-        Inner = &'a mut AdderSenderEst,
-        Trailing = &'a mut AdderSenderEst,
+        Main = &'a mut AdderReciever,
+        Leading = &'a mut AdderSender,
+        Inner = &'a mut AdderSender,
+        Trailing = &'a mut AdderSender,
     > + ?Sized
          ),
     multipliers: &mut (
              impl for<'a> FullFactory<
         'a,
         T,
-        Main = &'a mut MultiplierRecieverEst,
-        Leading = &'a mut MultiplierSenderEst,
-        Inner = &'a mut MultiplierSenderEst,
-        Trailing = &'a mut MultiplierSenderEst,
+        Main = &'a mut MultiplierReciever,
+        Leading = &'a mut MultiplierSender,
+        Inner = &'a mut MultiplierSender,
+        Trailing = &'a mut MultiplierSender,
     > + ?Sized
          ),
     positions_out: Option<
@@ -880,12 +848,8 @@ pub fn run<
         if let Some(iter) = positions_out {
             assert_eq!(iter.len(), inner_images + 2);
 
-            let leading = iter
-                .next()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
-            let trailing = iter
-                .next_back()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
+            let leading = iter.next().ok_or(EmptyError)?;
+            let trailing = iter.next_back().ok_or(EmptyError)?;
             (Some(leading), Some(iter), Some(trailing))
         } else {
             (None, None, None)
@@ -894,12 +858,8 @@ pub fn run<
         if let Some(iter) = momenta_out {
             assert_eq!(iter.len(), inner_images + 2);
 
-            let leading = iter
-                .next()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
-            let trailing = iter
-                .next_back()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
+            let leading = iter.next().ok_or(EmptyError)?;
+            let trailing = iter.next_back().ok_or(EmptyError)?;
             (Some(leading), Some(iter), Some(trailing))
         } else {
             (None, None, None)
@@ -908,12 +868,8 @@ pub fn run<
         if let Some(iter) = physical_forces_out {
             assert_eq!(iter.len(), inner_images + 2);
 
-            let leading = iter
-                .next()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
-            let trailing = iter
-                .next_back()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
+            let leading = iter.next().ok_or(EmptyError)?;
+            let trailing = iter.next_back().ok_or(EmptyError)?;
             (Some(leading), Some(iter), Some(trailing))
         } else {
             (None, None, None)
@@ -922,12 +878,8 @@ pub fn run<
         if let Some(iter) = exchange_forces_out {
             assert_eq!(iter.len(), inner_images + 2);
 
-            let leading = iter
-                .next()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
-            let trailing = iter
-                .next_back()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
+            let leading = iter.next().ok_or(EmptyError)?;
+            let trailing = iter.next_back().ok_or(EmptyError)?;
             (Some(leading), Some(iter), Some(trailing))
         } else {
             (None, None, None)
@@ -1172,7 +1124,7 @@ pub fn run<
     let index_smallest_group = GroupsIter::from_atom_types(atom_types)
         .enumerate()
         .min_by(|(_, (_, group_0_size)), (_, (_, group_1_size))| group_0_size.cmp(group_1_size))
-        .expect("the should be at least one group of atoms")
+        .ok_or(EmptyError)?
         .0;
 
     thread::scope(|s| {
@@ -1305,9 +1257,7 @@ pub fn run<
                 mut momenta,
                 mut physical_forces,
                 mut exchange_forces,
-            ) = leading_iter
-                .next()
-                .expect("the number of groups is greater than the index of the smalles one");
+            ) = leading_iter.next().ok_or(EmptyError)?;
             s.spawn::<_, Result<_, Err>>(move || {
                 for step in 0..steps {
                     let step_result: Result<_, Err> = run_step_leading_group(
@@ -1661,9 +1611,7 @@ pub fn run<
                     mut momenta,
                     mut physical_forces,
                     mut exchange_forces,
-                ) = inner_iter
-                    .next()
-                    .expect("the number of groups is greater than the index of the smalles one");
+                ) = inner_iter.next().ok_or(EmptyError)?;
 
                 s.spawn::<_, Result<_, Err>>(move || {
                     for step in 0..steps {
@@ -1927,9 +1875,7 @@ pub fn run<
                 mut momenta,
                 mut physical_forces,
                 mut exchange_forces,
-            ) = trailing_iter
-                .next()
-                .expect("the number of groups is greater than the index of the smalles one");
+            ) = trailing_iter.next().ok_or(EmptyError)?;
 
             s.spawn::<_, Result<_, Err>>(move || {
                 for step in 0..steps {
@@ -2066,8 +2012,6 @@ pub fn run<
 
         // Main thread.
         for step in 0..steps {
-            barrier.wait();
-
             match main_estimators.as_deref_mut() {
                 ObservablesOutputOption::None => {}
                 ObservablesOutputOption::Quantum(ObservablesOutput { estimators, stream }) => {
