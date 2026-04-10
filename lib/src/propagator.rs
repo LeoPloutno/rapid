@@ -31,7 +31,7 @@ where
     /// Returns the contribution of this group in the first image
     /// to the physical and exchange potential energies,
     /// as well as the heat absorbed by the system from the thermostat.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    #[heavy_computation]
     fn propagate(
         &mut self,
         step: usize,
@@ -61,7 +61,7 @@ where
     /// Returns the contribution of this group in this image
     /// to the physical and exchange potential energies,
     /// as well as the heat absorbed by the system from the thermostat.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    #[heavy_computation]
     fn propagate(
         &mut self,
         step: usize,
@@ -91,7 +91,7 @@ where
     /// Returns the contribution of this group in the last image
     /// to the physical and exchange potential energies,
     /// as well as the heat absorbed by the system from the thermostat.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    #[heavy_computation]
     fn propagate(
         &mut self,
         step: usize,

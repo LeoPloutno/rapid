@@ -1,101 +1,28 @@
 //! Traits for updating the forces and calculating the exchange potential energy.
 
-use crate::core::marker::{InnerIsLeading, InnerIsTrailing};
+use macros::{efficient_alternatives, heavy_computation};
+
+pub mod quadratic;
 
 #[cfg(feature = "monte_carlo")]
 mod monte_carlo;
-pub mod quadratic;
+#[cfg(feature = "monte_carlo")]
+pub use monte_carlo::{MonteCarloExchangePotential, NeighboringImage};
 
-/// A trait for exchange potentials that yield the contribution of a group in the first image
-/// to the total exchange potential energy of a given type of atoms.
-pub trait LeadingExchangePotential<T, V> {
+/// A trait for exchange potentials.
+pub trait ExchangePotential<T, V> {
     /// The type associated with an error returned by the implementor.
     type Error;
 
     /// Returns whether this exchange potential is invariant under
     /// a cyclic permutation of the images.
-    fn is_cyclic(&self) -> bool {
-        false
-    }
-
-    /// Calculates the contribution of this group in the first image to the total exchange potential energy
-    /// of the type and sets the forces of this group in the first image accordingly.
-    ///
-    /// Returns the contribution to the total energy.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential_set_forces(
-        &mut self,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<T, Self::Error>;
-
-    /// Calculates the contribution of this group in the first image to the total exchange potential energy
-    /// of the type and adds the forces arising from this potential
-    /// to the forces of this group in the first image accordingly.
-    ///
-    /// Returns the contribution to the total energy.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential_add_forces(
-        &mut self,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<T, Self::Error>;
-
-    /// Calculates the contribution of this group in the first image to the total exchange potential energy
-    /// of the type.
-    ///
-    /// Returns the contribution to the total energy.
-    #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential(
-        &mut self,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-    ) -> Result<T, Self::Error>;
-
-    /// Sets the forces of this group in the first image.
-    #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
-    fn set_forces(
-        &mut self,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<(), Self::Error>;
-
-    /// Adds the forces arising from this potential to the forces of this group in the first image.
-    #[deprecated = "Consider using `calculate_potential_add_forces` as a more efficient alternative"]
-    fn add_forces(
-        &mut self,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<(), Self::Error>;
-}
-
-/// A trait for exchange potentials that yield the contribution of a group in an inner image
-/// to the total exchange potential energy of a given type of atoms.
-pub trait InnerExchangePotential<T, V> {
-    /// The type associated with an error returned by the implementor.
-    type Error;
-
-    /// Returns whether this exchange potential is invariant under
-    /// a cyclic permutation of the images.
-    fn is_cyclic(&self) -> bool {
-        false
-    }
+    fn is_cyclic(&self) -> bool;
 
     /// Calculates the contribution of this group in this image to the total exchange potential energy
-    /// of the type and sets the forces of this group in this image accordingly.
+    /// of the type and sets the forces of this group accordingly.
     ///
-    /// Returns the contribution to the total energy.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    /// Returns the contribution to the total exchange potential energy.
+    #[heavy_computation]
     fn calculate_potential_set_forces(
         &mut self,
         type_positions_prev_image: &[V],
@@ -105,11 +32,10 @@ pub trait InnerExchangePotential<T, V> {
     ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group in this image to the total exchange potential energy
-    /// of the type and adds the forces arising from this potential
-    /// to the forces of this group in this image accordingly.
+    /// of the type and adds the forces arising from this potential to the forces of this group.
     ///
-    /// Returns the contribution to the total energy.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    /// Returns the contribution to the total exchange potential energy.
+    #[heavy_computation]
     fn calculate_potential_add_forces(
         &mut self,
         type_positions_prev_image: &[V],
@@ -121,9 +47,9 @@ pub trait InnerExchangePotential<T, V> {
     /// Calculates the contribution of this group in this image to the total exchange potential energy
     /// of the type.
     ///
-    /// Returns the contribution to the total energy.
-    #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    /// Returns the contribution to the total exchange potential energy.
+    #[heavy_computation]
+    #[efficient_alternatives("calculate_potential_set_forces", "calculate_potential_add_forces")]
     fn calculate_potential(
         &mut self,
         type_positions_prev_image: &[V],
@@ -132,7 +58,7 @@ pub trait InnerExchangePotential<T, V> {
     ) -> Result<T, Self::Error>;
 
     /// Sets the forces of this group in this image.
-    #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
+    #[efficient_alternatives("calculate_potential_set_forces")]
     fn set_forces(
         &mut self,
         type_positions_prev_image: &[V],
@@ -142,7 +68,7 @@ pub trait InnerExchangePotential<T, V> {
     ) -> Result<(), Self::Error>;
 
     /// Adds the forces arising from this potential to the forces of this group in this image.
-    #[deprecated = "Consider using `calculate_potential_add_forces` as a more efficient alternative"]
+    #[efficient_alternatives("calculate_potential_add_forces")]
     fn add_forces(
         &mut self,
         type_positions_prev_image: &[V],
@@ -151,265 +77,3 @@ pub trait InnerExchangePotential<T, V> {
         group_forces: &mut [V],
     ) -> Result<(), Self::Error>;
 }
-
-/// A trait for exchange potentials that yield the contribution of a group in the last image
-/// to the total exchange potential energy of a given type of atoms.
-pub trait TrailingExchangePotential<T, V> {
-    /// The type associated with an error returned by the implementor.
-    type Error;
-
-    /// Returns whether this exchange potential is invariant under
-    /// a cyclic permutation of the images.
-    fn is_cyclic(&self) -> bool {
-        false
-    }
-
-    /// Calculates the contribution of this group in the last image to the total exchange potential energy
-    /// of the type and sets the forces of this group in the last image accordingly.
-    ///
-    /// Returns the contribution to the total energy.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential_set_forces(
-        &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_first_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<T, Self::Error>;
-
-    /// Calculates the contribution of this group in the last image to the total exchange potential energy
-    /// of the type and adds the forces arising from this potential
-    /// to the forces of this group in the last image accordingly.
-    ///
-    /// Returns the contribution to the total energy.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential_add_forces(
-        &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_first_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<T, Self::Error>;
-
-    /// Calculates the contribution of this group in the last image to the total exchange potential energy
-    /// of the type.
-    ///
-    /// Returns the contribution to the total energy.
-    #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential(
-        &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_first_image: &[V],
-        type_positions: &[V],
-    ) -> Result<T, Self::Error>;
-
-    /// Sets the forces of this group in the last image.
-    #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
-    fn set_forces(
-        &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_first_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<(), Self::Error>;
-
-    /// Adds the forces arising from this potential to the forces of this group in the last image.
-    #[deprecated = "Consider using `calculate_potential_add_forces` as a more efficient alternative"]
-    fn add_forces(
-        &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_first_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<(), Self::Error>;
-}
-
-impl<T, V, P> LeadingExchangePotential<T, V> for P
-where
-    P: InnerExchangePotential<T, V> + InnerIsLeading + ?Sized,
-{
-    type Error = <Self as InnerExchangePotential<T, V>>::Error;
-
-    fn is_cyclic(&self) -> bool {
-        InnerExchangePotential::is_cyclic(self)
-    }
-
-    fn calculate_potential_set_forces(
-        &mut self,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<T, Self::Error> {
-        InnerExchangePotential::calculate_potential_set_forces(
-            self,
-            type_positions_last_image,
-            type_positions_next_image,
-            type_positions,
-            group_forces,
-        )
-    }
-
-    fn calculate_potential_add_forces(
-        &mut self,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<T, Self::Error> {
-        InnerExchangePotential::calculate_potential_add_forces(
-            self,
-            type_positions_last_image,
-            type_positions_next_image,
-            type_positions,
-            group_forces,
-        )
-    }
-
-    fn calculate_potential(
-        &mut self,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-    ) -> Result<T, Self::Error> {
-        #[allow(deprecated)]
-        InnerExchangePotential::calculate_potential(
-            self,
-            type_positions_last_image,
-            type_positions_next_image,
-            type_positions,
-        )
-    }
-
-    fn set_forces(
-        &mut self,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<(), Self::Error> {
-        #[allow(deprecated)]
-        InnerExchangePotential::set_forces(
-            self,
-            type_positions_last_image,
-            type_positions_next_image,
-            type_positions,
-            group_forces,
-        )
-    }
-
-    fn add_forces(
-        &mut self,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<(), Self::Error> {
-        #[allow(deprecated)]
-        InnerExchangePotential::add_forces(
-            self,
-            type_positions_last_image,
-            type_positions_next_image,
-            type_positions,
-            group_forces,
-        )
-    }
-}
-
-impl<T, V, P> TrailingExchangePotential<T, V> for P
-where
-    P: InnerExchangePotential<T, V> + InnerIsTrailing + ?Sized,
-{
-    type Error = <Self as InnerExchangePotential<T, V>>::Error;
-
-    fn is_cyclic(&self) -> bool {
-        InnerExchangePotential::is_cyclic(self)
-    }
-
-    fn calculate_potential_set_forces(
-        &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_first_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<T, Self::Error> {
-        InnerExchangePotential::calculate_potential_set_forces(
-            self,
-            type_positions_prev_image,
-            type_positions_first_image,
-            type_positions,
-            group_forces,
-        )
-    }
-
-    fn calculate_potential_add_forces(
-        &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_first_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<T, Self::Error> {
-        InnerExchangePotential::calculate_potential_add_forces(
-            self,
-            type_positions_prev_image,
-            type_positions_first_image,
-            type_positions,
-            group_forces,
-        )
-    }
-
-    fn calculate_potential(
-        &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_first_image: &[V],
-        type_positions: &[V],
-    ) -> Result<T, Self::Error> {
-        #[allow(deprecated)]
-        InnerExchangePotential::calculate_potential(
-            self,
-            type_positions_prev_image,
-            type_positions_first_image,
-            type_positions,
-        )
-    }
-
-    fn set_forces(
-        &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_first_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<(), Self::Error> {
-        #[allow(deprecated)]
-        InnerExchangePotential::set_forces(
-            self,
-            type_positions_prev_image,
-            type_positions_first_image,
-            type_positions,
-            group_forces,
-        )
-    }
-
-    fn add_forces(
-        &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_first_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
-    ) -> Result<(), Self::Error> {
-        #[allow(deprecated)]
-        InnerExchangePotential::add_forces(
-            self,
-            type_positions_prev_image,
-            type_positions_first_image,
-            type_positions,
-            group_forces,
-        )
-    }
-}
-
-#[cfg(feature = "monte_carlo")]
-pub use monte_carlo::{
-    InnerMonteCarloExchangePotential, LeadingMonteCarloExchangePotential, TrailingMonteCarloExchangePotential,
-};

@@ -1,11 +1,13 @@
-use std::ops::Add;
-
 use crate::{
-    ImageHandle,
-    core::{Additive as AdditivePhysicalPotential, error::EmptyError},
+    core::{
+        Additive as AdditivePhysicalPotential, GroupTypeHandle,
+        error::{EmptyError, InvalidIndexError},
+    },
     potential::physical::PhysicalPotential,
     zip_items, zip_iterators,
 };
+use macros::efficient_alternatives;
+use std::ops::Add;
 
 #[cfg(feature = "monte_carlo")]
 mod monte_carlo;
@@ -21,13 +23,15 @@ pub trait AtomAdditivePhysicalPotential<T: Add<Output = T>, V> {
     /// The type of error `Self` returns.
     type ErrorAtom;
     /// The type of error [`AdditivePhysicalPotential<Self>`] returns.
-    type ErrorSystem: From<Self::ErrorAtom> + From<EmptyError>;
+    type ErrorSystem: From<Self::ErrorAtom> + From<EmptyError> + From<InvalidIndexError>;
+
+    /// Returns the index of the group allocated to this potential amongst all groups of all types.
+    fn group_index(&self) -> usize;
 
     /// Calculates the contribution of this atom to the total physical potential energy
     /// of the image and sets the force of this atom accordingly.
     ///
-    /// Returns the contribution to the total energy.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    /// Returns the contribution to the total physical potential energy.
     fn calculate_potential_set_force(
         &mut self,
         atom_index: usize,
@@ -38,8 +42,7 @@ pub trait AtomAdditivePhysicalPotential<T: Add<Output = T>, V> {
     /// Calculates the contribution of this atom to the total physical potential energy
     /// of the image and adds the force arising from this potential to the force of this atom.
     ///
-    /// Returns the contribution to the total energy.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    /// Returns the contribution to the total physical potential energy.
     fn calculate_potential_add_force(
         &mut self,
         atom_index: usize,
@@ -50,18 +53,16 @@ pub trait AtomAdditivePhysicalPotential<T: Add<Output = T>, V> {
     /// Calculates the contribution of this atom to the total physical potential energy
     /// of the image.
     ///
-    /// Returns the contribution to the total energy.
-    /// - `position`: The position of this atom.
-    #[deprecated = "Consider using `calculate_potential_set_force` as a more efficient alternative"]
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    /// Returns the contribution to the total physical potential energy.
+    #[efficient_alternatives("calculate_potential_set_force", "calculate_potential_add_force")]
     fn calculate_potential(&mut self, atom_index: usize, position: &V) -> Result<T, Self::ErrorAtom>;
 
     /// Sets the force of this atom.
-    #[deprecated = "Consider using `calculate_potential_set_force` as a more efficient alternative"]
+    #[efficient_alternatives("calculate_potential_set_force")]
     fn set_force(&mut self, atom_index: usize, position: &V, force: &mut V) -> Result<(), Self::ErrorAtom>;
 
     /// Adds the force arising from this potential to the force of this atom.
-    #[deprecated = "Consider using `calculate_potential_add_force` as a more efficient alternative"]
+    #[efficient_alternatives("calculate_potential_add_force")]
     fn add_force(&mut self, atom_index: usize, position: &V, force: &mut V) -> Result<(), Self::ErrorAtom>;
 }
 
@@ -73,6 +74,12 @@ where
     type ErrorAtom = P::ErrorAtom;
     type ErrorSystem = P::ErrorSystem;
 
+    #[inline(always)]
+    fn group_index(&self) -> usize {
+        self.0.group_index()
+    }
+
+    #[inline(always)]
     fn calculate_potential_set_force(
         &mut self,
         atom_index: usize,
@@ -82,6 +89,7 @@ where
         self.0.calculate_potential_set_force(atom_index, position, force)
     }
 
+    #[inline(always)]
     fn calculate_potential_add_force(
         &mut self,
         atom_index: usize,
@@ -91,16 +99,19 @@ where
         self.0.calculate_potential_add_force(atom_index, position, force)
     }
 
+    #[inline(always)]
     fn calculate_potential(&mut self, atom_index: usize, position: &V) -> Result<T, Self::ErrorAtom> {
         #[allow(deprecated)]
         self.0.calculate_potential(atom_index, position)
     }
 
+    #[inline(always)]
     fn set_force(&mut self, atom_index: usize, position: &V, force: &mut V) -> Result<(), Self::ErrorAtom> {
         #[allow(deprecated)]
         self.0.set_force(atom_index, position, force)
     }
 
+    #[inline(always)]
     fn add_force(&mut self, atom_index: usize, position: &V, force: &mut V) -> Result<(), Self::ErrorAtom> {
         #[allow(deprecated)]
         self.0.add_force(atom_index, position, force)
@@ -117,14 +128,21 @@ where
 
     fn calculate_potential_set_forces(
         &mut self,
-        groups_positions: &ImageHandle<V>,
+        groups_positions: &[GroupTypeHandle<V>],
         group_forces: &mut [V],
     ) -> Result<T, Self::Error> {
-        let mut iter = zip_iterators!(groups_positions.read().read(), group_forces)
-            .enumerate()
-            .map(|(index, zip_items!(position, force))| {
-                AtomAdditivePhysicalPotential::calculate_potential_set_force(self, index, position, force)
-            });
+        let index = self.group_index();
+        let mut iter = zip_iterators!(
+            groups_positions
+                .get(index)
+                .ok_or_else(|| InvalidIndexError::new(index, groups_positions.len()))?
+                .read(),
+            group_forces
+        )
+        .enumerate()
+        .map(|(index, zip_items!(position, force))| {
+            AtomAdditivePhysicalPotential::calculate_potential_set_force(self, index, position, force)
+        });
         let first_atom_potential_energy = iter.next().ok_or(EmptyError)??;
         Ok(iter.try_fold(
             first_atom_potential_energy,
@@ -138,14 +156,21 @@ where
 
     fn calculate_potential_add_forces(
         &mut self,
-        groups_positions: &ImageHandle<V>,
+        groups_positions: &[GroupTypeHandle<V>],
         group_forces: &mut [V],
     ) -> Result<T, Self::Error> {
-        let mut iter = zip_iterators!(groups_positions.read().read(), group_forces)
-            .enumerate()
-            .map(|(index, zip_items!(position, force))| {
-                AtomAdditivePhysicalPotential::calculate_potential_add_force(self, index, position, force)
-            });
+        let index = self.group_index();
+        let mut iter = zip_iterators!(
+            groups_positions
+                .get(index)
+                .ok_or_else(|| InvalidIndexError::new(index, groups_positions.len()))?
+                .read(),
+            group_forces
+        )
+        .enumerate()
+        .map(|(index, zip_items!(position, force))| {
+            AtomAdditivePhysicalPotential::calculate_potential_add_force(self, index, position, force)
+        });
         let first_atom_potential_energy = iter.next().ok_or(EmptyError)??;
         Ok(iter.try_fold(
             first_atom_potential_energy,
@@ -157,9 +182,11 @@ where
         )?)
     }
 
-    fn calculate_potential(&mut self, groups_positions: &ImageHandle<V>) -> Result<T, Self::Error> {
+    fn calculate_potential(&mut self, groups_positions: &[GroupTypeHandle<V>]) -> Result<T, Self::Error> {
+        let index = self.group_index();
         let mut iter = groups_positions
-            .read()
+            .get(index)
+            .ok_or_else(|| InvalidIndexError::new(index, groups_positions.len()))?
             .read()
             .iter()
             .enumerate()
@@ -178,9 +205,20 @@ where
         )?)
     }
 
-    fn set_forces(&mut self, groups_positions: &ImageHandle<V>, group_forces: &mut [V]) -> Result<(), Self::Error> {
-        for (index, zip_items!(position, force)) in
-            zip_iterators!(groups_positions.read().read(), group_forces).enumerate()
+    fn set_forces(
+        &mut self,
+        groups_positions: &[GroupTypeHandle<V>],
+        group_forces: &mut [V],
+    ) -> Result<(), Self::Error> {
+        let index = self.group_index();
+        for (index, zip_items!(position, force)) in zip_iterators!(
+            groups_positions
+                .get(index)
+                .ok_or_else(|| InvalidIndexError::new(index, groups_positions.len()))?
+                .read(),
+            group_forces
+        )
+        .enumerate()
         {
             #[allow(deprecated)]
             AtomAdditivePhysicalPotential::set_force(self, index, position, force)?;
@@ -188,9 +226,20 @@ where
         Ok(())
     }
 
-    fn add_forces(&mut self, groups_positions: &ImageHandle<V>, group_forces: &mut [V]) -> Result<(), Self::Error> {
-        for (index, zip_items!(position, force)) in
-            zip_iterators!(groups_positions.read().read(), group_forces).enumerate()
+    fn add_forces(
+        &mut self,
+        groups_positions: &[GroupTypeHandle<V>],
+        group_forces: &mut [V],
+    ) -> Result<(), Self::Error> {
+        let index = self.group_index();
+        for (index, zip_items!(position, force)) in zip_iterators!(
+            groups_positions
+                .get(index)
+                .ok_or_else(|| InvalidIndexError::new(index, groups_positions.len()))?
+                .read(),
+            group_forces
+        )
+        .enumerate()
         {
             #[allow(deprecated)]
             AtomAdditivePhysicalPotential::add_force(self, index, position, force)?;

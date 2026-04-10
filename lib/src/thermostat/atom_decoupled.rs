@@ -26,7 +26,7 @@ where
     ///
     /// Returns the contribution of this atom to the change
     /// in the internal energy of the system due to thermalization.
-    #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
+    #[heavy_computation]
     fn thermalize(
         &mut self,
         step_size: T,
