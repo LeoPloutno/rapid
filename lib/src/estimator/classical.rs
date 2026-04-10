@@ -1,6 +1,15 @@
+//! Traits for calculating classical quantities.
+
+use arc_rw_lock::ElementRwLock;
+
 use crate::{
-    core::{GroupImageHandle, GroupTypeHandle, Scheme},
-    marker::{InnerIsLeading, InnerIsTrailing},
+    ImageHandle,
+    core::{
+        Scheme,
+        marker::{InnerIsLeading, InnerIsTrailing},
+        stat::{Bosonic, Distinguishable},
+        sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
+    },
     potential::exchange::{
         InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
         quadratic::{
@@ -8,131 +17,196 @@ use crate::{
             TrailingQuadraticExpansionExchangePotential,
         },
     },
-    stat::{Bosonic, Distinguishable, Stat},
-    sync_ops::{SyncAddRecv, SyncAddSend, SyncMulRecv, SyncMulSend},
 };
+
+pub mod atom_additive;
+pub mod atom_multiplicative;
 
 /// A trait for quantities calculated from the whole system treated as a classical one.
 /// The implementor of this trait recieves the calculations of
 /// the other classical estimators and produces an output.
-pub trait MainClassicalgEstimator<T, V, Adder, Multiplier>
+pub trait MainClassicalEstimator<T, V, Adder, Multiplier>
 where
-    Adder: SyncAddRecv<T> + ?Sized,
-    Multiplier: SyncMulRecv<T> + ?Sized,
+    Adder: SyncAddReciever<Self::Output> + ?Sized,
+    Multiplier: SyncMulReciever<Self::Output> + ?Sized,
 {
+    /// The type associated with the output returned by the implementor.
     type Output;
+    /// The type associated with an error returned by the implementor.
     type Error;
 
     /// Calculates the quantity.
-    ///
-    /// Returns an error if a synchronization failure occurs.
     fn calculate(&mut self, adder: &mut Adder, multiplier: &mut Multiplier) -> Result<Self::Output, Self::Error>;
 }
 
 /// A trait for quantities calculated from the whole system treated as a classical one,
-/// operating in the first replica for a specific group of atoms.
+/// operating in the first image for a specific group.
 pub trait LeadingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
-    Adder: SyncAddSend<T> + ?Sized,
-    Multiplier: SyncMulSend<T> + ?Sized,
+    Adder: SyncAddSender<Self::Output> + ?Sized,
+    Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
+    /// The type associated with the output returned by the implementor.
     type Output;
+    /// The type associated with an error returned by the implementor.
     type Error;
 
-    /// Calculates the contribution of this group in the first replica
-    /// to the quantity and sends it to a `MainClassicalEstimator`.
-    ///
-    /// Returns an error if a synchronization failure occurs.
-    fn calculate(
+    /// Calculates the contribution of this group in the first image
+    /// to the quantity and sends it to a [`MainClassicalEstimator`]
+    /// given that this group has distinguishable statistics.
+    fn calculate_distinguishable(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        kinetic_energy: T,
-        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_momenta: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error>;
+
+    /// Calculates the contribution of this group in the first image
+    /// to the quantity and sends it to a [`MainClassicalEstimator`]
+    /// given that this group has bosonic statistics.
+    fn calculate_bosonic(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error>;
 }
 
 /// A trait for quantities calculated from the whole system treated as a classical one,
-/// operating in an inner replica for a specific group of atoms.
+/// operating in an inner image for a specific group.
 pub trait InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
-    Adder: SyncAddSend<T> + ?Sized,
-    Multiplier: SyncMulSend<T> + ?Sized,
+    Adder: SyncAddSender<Self::Output> + ?Sized,
+    Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
+    /// The type associated with the output returned by the implementor.
     type Output;
+    /// The type associated with an error returned by the implementor.
     type Error;
 
-    /// Calculates the contribution of this group in this replica
-    /// to the quantity and sends it to a `MainClassicalEstimator`.
-    ///
-    /// Returns an error if a synchronization failure occurs.
-    fn calculate(
+    /// Calculates the contribution of this group in this image
+    /// to the quantity and sends it to a [`MainClassicalEstimator`]
+    /// given that this group has distinguishable statistics.
+    fn calculate_distinguishable(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        kinetic_energy: T,
-        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_momenta: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error>;
+
+    /// Calculates the contribution of this group in this image
+    /// to the quantity and sends it to a [`MainClassicalEstimator`]
+    /// given that this group has bosonic statistics.
+    fn calculate_bosonic(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error>;
 }
 
 /// A trait for quantities calculated from the whole system treated as a classical one,
-/// operating in the last replica for a specific group.
+/// operating in the last image for a specific group.
 pub trait TrailingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
 where
-    Adder: SyncAddSend<T> + ?Sized,
-    Multiplier: SyncMulSend<T> + ?Sized,
+    Adder: SyncAddSender<Self::Output> + ?Sized,
+    Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
+    /// The type associated with the output returned by the implementor.
     type Output;
+    /// The type associated with an error returned by the implementor.
     type Error;
 
-    /// Calculates the contribution of this group in the last replica
-    /// to the quantity and sends it to a `MainClassicalEstimator`.
-    ///
-    /// Returns an error if a synchronization failure occurs.
-    fn calculate(
+    /// Calculates the contribution of this group in the last image
+    /// to the quantity and sends it to a [`MainClassicalEstimator`]
+    /// given that this group has distinguishable statistics.
+    fn calculate_distinguishable(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        kinetic_energy: T,
-        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_momenta: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error>;
+
+    /// Calculates the contribution of this group in the last image
+    /// to the quantity and sends it to a [`MainClassicalEstimator`]
+    /// given that this group has bosonic statistics.
+    fn calculate_bosonic(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error>;
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    LeadingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for U
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    LeadingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
 where
-    Adder: SyncAddSend<T> + ?Sized,
-    Multiplier: SyncMulSend<T> + ?Sized,
+    Adder: SyncAddSender<
+            <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+        > + ?Sized,
+    Multiplier: SyncMulSender<
+            <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+        > + ?Sized,
     Dist: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
@@ -143,45 +217,81 @@ where
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
+    E: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
 {
     type Output = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Error;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        kinetic_energy: T,
-        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_momenta: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
-        InnerClassicalEstimator::calculate(
+        InnerClassicalEstimator::calculate_distinguishable(
             self,
             adder,
             multiplier,
             exchange_potential,
-            physical_potential_energy,
-            exchange_potential_energy,
-            kinetic_energy,
-            groups_positions,
-            groups_momenta,
-            groups_physical_forces,
-            groups_exchange_forces,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
+            images_groups_positions,
+            images_groups_momenta,
+            images_groups_physical_forces,
+            images_groups_exchange_forces,
+        )
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error> {
+        InnerClassicalEstimator::calculate_bosonic(
+            self,
+            adder,
+            multiplier,
+            exchange_potential,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
+            images_groups_positions,
+            images_groups_momenta,
+            images_groups_physical_forces,
+            images_groups_exchange_forces,
         )
     }
 }
 
-impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, U>
-    TrailingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for U
+impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
+    TrailingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
 where
-    Adder: SyncAddSend<T> + ?Sized,
-    Multiplier: SyncMulSend<T> + ?Sized,
+    Adder: SyncAddSender<
+            <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+        > + ?Sized,
+    Multiplier: SyncMulSender<
+            <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+        > + ?Sized,
     Dist: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
@@ -192,36 +302,68 @@ where
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    U: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
+    E: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
 {
     type Output = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
     type Error = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Error;
 
-    fn calculate(
+    fn calculate_distinguishable(
         &mut self,
         adder: &mut Adder,
         multiplier: &mut Multiplier,
-        exchange_potential: Scheme<Stat<&Dist, &Boson>, Stat<&DistQuad, &BosonQuad>>,
-        physical_potential_energy: T,
-        exchange_potential_energy: T,
-        kinetic_energy: T,
-        groups_positions: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_momenta: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_physical_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
-        groups_exchange_forces: &[GroupImageHandle<GroupTypeHandle<V>>],
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
     ) -> Result<(), Self::Error> {
-        InnerClassicalEstimator::calculate(
+        InnerClassicalEstimator::calculate_distinguishable(
             self,
             adder,
             multiplier,
             exchange_potential,
-            physical_potential_energy,
-            exchange_potential_energy,
-            kinetic_energy,
-            groups_positions,
-            groups_momenta,
-            groups_physical_forces,
-            groups_exchange_forces,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
+            images_groups_positions,
+            images_groups_momenta,
+            images_groups_physical_forces,
+            images_groups_exchange_forces,
+        )
+    }
+
+    fn calculate_bosonic(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error> {
+        InnerClassicalEstimator::calculate_bosonic(
+            self,
+            adder,
+            multiplier,
+            exchange_potential,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
+            images_groups_positions,
+            images_groups_momenta,
+            images_groups_physical_forces,
+            images_groups_exchange_forces,
         )
     }
 }

@@ -1,14 +1,22 @@
-use std::ops::Add;
+//! Traits for updating the forces and calculating the physical potential energy.
 
 use crate::core::{GroupRecord, SliceInContiguousSlice};
+use crate::ImageHandle;
 
-mod atom_decoupled;
+mod atom_additive;
 #[cfg(feature = "monte_carlo")]
 mod monte_carlo;
+
+#[cfg(feature = "monte_carlo")]
+pub use self::{atom_additive::AtomAdditiveMonteCarloPhysicalPotential, monte_carlo::MonteCarloPhysicalPotential};
+pub use atom_additive::AtomAdditivePhysicalPotential;
 
 /// A trait for physical potentials that yield the contribution of a single group
 /// in a given image to the total physical potential energy of said image.
 pub trait PhysicalPotential<T, V> {
+    /// The type associated with an error returned by the implementor.
+    type Error;
+
     /// Calculates the contribution of this group to the total potential energy
     /// of the image and sets the forces of this group accordingly.
     ///
@@ -16,9 +24,9 @@ pub trait PhysicalPotential<T, V> {
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
     fn calculate_potential_set_forces(
         &mut self,
-        image_positions: SliceInContiguousSlice<V>,
+        groups_positions: &ImageHandle<V>,
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group to the total potential energy
     /// of the image and adds the forces arising from this potential to the forces of this group.
@@ -26,9 +34,9 @@ pub trait PhysicalPotential<T, V> {
     /// Returns the contribution to the total energy.
     fn calculate_potential_add_forces(
         &mut self,
-        image_positions: SliceInContiguousSlice<V>,
+        groups_positions: &ImageHandle<V>,
         group_forces: &mut [V],
-    ) -> T;
+    ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group to the total potential energy
     /// of the image.
@@ -36,17 +44,13 @@ pub trait PhysicalPotential<T, V> {
     /// Returns the contribution to the total energy.
     #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
     #[must_use = "Discarding the result of a potentially heavy computation is wasteful"]
-    fn calculate_potential(&mut self, image_positions: SliceInContiguousSlice<V>) -> T;
+    fn calculate_potential(&mut self, groups_positions: &ImageHandle<V>) -> Result<T, Self::Error>;
 
     /// Sets the forces of this group.
     #[deprecated = "Consider using `calculate_potential_set_forces` as a more efficient alternative"]
-    fn set_forces(&mut self, image_positions: SliceInContiguousSlice<V>, group_forces: &mut [V]);
+    fn set_forces(&mut self, groups_positions: &ImageHandle<V>, group_forces: &mut [V]) -> Result<(), Self::Error>;
 
     /// Adds the forces arising from this potential to the forces of this group.
     #[deprecated = "Consider using `calculate_potential_add_forces` as a more efficient alternative"]
-    fn add_forces(&mut self, image_positions: SliceInContiguousSlice<V>, group_forces: &mut [V]);
+    fn add_forces(&mut self, groups_positions: &ImageHandle<V>, group_forces: &mut [V]) -> Result<(), Self::Error>;
 }
-
-pub use self::atom_decoupled::AtomDecoupledPhysicalPotential;
-#[cfg(feature = "monte_carlo")]
-pub use self::{atom_decoupled::MonteCarloAtomDecoupledPhysicalPotential, monte_carlo::MonteCarloPhysicalPotential};

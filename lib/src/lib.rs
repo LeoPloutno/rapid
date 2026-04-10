@@ -1,25 +1,39 @@
 #![feature(ptr_metadata, substr_range)]
 #![allow(clippy::too_many_arguments)]
 #![warn(missing_docs)]
+//! This library defines the core simulation entities, such as propagators,
+//! potentials, thermostats, etc.
+//! To run a simulation, simply call `[run]` with the right arguments.
+
+#![feature(new_range_api, ptr_metadata)]
+#![allow(clippy::too_many_arguments)]
+#![warn(missing_docs)]
+
 use std::{
     fmt::Display,
     iter,
     ops::{Add, DerefMut, Div, Mul},
-    sync::{Barrier, RwLock},
+    sync::Barrier,
     thread,
 };
 
 use arc_rw_lock::ElementRwLock;
 
 use crate::{
-    core::{AtomType, CommError, Factory, FullFactory, GroupImageHandle, GroupTypeHandle, Scheme, SchemeDependent},
+    core::{
+        AtomType, GroupImageHandle, GroupTypeHandle, GroupsIter, Scheme, SchemeDependent, Vector,
+        error::{CommError, EmptyError},
+        factory::{Factory, FullFactory},
+        stat::{Bosonic, Distinguishable, Stat},
+        sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
+    },
     estimator::{
         classical::{
-            InnerClassicalEstimator, LeadingClassicalEstimator, MainClassicalgEstimator, TrailingClassicalEstimator,
+            InnerClassicalEstimator, LeadingClassicalEstimator, MainClassicalEstimator, TrailingClassicalEstimator,
         },
         quantum::{InnerQuantumEstimator, LeadingQuantumEstimator, MainQuantumEstimator, TrailingQuantumEstimator},
     },
-    output::{Estimators, ObservablesOutputOption, ValuesOutput, VectorsOutput},
+    output::{ObservablesOutput, ObservablesOutputOption, ValuesOutput, VectorsOutput},
     potential::{
         exchange::{
             InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
@@ -37,33 +51,28 @@ use crate::{
             TrailingQuadraticExpansionPropagator,
         },
     },
-    stat::{Bosonic, Distinguishable, Stat},
     stride::StridesMut,
-    sync_ops::{SyncAddRecv, SyncAddSend, SyncMulRecv, SyncMulSend},
     thermostat::Thermostat,
-    vector::Vector,
 };
 
 pub mod core;
 pub mod estimator;
-pub mod marker;
 pub mod output;
 pub mod potential;
 pub mod propagator;
-pub mod stat;
 mod stride;
-pub mod sync_ops;
 pub mod thermostat;
-pub mod vector;
 
-pub type ImageHandle<V> = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>;
+/// Alias for a handle to a handle.
+pub type ImageHandle<V> = GroupImageHandle<GroupTypeHandle<V>>;
 
+/// Propagates and handles output of a single step for a group in the first image.
 fn run_step_leading_group<
     const N: usize,
     T: Clone + Default + From<f32> + Add<Output = T> + Mul<Output = T>,
-    V: Vector<N, Element = T>,
-    AdderSender: SyncAddSend<T> + ?Sized,
-    MultiplierSender: SyncMulSend<T> + ?Sized,
+    V: Vector<N, Element = T> + Clone,
+    AdderSender: SyncAddSender<Output> + ?Sized,
+    MultiplierSender: SyncMulSender<Output> + ?Sized,
     QuantumEst: LeadingQuantumEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
         + ?Sized,
     ClassicalEst: LeadingClassicalEstimator<
@@ -86,19 +95,18 @@ fn run_step_leading_group<
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
     Output,
-    Err: From<CommError>
-        + From<AdderSender::Error>
+    Err: From<AdderSender::Error>
         + From<Prop::Error>
         + From<PropQuad::Error>
         + From<QuantumEst::Error>
         + From<ClassicalEst::Error>
+        + From<CommError>
+        + From<EmptyError>
         + Send,
 >(
     step: usize,
     barrier: &Barrier,
-    shared_value: &RwLock<T>,
     atom_type: &AtomType<T>,
-    group: usize,
     adder: &mut AdderSender,
     multiplier: &mut MultiplierSender,
     mut quantum_estimators: Option<&mut [&mut QuantumEst]>,
@@ -109,12 +117,12 @@ fn run_step_leading_group<
     >,
     physical_potential: &mut Phys,
     thermostat: &mut Therm,
-    positions: &mut ImageHandle<V>,
-    momenta: &mut ImageHandle<V>,
-    physical_forces: &mut ImageHandle<V>,
-    exchange_forces: &mut ImageHandle<V>,
+    positions: &mut ElementRwLock<ImageHandle<V>>,
+    momenta: &mut ElementRwLock<ImageHandle<V>>,
+    physical_forces: &mut ElementRwLock<ImageHandle<V>>,
+    exchange_forces: &mut ElementRwLock<ImageHandle<V>>,
 ) -> Result<(), Err> {
-    let (group_physical_potential_energy, group_exchange_potential_energy) =
+    let (group_physical_potential_energy, group_exchange_potential_energy, group_heat) =
         match &mut propagator_and_exchange_potential {
             Scheme::Regular(SchemeDependent {
                 propagator,
@@ -149,22 +157,9 @@ fn run_step_leading_group<
         .read()
         .read()
         .iter()
-        .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.magnitude_squared());
-    let tmp = iter.next().expect("`momenta` should contain at least one element");
+        .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared());
+    let tmp = iter.next().ok_or(EmptyError)?;
     let group_kinetic_energy = iter.fold(tmp, |accum, elem| accum + elem);
-
-    barrier.wait();
-    adder.send(group_physical_potential_energy)?;
-    barrier.wait();
-    let physical_potential_energy = shared_value.read().map_err(|_| CommError::Leading { group })?.clone();
-
-    adder.send(group_exchange_potential_energy)?;
-    barrier.wait();
-    let exchange_potential_energy = shared_value.read().map_err(|_| CommError::Leading { group })?.clone();
-
-    adder.send(group_kinetic_energy)?;
-    barrier.wait();
-    let kinetic_energy = shared_value.read().map_err(|_| CommError::Leading { group })?.clone();
 
     if let Some(estimators) = quantum_estimators.as_deref_mut() {
         for estimator in estimators {
@@ -179,11 +174,11 @@ fn run_step_leading_group<
                         Scheme::QuadraticExpansion(exchange_potential.as_deref())
                     }
                 },
-                physical_potential_energy.clone(),
-                exchange_potential_energy.clone(),
-                &positions.read_whole().map_err(|_| CommError::Leading { group })?,
-                &physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
-                &exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                group_physical_potential_energy.clone(),
+                group_exchange_potential_energy.clone(),
+                positions,
+                physical_forces,
+                exchange_forces,
             )?;
             barrier.wait();
         }
@@ -202,13 +197,14 @@ fn run_step_leading_group<
                         Scheme::QuadraticExpansion(exchange_potential.as_deref())
                     }
                 },
-                physical_potential_energy.clone(),
-                exchange_potential_energy.clone(),
-                kinetic_energy.clone(),
-                &positions.read_whole().map_err(|_| CommError::Leading { group })?,
-                &momenta.read_whole().map_err(|_| CommError::Leading { group })?,
-                &physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
-                &exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                group_physical_potential_energy.clone(),
+                group_exchange_potential_energy.clone(),
+                group_heat.clone(),
+                group_kinetic_energy.clone(),
+                positions,
+                momenta,
+                physical_forces,
+                exchange_forces,
             )?;
             barrier.wait();
         }
@@ -217,12 +213,13 @@ fn run_step_leading_group<
     Ok(())
 }
 
+/// Propagates amd handles output of a single step for a group in an inner image.
 fn run_step_inner_group<
     const N: usize,
     T: Clone + From<f32> + Add<Output = T> + Mul<Output = T>,
-    V: Vector<N, Element = T>,
-    AdderSender: SyncAddSend<T> + ?Sized,
-    MultiplierSender: SyncMulSend<T> + ?Sized,
+    V: Vector<N, Element = T> + Clone,
+    AdderSender: SyncAddSender<Output> + ?Sized,
+    MultiplierSender: SyncMulSender<Output> + ?Sized,
     QuantumEst: InnerQuantumEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
         + ?Sized,
     ClassicalEst: InnerClassicalEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
@@ -236,19 +233,17 @@ fn run_step_inner_group<
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + Send + ?Sized,
     Output,
-    Err: From<CommError>
-        + From<AdderSender::Error>
+    Err: From<AdderSender::Error>
         + From<Prop::Error>
         + From<PropQuad::Error>
         + From<QuantumEst::Error>
-        + From<ClassicalEst::Error>,
+        + From<ClassicalEst::Error>
+        + From<EmptyError>
+        + From<CommError>,
 >(
     step: usize,
     barrier: &Barrier,
-    shared_value: &RwLock<T>,
-    image: usize,
     atom_type: &AtomType<T>,
-    group: usize,
     adder: &mut AdderSender,
     multiplier: &mut MultiplierSender,
     mut quantum_estimators: Option<&mut [&mut QuantumEst]>,
@@ -259,12 +254,12 @@ fn run_step_inner_group<
     >,
     physical_potential: &mut Phys,
     thermostat: &mut Therm,
-    positions: &mut ImageHandle<V>,
-    momenta: &mut ImageHandle<V>,
-    physical_forces: &mut ImageHandle<V>,
-    exchange_forces: &mut ImageHandle<V>,
+    positions: &mut ElementRwLock<ImageHandle<V>>,
+    momenta: &mut ElementRwLock<ImageHandle<V>>,
+    physical_forces: &mut ElementRwLock<ImageHandle<V>>,
+    exchange_forces: &mut ElementRwLock<ImageHandle<V>>,
 ) -> Result<(), Err> {
-    let (group_physical_potential_energy, group_exchange_potential_energy) =
+    let (group_physical_potential_energy, group_exchange_potential_energy, group_heat) =
         match &mut propagator_and_exchange_potential {
             Scheme::Regular(SchemeDependent {
                 propagator,
@@ -299,31 +294,9 @@ fn run_step_inner_group<
         .read()
         .read()
         .iter()
-        .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.magnitude_squared());
-    let tmp = iter.next().expect("`momenta` should contain at least one element");
+        .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared());
+    let tmp = iter.next().ok_or(EmptyError)?;
     let group_kinetic_energy = iter.fold(tmp, |accum, elem| accum + elem);
-
-    barrier.wait();
-    adder.send(group_physical_potential_energy)?;
-    barrier.wait();
-    let physical_potential_energy = shared_value
-        .read()
-        .map_err(|_| CommError::Inner { image, group })?
-        .clone();
-
-    adder.send(group_exchange_potential_energy)?;
-    barrier.wait();
-    let exchange_potential_energy = shared_value
-        .read()
-        .map_err(|_| CommError::Inner { image, group })?
-        .clone();
-
-    adder.send(group_kinetic_energy)?;
-    barrier.wait();
-    let kinetic_energy = shared_value
-        .read()
-        .map_err(|_| CommError::Inner { image, group })?
-        .clone();
 
     if let Some(estimators) = quantum_estimators.as_deref_mut() {
         for estimator in estimators {
@@ -338,15 +311,11 @@ fn run_step_inner_group<
                         Scheme::QuadraticExpansion(exchange_potential.as_deref())
                     }
                 },
-                physical_potential_energy.clone(),
-                exchange_potential_energy.clone(),
-                &positions.read_whole().map_err(|_| CommError::Inner { image, group })?,
-                &physical_forces
-                    .read_whole()
-                    .map_err(|_| CommError::Inner { image, group })?,
-                &exchange_forces
-                    .read_whole()
-                    .map_err(|_| CommError::Inner { image, group })?,
+                group_physical_potential_energy.clone(),
+                group_exchange_potential_energy.clone(),
+                positions,
+                physical_forces,
+                exchange_forces,
             )?;
             barrier.wait();
         }
@@ -365,17 +334,14 @@ fn run_step_inner_group<
                         Scheme::QuadraticExpansion(exchange_potential.as_deref())
                     }
                 },
-                physical_potential_energy.clone(),
-                exchange_potential_energy.clone(),
-                kinetic_energy.clone(),
-                &positions.read_whole().map_err(|_| CommError::Inner { image, group })?,
-                &momenta.read_whole().map_err(|_| CommError::Inner { image, group })?,
-                &physical_forces
-                    .read_whole()
-                    .map_err(|_| CommError::Inner { image, group })?,
-                &exchange_forces
-                    .read_whole()
-                    .map_err(|_| CommError::Inner { image, group })?,
+                group_physical_potential_energy.clone(),
+                group_exchange_potential_energy.clone(),
+                group_heat.clone(),
+                group_kinetic_energy.clone(),
+                positions,
+                momenta,
+                physical_forces,
+                exchange_forces,
             )?;
             barrier.wait();
         }
@@ -384,12 +350,13 @@ fn run_step_inner_group<
     Ok(())
 }
 
+/// Propagates and handles output of a single step for a group in the last image.
 fn run_step_trailing_group<
     const N: usize,
     T: Clone + Default + From<f32> + Add<Output = T> + Mul<Output = T>,
-    V: Vector<N, Element = T>,
-    AdderSender: SyncAddSend<T> + ?Sized,
-    MultiplierSender: SyncMulSend<T> + ?Sized,
+    V: Vector<N, Element = T> + Clone,
+    AdderSender: SyncAddSender<Output> + ?Sized,
+    MultiplierSender: SyncMulSender<Output> + ?Sized,
     QuantumEst: TrailingQuantumEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
         + ?Sized,
     ClassicalEst: TrailingClassicalEstimator<
@@ -412,19 +379,18 @@ fn run_step_trailing_group<
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
     Output,
-    Err: From<CommError>
-        + From<AdderSender::Error>
+    Err: From<AdderSender::Error>
         + From<Prop::Error>
         + From<PropQuad::Error>
         + From<QuantumEst::Error>
         + From<ClassicalEst::Error>
+        + From<EmptyError>
+        + From<CommError>
         + Send,
 >(
     step: usize,
     barrier: &Barrier,
-    shared_value: &RwLock<T>,
     atom_type: &AtomType<T>,
-    group: usize,
     adder: &mut AdderSender,
     multiplier: &mut MultiplierSender,
     mut quantum_estimators: Option<&mut [&mut QuantumEst]>,
@@ -435,12 +401,12 @@ fn run_step_trailing_group<
     >,
     physical_potential: &mut Phys,
     thermostat: &mut Therm,
-    positions: &mut ImageHandle<V>,
-    momenta: &mut ImageHandle<V>,
-    physical_forces: &mut ImageHandle<V>,
-    exchange_forces: &mut ImageHandle<V>,
+    positions: &mut ElementRwLock<ImageHandle<V>>,
+    momenta: &mut ElementRwLock<ImageHandle<V>>,
+    physical_forces: &mut ElementRwLock<ImageHandle<V>>,
+    exchange_forces: &mut ElementRwLock<ImageHandle<V>>,
 ) -> Result<(), Err> {
-    let (group_physical_potential_energy, group_exchange_potential_energy) =
+    let (group_physical_potential_energy, group_exchange_potential_energy, group_heat) =
         match &mut propagator_and_exchange_potential {
             Scheme::Regular(SchemeDependent {
                 propagator,
@@ -475,22 +441,9 @@ fn run_step_trailing_group<
         .read()
         .read()
         .iter()
-        .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.magnitude_squared());
-    let tmp = iter.next().expect("`momenta` should contain at least one element");
+        .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared());
+    let tmp = iter.next().ok_or(EmptyError)?;
     let group_kinetic_energy = iter.fold(tmp, |accum, elem| accum + elem);
-
-    barrier.wait();
-    adder.send(group_physical_potential_energy)?;
-    barrier.wait();
-    let physical_potential_energy = shared_value.read().map_err(|_| CommError::Leading { group })?.clone();
-
-    adder.send(group_exchange_potential_energy)?;
-    barrier.wait();
-    let exchange_potential_energy = shared_value.read().map_err(|_| CommError::Leading { group })?.clone();
-
-    adder.send(group_kinetic_energy)?;
-    barrier.wait();
-    let kinetic_energy = shared_value.read().map_err(|_| CommError::Leading { group })?.clone();
 
     if let Some(estimators) = quantum_estimators.as_deref_mut() {
         for estimator in estimators {
@@ -505,11 +458,11 @@ fn run_step_trailing_group<
                         Scheme::QuadraticExpansion(exchange_potential.as_deref())
                     }
                 },
-                physical_potential_energy.clone(),
-                exchange_potential_energy.clone(),
-                &positions.read_whole().map_err(|_| CommError::Leading { group })?,
-                &physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
-                &exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                group_physical_potential_energy.clone(),
+                group_exchange_potential_energy.clone(),
+                positions,
+                physical_forces,
+                exchange_forces,
             )?;
             barrier.wait();
         }
@@ -528,13 +481,14 @@ fn run_step_trailing_group<
                         Scheme::QuadraticExpansion(exchange_potential.as_deref())
                     }
                 },
-                physical_potential_energy.clone(),
-                exchange_potential_energy.clone(),
-                kinetic_energy.clone(),
-                &positions.read_whole().map_err(|_| CommError::Leading { group })?,
-                &momenta.read_whole().map_err(|_| CommError::Leading { group })?,
-                &physical_forces.read_whole().map_err(|_| CommError::Leading { group })?,
-                &exchange_forces.read_whole().map_err(|_| CommError::Leading { group })?,
+                group_physical_potential_energy.clone(),
+                group_exchange_potential_energy.clone(),
+                group_heat.clone(),
+                group_kinetic_energy.clone(),
+                positions,
+                momenta,
+                physical_forces,
+                exchange_forces,
             )?;
             barrier.wait();
         }
@@ -542,15 +496,19 @@ fn run_step_trailing_group<
     Ok(())
 }
 
+/// Run the simulation.
+///
+/// `step_finalization` takes the current step and executes custom logic at the end of the step.
+/// It is only called from the main thread.
 pub fn run<
     const N: usize,
     T: Clone + Default + From<f32> + Add<Output = T> + Mul<Output = T> + Div<Output = T> + Display + Send + Sync,
-    V: Vector<N, Element = T> + Display + Send,
-    AdderReciever: SyncAddRecv<T> + ?Sized,
-    AdderSender: SyncAddSend<T> + Send + ?Sized,
-    MultiplierReciever: SyncMulRecv<T> + ?Sized,
-    MultiplierSender: SyncMulSend<T> + Send + ?Sized,
-    CoordOut: VectorsOutput<N, T, V> + ?Sized,
+    V: Vector<N, Element = T> + Clone + Display + Send,
+    AdderReciever: SyncAddReciever<Output> + ?Sized,
+    AdderSender: SyncAddSender<Output> + Send + ?Sized,
+    MultiplierReciever: SyncMulReciever<Output> + ?Sized,
+    MultiplierSender: SyncMulSender<Output> + Send + ?Sized,
+    VecsOut: VectorsOutput<N, T, V> + ?Sized,
     QuantumEstMain: MainQuantumEstimator<T, V, AdderReciever, MultiplierReciever, Output = Output> + Send + ?Sized,
     QuantumEstLeading: LeadingQuantumEstimator<
             T,
@@ -588,7 +546,7 @@ pub fn run<
             Output = Output,
         > + Send
         + ?Sized,
-    ClassicalEstMain: MainClassicalgEstimator<T, V, AdderReciever, MultiplierReciever, Output = Output> + ?Sized,
+    ClassicalEstMain: MainClassicalEstimator<T, V, AdderReciever, MultiplierReciever, Output = Output> + ?Sized,
     ClassicalEstLeading: LeadingClassicalEstimator<
             T,
             V,
@@ -625,7 +583,7 @@ pub fn run<
             Output = Output,
         > + Send
         + ?Sized,
-    EstOut: ValuesOutput<Output> + ?Sized,
+    ValsOut: ValuesOutput<Output> + ?Sized,
     PropLeading: LeadingPropagator<T, V, Phys, DistLeading, BosonLeading, Therm> + Send + ?Sized,
     PropQuadLeading: LeadingQuadraticExpansionPropagator<T, V, Phys, DistQuadLeading, BosonQuadLeading, Therm> + Send + ?Sized,
     PropInner: InnerPropagator<T, V, Phys, DistInner, BosonInner, Therm> + Send + ?Sized,
@@ -647,11 +605,10 @@ pub fn run<
     BosonQuadTrailing: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + Send + ?Sized,
     Therm: Thermostat<T, V> + Send + ?Sized,
     Output,
-    Err: From<CommError>
-        + From<AdderReciever::Error>
+    Err: From<AdderReciever::Error>
         + From<AdderSender::Error>
-        + From<CoordOut::Error>
-        + From<EstOut::Error>
+        + From<VecsOut::Error>
+        + From<ValsOut::Error>
         + From<PropLeading::Error>
         + From<PropQuadLeading::Error>
         + From<PropInner::Error>
@@ -666,12 +623,13 @@ pub fn run<
         + From<ClassicalEstLeading::Error>
         + From<ClassicalEstInner::Error>
         + From<ClassicalEstTrailing::Error>
+        + From<EmptyError>
+        + From<CommError>
         + Send,
 >(
     steps: usize,
     inner_images: usize,
     atom_types: &[AtomType<T>],
-    groups_sizes: &[usize],
     adders: &mut (
              impl for<'a> FullFactory<
         'a,
@@ -693,16 +651,16 @@ pub fn run<
     > + ?Sized
          ),
     positions_out: Option<
-        &mut (impl ExactSizeIterator<Item: DerefMut<Target = CoordOut> + Send> + DoubleEndedIterator + ?Sized),
+        &mut (impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send> + DoubleEndedIterator + ?Sized),
     >,
     momenta_out: Option<
-        &mut (impl ExactSizeIterator<Item: DerefMut<Target = CoordOut> + Send> + DoubleEndedIterator + ?Sized),
+        &mut (impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send> + DoubleEndedIterator + ?Sized),
     >,
     physical_forces_out: Option<
-        &mut (impl ExactSizeIterator<Item: DerefMut<Target = CoordOut> + Send> + DoubleEndedIterator + ?Sized),
+        &mut (impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send> + DoubleEndedIterator + ?Sized),
     >,
     exchange_forces_out: Option<
-        &mut (impl ExactSizeIterator<Item: DerefMut<Target = CoordOut> + Send> + DoubleEndedIterator + ?Sized),
+        &mut (impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send> + DoubleEndedIterator + ?Sized),
     >,
     propagators_and_exchange_potentials: Scheme<
         SchemeDependent<
@@ -763,7 +721,7 @@ pub fn run<
             Inner = &'a mut ClassicalEstInner,
             Trailing = &'a mut ClassicalEstTrailing,
         >],
-        &mut EstOut,
+        &mut ValsOut,
     >,
     physical_potentials: &mut (
              impl for<'a> Factory<'a, T, Leading = &'a mut Phys, Inner = &'a mut Phys, Trailing = &'a mut Phys> + ?Sized
@@ -775,86 +733,66 @@ pub fn run<
              impl for<'a> Factory<
         'a,
         T,
-        Leading = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        Inner = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        Trailing = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        Leading = ElementRwLock<ImageHandle<V>>,
+        Inner = ElementRwLock<ImageHandle<V>>,
+        Trailing = ElementRwLock<ImageHandle<V>>,
     > + ?Sized
          ),
     momenta: &mut (
              impl for<'a> Factory<
         'a,
         T,
-        Leading = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        Inner = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        Trailing = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        Leading = ElementRwLock<ImageHandle<V>>,
+        Inner = ElementRwLock<ImageHandle<V>>,
+        Trailing = ElementRwLock<ImageHandle<V>>,
     > + ?Sized
          ),
     physical_forces: &mut (
              impl for<'a> Factory<
         'a,
         T,
-        Leading = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        Inner = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        Trailing = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        Leading = ElementRwLock<ImageHandle<V>>,
+        Inner = ElementRwLock<ImageHandle<V>>,
+        Trailing = ElementRwLock<ImageHandle<V>>,
     > + ?Sized
          ),
     exchange_forces: &mut (
              impl for<'a> Factory<
         'a,
         T,
-        Leading = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        Inner = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
-        Trailing = ElementRwLock<GroupImageHandle<GroupTypeHandle<V>>>,
+        Leading = ElementRwLock<ImageHandle<V>>,
+        Inner = ElementRwLock<ImageHandle<V>>,
+        Trailing = ElementRwLock<ImageHandle<V>>,
     > + ?Sized
          ),
+    mut step_finalization: impl FnMut(usize) -> Result<(), Err>,
 ) -> Result<(), Err> {
-    macro_rules! zip_items {
-        ($item1:pat, $item2:pat) => {
-            ($item1, $item2)
-        };
-        ($item:pat, $($items:pat),+) => {
-            ($item, zip_items!($($items),+))
-        };
-    }
-
-    macro_rules! zip_iterators {
-        ($iter:expr) => {
-            $iter
-        };
-        ($iter1:expr, $iter2:expr) => {
-            $iter1.into_iter().zip($iter2)
-        };
-        ($iter:expr, $($iters:expr),+) => {
-            $iter.zip(zip_iterators!($($iters),+))
-        };
-    }
-
     macro_rules! produce_estimators {
-        ($estimators:expr) => {{
+        ($estimators:expr, $groups:expr) => {{
             let n_estimators = $estimators.len();
             let mut uninit_main_estimators = Box::new_uninit_slice(n_estimators);
-            let mut uninit_leading_estimators = Box::new_uninit_slice(groups_sizes.len() * n_estimators);
-            let mut uninit_inner_estimators = Box::new_uninit_slice(groups_sizes.len() * inner_images * n_estimators);
-            let mut uninit_trailing_estimators = Box::new_uninit_slice(groups_sizes.len() * n_estimators);
+            let mut uninit_leading_estimators = Box::new_uninit_slice($groups * n_estimators);
+            let mut uninit_inner_estimators = Box::new_uninit_slice($groups * inner_images * n_estimators);
+            let mut uninit_trailing_estimators = Box::new_uninit_slice($groups * n_estimators);
             for zip_items!(
                 estimator,
                 uninit_main_estimator,
                 uninit_leading_estimators,
                 mut uninit_inner_estimators,
-                uninit_trailing_estimators
+                uninit_trailing_estimators,
             ) in zip_iterators!(
                 $estimators.iter_mut(),
                 uninit_main_estimators.iter_mut(),
                 StridesMut::from_slice(&mut uninit_leading_estimators, n_estimators),
                 StridesMut::from_slice(&mut uninit_inner_estimators, n_estimators),
-                StridesMut::from_slice(&mut uninit_trailing_estimators, n_estimators)
+                StridesMut::from_slice(&mut uninit_trailing_estimators, n_estimators),
             ) {
                 let (main_estimator, leading_estimators, inner_estimators_iter, trailing_estimators) =
-                    estimator.produce(inner_images, atom_types, groups_sizes);
+                    estimator.produce(inner_images, atom_types);
 
-                assert_eq!(leading_estimators.len(), groups_sizes.len());
+                assert_eq!(leading_estimators.len(), $groups);
                 assert_eq!(inner_estimators_iter.len(), inner_images);
-                assert_eq!(trailing_estimators.len(), groups_sizes.len());
+                assert_eq!(trailing_estimators.len(), $groups);
 
                 uninit_main_estimator.write(main_estimator);
 
@@ -862,24 +800,22 @@ pub fn run<
                     uninit_leading_estimator,
                     uninit_trailing_estimator,
                     leading_estimator,
-                    trailing_estimator
+                    trailing_estimator,
                 ) in zip_iterators!(
                     uninit_leading_estimators,
                     uninit_trailing_estimators,
                     leading_estimators,
-                    trailing_estimators
+                    trailing_estimators,
                 ) {
                     uninit_leading_estimator.write(leading_estimator);
                     uninit_trailing_estimator.write(trailing_estimator);
                 }
 
                 for inner_estimators in inner_estimators_iter {
-                    assert_eq!(inner_estimators.len(), groups_sizes.len());
+                    assert_eq!(inner_estimators.len(), $groups);
 
-                    for (uninit_inner_estimator, inner_estimator) in uninit_inner_estimators
-                        .by_ref()
-                        .take(groups_sizes.len())
-                        .zip(inner_estimators)
+                    for (uninit_inner_estimator, inner_estimator) in
+                        uninit_inner_estimators.by_ref().take($groups).zip(inner_estimators)
                     {
                         uninit_inner_estimator.write(inner_estimator);
                     }
@@ -898,16 +834,25 @@ pub fn run<
         }};
     }
 
+    let groups = atom_types.iter().map(|&AtomType { groups, .. }| groups.total()).sum();
+
+    let (main_adder, leading_adders, inner_adders_iter, trailing_adders) = adders.produce(inner_images, atom_types);
+    assert_eq!(leading_adders.len(), groups);
+    assert_eq!(inner_adders_iter.len(), inner_images);
+    assert_eq!(trailing_adders.len(), groups);
+
+    let (main_multiplier, leading_multipliers, inner_multipliers_iter, trailing_multipliers) =
+        multipliers.produce(inner_images, atom_types);
+    assert_eq!(leading_multipliers.len(), groups);
+    assert_eq!(inner_multipliers_iter.len(), inner_images);
+    assert_eq!(trailing_multipliers.len(), groups);
+
     let (mut leading_positions_out, mut inner_positions_out_iter, mut trailing_positions_out) =
         if let Some(iter) = positions_out {
             assert_eq!(iter.len(), inner_images + 2);
 
-            let leading = iter
-                .next()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
-            let trailing = iter
-                .next_back()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
+            let leading = iter.next().ok_or(EmptyError)?;
+            let trailing = iter.next_back().ok_or(EmptyError)?;
             (Some(leading), Some(iter), Some(trailing))
         } else {
             (None, None, None)
@@ -916,12 +861,8 @@ pub fn run<
         if let Some(iter) = momenta_out {
             assert_eq!(iter.len(), inner_images + 2);
 
-            let leading = iter
-                .next()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
-            let trailing = iter
-                .next_back()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
+            let leading = iter.next().ok_or(EmptyError)?;
+            let trailing = iter.next_back().ok_or(EmptyError)?;
             (Some(leading), Some(iter), Some(trailing))
         } else {
             (None, None, None)
@@ -930,12 +871,8 @@ pub fn run<
         if let Some(iter) = physical_forces_out {
             assert_eq!(iter.len(), inner_images + 2);
 
-            let leading = iter
-                .next()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
-            let trailing = iter
-                .next_back()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
+            let leading = iter.next().ok_or(EmptyError)?;
+            let trailing = iter.next_back().ok_or(EmptyError)?;
             (Some(leading), Some(iter), Some(trailing))
         } else {
             (None, None, None)
@@ -944,12 +881,8 @@ pub fn run<
         if let Some(iter) = exchange_forces_out {
             assert_eq!(iter.len(), inner_images + 2);
 
-            let leading = iter
-                .next()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
-            let trailing = iter
-                .next_back()
-                .expect("`positions_out` yields at least `inner_images + 2` elements");
+            let leading = iter.next().ok_or(EmptyError)?;
+            let trailing = iter.next_back().ok_or(EmptyError)?;
             (Some(leading), Some(iter), Some(trailing))
         } else {
             (None, None, None)
@@ -970,11 +903,11 @@ pub fn run<
             (0, None, None, None),
             (0, None, None, None),
         ),
-        ObservablesOutputOption::Quantum(Estimators { estimators, stream }) => {
+        ObservablesOutputOption::Quantum(ObservablesOutput { estimators, stream }) => {
             let (n_estimators, main_estimators, leading_estimators, inner_estimators, trailing_estimators) =
-                produce_estimators!(estimators);
+                produce_estimators!(estimators, groups);
             (
-                ObservablesOutputOption::Quantum(Estimators {
+                ObservablesOutputOption::Quantum(ObservablesOutput {
                     estimators: main_estimators,
                     stream,
                 }),
@@ -987,11 +920,11 @@ pub fn run<
                 (0, None, None, None),
             )
         }
-        ObservablesOutputOption::Classical(Estimators { estimators, stream }) => {
+        ObservablesOutputOption::Classical(ObservablesOutput { estimators, stream }) => {
             let (n_estimators, main_estimators, leading_estimators, inner_estimators, trailing_estimators) =
-                produce_estimators!(estimators);
+                produce_estimators!(estimators, groups);
             (
-                ObservablesOutputOption::Classical(Estimators {
+                ObservablesOutputOption::Classical(ObservablesOutput {
                     estimators: main_estimators,
                     stream,
                 }),
@@ -1006,7 +939,7 @@ pub fn run<
         }
         ObservablesOutputOption::Shared {
             quantum_estimators,
-            debug_estimators,
+            classical_estimators: debug_estimators,
             stream,
         } => {
             let (
@@ -1015,18 +948,18 @@ pub fn run<
                 leading_quantum_estimators,
                 inner_quantum_estimators,
                 trailing_quantum_estimators,
-            ) = produce_estimators!(quantum_estimators);
+            ) = produce_estimators!(quantum_estimators, groups);
             let (
                 n_debug_estimators,
                 main_debug_estimators,
                 leading_debug_estimators,
                 inner_debug_estimators,
                 trailing_debug_estimators,
-            ) = produce_estimators!(debug_estimators);
+            ) = produce_estimators!(debug_estimators, groups);
             (
                 ObservablesOutputOption::Shared {
                     quantum_estimators: main_quantum_estimators,
-                    debug_estimators: main_debug_estimators,
+                    classical_estimators: main_debug_estimators,
                     stream,
                 },
                 (
@@ -1050,21 +983,21 @@ pub fn run<
                 leading_quantum_estimators,
                 inner_quantum_estimators,
                 trailing_quantum_estimators,
-            ) = produce_estimators!(quantum.estimators);
+            ) = produce_estimators!(quantum.estimators, groups);
             let (
                 n_debug_estimators,
                 main_debug_estimators,
                 leading_debug_estimators,
                 inner_debug_estimators,
                 trailing_debug_estimators,
-            ) = produce_estimators!(debug.estimators);
+            ) = produce_estimators!(debug.estimators, groups);
             (
                 ObservablesOutputOption::Separate {
-                    quantum: Estimators {
+                    quantum: ObservablesOutput {
                         estimators: main_quantum_estimators,
                         stream: quantum.stream,
                     },
-                    debug: Estimators {
+                    debug: ObservablesOutput {
                         estimators: main_debug_estimators,
                         stream: debug.stream,
                     },
@@ -1086,22 +1019,8 @@ pub fn run<
     };
 
     let barrier = Barrier::new(inner_images + 3);
-    let shared_value = RwLock::new(T::default());
 
     let barrier = &barrier;
-    let shared_value = &shared_value;
-
-    let (main_adder, leading_adders, inner_adders_iter, trailing_adders) =
-        adders.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_adders.len(), groups_sizes.len());
-    assert_eq!(inner_adders_iter.len(), inner_images);
-    assert_eq!(trailing_adders.len(), groups_sizes.len());
-
-    let (main_multiplier, leading_multipliers, inner_multipliers_iter, trailing_multipliers) =
-        multipliers.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_multipliers.len(), groups_sizes.len());
-    assert_eq!(inner_multipliers_iter.len(), inner_images);
-    assert_eq!(trailing_multipliers.len(), groups_sizes.len());
 
     let (
         mut leading_propagators_and_exchange_potentials,
@@ -1113,16 +1032,16 @@ pub fn run<
             exchange_potential,
         }) => {
             let (leading_propagators, inner_propagators_iter, trailing_propagators) =
-                propagator.produce(inner_images, atom_types, groups_sizes);
-            assert_eq!(leading_propagators.len(), groups_sizes.len());
+                propagator.produce(inner_images, atom_types);
+            assert_eq!(leading_propagators.len(), groups);
             assert_eq!(inner_propagators_iter.len(), inner_images);
-            assert_eq!(trailing_propagators.len(), groups_sizes.len());
+            assert_eq!(trailing_propagators.len(), groups);
 
             let (leading_exchange_potentials, inner_exchange_potentials_iter, trailing_exchange_potentials) =
-                exchange_potential.produce(inner_images, atom_types, groups_sizes);
-            assert_eq!(leading_exchange_potentials.len(), groups_sizes.len());
+                exchange_potential.produce(inner_images, atom_types);
+            assert_eq!(leading_exchange_potentials.len(), groups);
             assert_eq!(inner_exchange_potentials_iter.len(), inner_images);
-            assert_eq!(trailing_exchange_potentials.len(), groups_sizes.len());
+            assert_eq!(trailing_exchange_potentials.len(), groups);
 
             (
                 Scheme::Regular(SchemeDependent {
@@ -1144,16 +1063,16 @@ pub fn run<
             exchange_potential,
         }) => {
             let (leading_propagators, inner_propagators_iter, trailing_propagators) =
-                propagator.produce(inner_images, atom_types, groups_sizes);
-            assert_eq!(leading_propagators.len(), groups_sizes.len());
+                propagator.produce(inner_images, atom_types);
+            assert_eq!(leading_propagators.len(), groups);
             assert_eq!(inner_propagators_iter.len(), inner_images);
-            assert_eq!(trailing_propagators.len(), groups_sizes.len());
+            assert_eq!(trailing_propagators.len(), groups);
 
             let (leading_exchange_potentials, inner_exchange_potentials_iter, trailing_exchange_potentials) =
-                exchange_potential.produce(inner_images, atom_types, groups_sizes);
-            assert_eq!(leading_exchange_potentials.len(), groups_sizes.len());
+                exchange_potential.produce(inner_images, atom_types);
+            assert_eq!(leading_exchange_potentials.len(), groups);
             assert_eq!(inner_exchange_potentials_iter.len(), inner_images);
-            assert_eq!(trailing_exchange_potentials.len(), groups_sizes.len());
+            assert_eq!(trailing_exchange_potentials.len(), groups);
 
             (
                 Scheme::QuadraticExpansion(SchemeDependent {
@@ -1172,51 +1091,47 @@ pub fn run<
         }
     };
     let (leading_physical_potentials, inner_physical_potentials_iter, trailing_physical_potentials) =
-        physical_potentials.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_physical_potentials.len(), groups_sizes.len());
+        physical_potentials.produce(inner_images, atom_types);
+    assert_eq!(leading_physical_potentials.len(), groups);
     assert_eq!(inner_physical_potentials_iter.len(), inner_images);
-    assert_eq!(trailing_physical_potentials.len(), groups_sizes.len());
+    assert_eq!(trailing_physical_potentials.len(), groups);
 
     let (leading_thermostats, inner_thermostats_iter, trailing_thermostats) =
-        thermostats.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_thermostats.len(), groups_sizes.len());
+        thermostats.produce(inner_images, atom_types);
+    assert_eq!(leading_thermostats.len(), groups);
     assert_eq!(inner_thermostats_iter.len(), inner_images);
-    assert_eq!(trailing_thermostats.len(), groups_sizes.len());
+    assert_eq!(trailing_thermostats.len(), groups);
 
-    let (leading_positions, inner_positions_iter, trailing_positions) =
-        positions.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_positions.len(), groups_sizes.len());
+    let (leading_positions, inner_positions_iter, trailing_positions) = positions.produce(inner_images, atom_types);
+    assert_eq!(leading_positions.len(), groups);
     assert_eq!(inner_positions_iter.len(), inner_images);
-    assert_eq!(trailing_positions.len(), groups_sizes.len());
+    assert_eq!(trailing_positions.len(), groups);
 
-    let (leading_momenta, inner_momenta_iter, trailing_momenta) =
-        momenta.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_momenta.len(), groups_sizes.len());
+    let (leading_momenta, inner_momenta_iter, trailing_momenta) = momenta.produce(inner_images, atom_types);
+    assert_eq!(leading_momenta.len(), groups);
     assert_eq!(inner_momenta_iter.len(), inner_images);
-    assert_eq!(trailing_momenta.len(), groups_sizes.len());
+    assert_eq!(trailing_momenta.len(), groups);
 
     let (leading_physical_forces, inner_physical_forces_iter, trailing_physical_forces) =
-        physical_forces.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_physical_forces.len(), groups_sizes.len());
+        physical_forces.produce(inner_images, atom_types);
+    assert_eq!(leading_physical_forces.len(), groups);
     assert_eq!(inner_physical_forces_iter.len(), inner_images);
-    assert_eq!(trailing_physical_forces.len(), groups_sizes.len());
+    assert_eq!(trailing_physical_forces.len(), groups);
 
     let (leading_exchange_forces, inner_exchange_forces_iter, trailing_exchange_forces) =
-        exchange_forces.produce(inner_images, atom_types, groups_sizes);
-    assert_eq!(leading_exchange_forces.len(), groups_sizes.len());
+        exchange_forces.produce(inner_images, atom_types);
+    assert_eq!(leading_exchange_forces.len(), groups);
     assert_eq!(inner_exchange_forces_iter.len(), inner_images);
-    assert_eq!(trailing_exchange_forces.len(), groups_sizes.len());
+    assert_eq!(trailing_exchange_forces.len(), groups);
 
-    let index_smallest_group = groups_sizes
-        .iter()
+    let index_smallest_group = GroupsIter::from_atom_types(atom_types)
         .enumerate()
-        .min_by(|(_, element_0), (_, element_1)| element_0.cmp(element_1))
-        .expect("`groups_sizes` should contain at least one element")
+        .min_by(|(_, (_, group_0_size)), (_, (_, group_1_size))| group_0_size.cmp(group_1_size))
+        .ok_or(EmptyError)?
         .0;
 
     thread::scope(|s| {
         // Leading image.
-        let mut atom_types_iter = atom_types.iter();
         let mut leading_quantum_estimators_iter = leading_quantum_estimators
             .as_deref_mut()
             .map(|estimators| estimators.chunks_exact_mut(n_quantum_estimators));
@@ -1224,17 +1139,9 @@ pub fn run<
             .as_deref_mut()
             .map(|estimators| estimators.chunks_exact_mut(n_debug_estimators));
         let mut leading_iter = zip_iterators!(
-            iter::successors(
-                Some((atom_types.first().expect("`types` should contain at least one type"), 0)),
-                |&(atom_type, group)| {
-                    let group = group + 1;
-                    if atom_type.groups.contains(&group) {
-                        Some((atom_type, group))
-                    } else {
-                        atom_types_iter.next().map(|atom_type| (atom_type, group))
-                    }
-                }
-            ),
+            GroupsIter::from_atom_types(atom_types)
+                .enumerate()
+                .map(|(index, (atom_type, _))| (atom_type, index)),
             leading_adders,
             leading_multipliers,
             iter::from_fn(|| {
@@ -1280,11 +1187,11 @@ pub fn run<
             leading_positions,
             leading_momenta,
             leading_physical_forces,
-            leading_exchange_forces
+            leading_exchange_forces,
         );
 
         for zip_items!(
-            (atom_type, group),
+            (atom_type, _),
             adder,
             multiplier,
             mut quantum_estimators,
@@ -1295,7 +1202,7 @@ pub fn run<
             mut positions,
             mut momenta,
             mut physical_forces,
-            mut exchange_forces
+            mut exchange_forces,
         ) in leading_iter.by_ref().take(index_smallest_group)
         {
             s.spawn::<_, Result<_, Err>>(move || {
@@ -1303,9 +1210,7 @@ pub fn run<
                     let step_result: Result<_, Err> = run_step_leading_group(
                         step,
                         barrier,
-                        shared_value,
                         atom_type,
-                        group,
                         adder,
                         multiplier,
                         quantum_estimators.as_deref_mut(),
@@ -1354,18 +1259,14 @@ pub fn run<
                 mut positions,
                 mut momenta,
                 mut physical_forces,
-                mut exchange_forces
-            ) = leading_iter
-                .next()
-                .expect("The number of groups is greater than the index of the smalles one");
+                mut exchange_forces,
+            ) = leading_iter.next().ok_or(EmptyError)?;
             s.spawn::<_, Result<_, Err>>(move || {
                 for step in 0..steps {
                     let step_result: Result<_, Err> = run_step_leading_group(
                         step,
                         barrier,
-                        shared_value,
                         atom_type,
-                        group,
                         adder,
                         multiplier,
                         quantum_estimators.as_deref_mut(),
@@ -1436,7 +1337,7 @@ pub fn run<
         }
 
         for zip_items!(
-            (atom_type, group),
+            (atom_type, _),
             adder,
             multiplier,
             mut quantum_estimators,
@@ -1447,7 +1348,7 @@ pub fn run<
             mut positions,
             mut momenta,
             mut physical_forces,
-            mut exchange_forces
+            mut exchange_forces,
         ) in leading_iter
         {
             s.spawn::<_, Result<_, Err>>(move || {
@@ -1455,9 +1356,7 @@ pub fn run<
                     let step_result: Result<_, Err> = run_step_leading_group(
                         step,
                         barrier,
-                        shared_value,
                         atom_type,
-                        group,
                         adder,
                         multiplier,
                         quantum_estimators.as_deref_mut(),
@@ -1497,12 +1396,11 @@ pub fn run<
         // Inner images.
         let mut inner_quantum_estimators_iter = inner_quantum_estimators
             .as_deref_mut()
-            .map(|estimators| estimators.chunks_exact_mut(groups_sizes.len() * n_quantum_estimators));
+            .map(|estimators| estimators.chunks_exact_mut(groups * n_quantum_estimators));
         let mut inner_debug_estimators_iter = inner_debug_estimators
             .as_deref_mut()
-            .map(|estimators| estimators.chunks_exact_mut(groups_sizes.len() * n_debug_estimators));
+            .map(|estimators| estimators.chunks_exact_mut(groups * n_debug_estimators));
         for zip_items!(
-            image,
             inner_adders,
             inner_multipliers,
             mut inner_positions_out,
@@ -1517,9 +1415,8 @@ pub fn run<
             inner_positions,
             inner_momenta,
             inner_physical_forces,
-            inner_exchange_forces
+            inner_exchange_forces,
         ) in zip_iterators!(
-            1..=inner_images,
             inner_adders_iter,
             inner_multipliers_iter,
             iter::from_fn(|| {
@@ -1589,25 +1486,16 @@ pub fn run<
             inner_positions_iter,
             inner_momenta_iter,
             inner_physical_forces_iter,
-            inner_exchange_forces_iter
+            inner_exchange_forces_iter,
         ) {
-            let mut atom_types_iter = atom_types.iter();
             let mut quantum_estimators_iter =
                 inner_quantum_estimators.map(|estimators| estimators.chunks_exact_mut(n_quantum_estimators));
             let mut debug_estimators_iter =
                 inner_debug_estimators.map(|estimators| estimators.chunks_exact_mut(n_debug_estimators));
             let mut inner_iter = zip_iterators!(
-                iter::successors(
-                    Some((atom_types.first().expect("`types` should contain at least one type"), 0)),
-                    |&(atom_type, group)| {
-                        let group = group + 1;
-                        if atom_type.groups.contains(&group) {
-                            Some((atom_type, group))
-                        } else {
-                            atom_types_iter.next().map(|atom_type| (atom_type, group))
-                        }
-                    }
-                ),
+                GroupsIter::from_atom_types(atom_types)
+                    .enumerate()
+                    .map(|(index, (atom_type, _))| (atom_type, index)),
                 inner_adders,
                 inner_multipliers,
                 iter::from_fn(|| {
@@ -1653,11 +1541,11 @@ pub fn run<
                 inner_positions,
                 inner_momenta,
                 inner_physical_forces,
-                inner_exchange_forces
+                inner_exchange_forces,
             );
 
             for zip_items!(
-                (atom_type, group),
+                (atom_type, _),
                 adder,
                 multiplier,
                 mut quantum_estimators,
@@ -1668,7 +1556,7 @@ pub fn run<
                 mut positions,
                 mut momenta,
                 mut physical_forces,
-                mut exchange_forces
+                mut exchange_forces,
             ) in inner_iter.by_ref().take(index_smallest_group)
             {
                 s.spawn::<_, Result<_, Err>>(move || {
@@ -1676,10 +1564,7 @@ pub fn run<
                         let step_result: Result<_, Err> = run_step_inner_group(
                             step,
                             barrier,
-                            shared_value,
-                            image,
                             atom_type,
-                            group,
                             adder,
                             multiplier,
                             quantum_estimators.as_deref_mut(),
@@ -1728,20 +1613,15 @@ pub fn run<
                     mut positions,
                     mut momenta,
                     mut physical_forces,
-                    mut exchange_forces
-                ) = inner_iter
-                    .next()
-                    .expect("The number of groups is greater than the index of the smalles one");
+                    mut exchange_forces,
+                ) = inner_iter.next().ok_or(EmptyError)?;
 
                 s.spawn::<_, Result<_, Err>>(move || {
                     for step in 0..steps {
                         let step_result: Result<_, Err> = run_step_inner_group(
                             step,
                             barrier,
-                            shared_value,
-                            image,
                             atom_type,
-                            group,
                             adder,
                             multiplier,
                             quantum_estimators.as_deref_mut(),
@@ -1812,7 +1692,7 @@ pub fn run<
             }
 
             for zip_items!(
-                (atom_type, group),
+                (atom_type, _),
                 adder,
                 multiplier,
                 mut quantum_estimators,
@@ -1823,7 +1703,7 @@ pub fn run<
                 mut positions,
                 mut momenta,
                 mut physical_forces,
-                mut exchange_forces
+                mut exchange_forces,
             ) in inner_iter
             {
                 s.spawn::<_, Result<_, Err>>(move || {
@@ -1831,10 +1711,7 @@ pub fn run<
                         let step_result: Result<_, Err> = run_step_inner_group(
                             step,
                             barrier,
-                            shared_value,
-                            image,
                             atom_type,
-                            group,
                             adder,
                             multiplier,
                             quantum_estimators.as_deref_mut(),
@@ -1872,7 +1749,6 @@ pub fn run<
         }
 
         // Trailing image.
-        let mut atom_types_iter = atom_types.iter();
         let mut trailing_quantum_estimators_iter = trailing_quantum_estimators
             .as_deref_mut()
             .map(|estimators| estimators.chunks_exact_mut(n_quantum_estimators));
@@ -1880,17 +1756,9 @@ pub fn run<
             .as_deref_mut()
             .map(|estimators| estimators.chunks_exact_mut(n_debug_estimators));
         let mut trailing_iter = zip_iterators!(
-            iter::successors(
-                Some((atom_types.first().expect("`types` should contain at least one type"), 0)),
-                |&(atom_type, group)| {
-                    let group = group + 1;
-                    if atom_type.groups.contains(&group) {
-                        Some((atom_type, group))
-                    } else {
-                        atom_types_iter.next().map(|atom_type| (atom_type, group))
-                    }
-                }
-            ),
+            GroupsIter::from_atom_types(atom_types)
+                .enumerate()
+                .map(|(index, (atom_type, _))| (atom_type, index)),
             trailing_adders,
             trailing_multipliers,
             iter::from_fn(|| {
@@ -1936,11 +1804,11 @@ pub fn run<
             trailing_positions,
             trailing_momenta,
             trailing_physical_forces,
-            trailing_exchange_forces
+            trailing_exchange_forces,
         );
 
         for zip_items!(
-            (atom_type, group),
+            (atom_type, _),
             adder,
             multiplier,
             mut quantum_estimators,
@@ -1951,7 +1819,7 @@ pub fn run<
             mut positions,
             mut momenta,
             mut physical_forces,
-            mut exchange_forces
+            mut exchange_forces,
         ) in trailing_iter.by_ref().take(index_smallest_group)
         {
             s.spawn::<_, Result<_, Err>>(move || {
@@ -1959,9 +1827,7 @@ pub fn run<
                     let step_result: Result<_, Err> = run_step_trailing_group(
                         step,
                         barrier,
-                        shared_value,
                         atom_type,
-                        group,
                         adder,
                         multiplier,
                         quantum_estimators.as_deref_mut(),
@@ -2011,19 +1877,15 @@ pub fn run<
                 mut positions,
                 mut momenta,
                 mut physical_forces,
-                mut exchange_forces
-            ) = trailing_iter
-                .next()
-                .expect("The number of groups is greater than the index of the smalles one");
+                mut exchange_forces,
+            ) = trailing_iter.next().ok_or(EmptyError)?;
 
             s.spawn::<_, Result<_, Err>>(move || {
                 for step in 0..steps {
                     let step_result: Result<_, Err> = run_step_trailing_group(
                         step,
                         barrier,
-                        shared_value,
                         atom_type,
-                        group,
                         adder,
                         multiplier,
                         quantum_estimators.as_deref_mut(),
@@ -2095,7 +1957,7 @@ pub fn run<
         }
 
         for zip_items!(
-            (atom_type, group),
+            (atom_type, _),
             adder,
             multiplier,
             mut quantum_estimators,
@@ -2106,7 +1968,7 @@ pub fn run<
             mut positions,
             mut momenta,
             mut physical_forces,
-            mut exchange_forces
+            mut exchange_forces,
         ) in trailing_iter
         {
             s.spawn::<_, Result<_, Err>>(move || {
@@ -2114,9 +1976,7 @@ pub fn run<
                     let step_result: Result<_, Err> = run_step_trailing_group(
                         step,
                         barrier,
-                        shared_value,
                         atom_type,
-                        group,
                         adder,
                         multiplier,
                         quantum_estimators.as_deref_mut(),
@@ -2155,26 +2015,9 @@ pub fn run<
 
         // Main thread.
         for step in 0..steps {
-            barrier.wait();
-            let physical_potential_energy = main_adder
-                .recieve_sum()?
-                .expect("All threads should have sent non-empty messages");
-            *shared_value.write().map_err(|_| CommError::Main)? = physical_potential_energy;
-            barrier.wait();
-            let exchange_potential_energy = main_adder
-                .recieve_sum()?
-                .expect("All threads should have sent non-empty messages");
-            *shared_value.write().map_err(|_| CommError::Main)? = exchange_potential_energy;
-            barrier.wait();
-            let kinetic_energy = main_adder
-                .recieve_sum()?
-                .expect("All threads should have sent non-empty messages");
-            *shared_value.write().map_err(|_| CommError::Main)? = kinetic_energy;
-            barrier.wait();
-
             match main_estimators.as_deref_mut() {
                 ObservablesOutputOption::None => {}
-                ObservablesOutputOption::Quantum(Estimators { estimators, stream }) => {
+                ObservablesOutputOption::Quantum(ObservablesOutput { estimators, stream }) => {
                     stream.write_step(step)?;
                     for estimator in estimators {
                         stream.write_value(estimator.calculate(main_adder, main_multiplier)?)?;
@@ -2182,7 +2025,7 @@ pub fn run<
                     }
                     stream.new_line()?;
                 }
-                ObservablesOutputOption::Classical(Estimators { estimators, stream }) => {
+                ObservablesOutputOption::Classical(ObservablesOutput { estimators, stream }) => {
                     stream.write_step(step)?;
                     for estimator in estimators {
                         stream.write_value(estimator.calculate(main_adder, main_multiplier)?)?;
@@ -2192,7 +2035,7 @@ pub fn run<
                 }
                 ObservablesOutputOption::Shared {
                     quantum_estimators,
-                    debug_estimators,
+                    classical_estimators: debug_estimators,
                     stream,
                 } => {
                     stream.write_step(step)?;
@@ -2226,6 +2069,8 @@ pub fn run<
                     debug.stream.new_line()?;
                 }
             }
+
+            step_finalization(step)?;
 
             barrier.wait();
         }

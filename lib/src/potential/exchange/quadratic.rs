@@ -1,3 +1,5 @@
+//! Traits for exchange potentials expanded to the second order.
+
 mod potential;
 mod transform;
 
