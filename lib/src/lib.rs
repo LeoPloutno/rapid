@@ -1,3 +1,6 @@
+#![feature(ptr_metadata, substr_range)]
+#![allow(clippy::too_many_arguments)]
+#![warn(missing_docs)]
 //! This library defines the core simulation entities, such as propagators,
 //! potentials, thermostats, etc.
 //! To run a simulation, simply call `[run]` with the right arguments.

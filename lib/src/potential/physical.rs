@@ -2,6 +2,8 @@
 
 use crate::core::GroupTypeHandle;
 use macros::{efficient_alternatives, heavy_computation};
+use crate::core::{GroupRecord, SliceInContiguousSlice};
+use crate::ImageHandle;
 
 mod atom_additive;
 pub use atom_additive::AtomAdditivePhysicalPotential;
