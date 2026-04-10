@@ -1,6 +1,6 @@
-#![feature(new_range_api, ptr_metadata)]
+#![feature(ptr_metadata, substr_range)]
 #![allow(clippy::too_many_arguments)]
-// #![warn(missing_docs)]
+#![warn(missing_docs)]
 use std::{
     fmt::Display,
     iter,
