@@ -47,5 +47,10 @@ pub trait FullFactory<'a, T> {
         &'a mut self,
         inner_images: usize,
         atom_types: &[AtomType<T>],
-    ) -> (Self::Main, Self::LeadingIter, Self::InnerIter, Self::TrailingIter);
+    ) -> (
+        Self::Main,
+        Self::LeadingIter,
+        Self::InnerIter,
+        Self::TrailingIter,
+    );
 }

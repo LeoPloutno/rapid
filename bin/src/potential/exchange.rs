@@ -23,9 +23,17 @@ mod distinguishable {
     where
         T: Clone + From<f32> + PartialOrd + Mul<Output = T>,
     {
-        pub fn new(mass: T, temperature: T, inner_images: usize, group_range: Range<usize>) -> Self {
+        pub fn new(
+            mass: T,
+            temperature: T,
+            inner_images: usize,
+            group_range: Range<usize>,
+        ) -> Self {
             assert!(mass.clone() > 0.0.into(), "the mass must be positive");
-            assert!(temperature.clone() > 0.0.into(), "the temperature must be positive");
+            assert!(
+                temperature.clone() > 0.0.into(),
+                "the temperature must be positive"
+            );
             Self {
                 potential_prefactor: T::from(
                     0.5 * ((inner_images + 2) as f32) * BOLTZMANN_CONSTANT * BOLTZMANN_CONSTANT
@@ -62,13 +70,22 @@ mod distinguishable {
                 group_forces,
                 type_positions
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions.len()
+                    ))?,
                 type_positions_prev_image
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions_prev_image.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions_prev_image.len()
+                    ))?,
                 type_positions_next_image
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions_next_image.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions_next_image.len()
+                    ))?,
             )
             .map(
                 |zip_items!(force, position, position_prev_image, position_next_image)| {
@@ -78,7 +95,8 @@ mod distinguishable {
                         * 2.0.into()
                         * self.potential_prefactor.clone();
                     self.potential_prefactor.clone()
-                        * (connection_prev.clone().magnitude_squared() + connection_next.clone().magnitude_squared())
+                        * (connection_prev.clone().magnitude_squared()
+                            + connection_next.clone().magnitude_squared())
                 },
             );
             let first = iter.next().ok_or(EmptyError)?;
@@ -96,13 +114,22 @@ mod distinguishable {
                 group_forces,
                 type_positions
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions.len()
+                    ))?,
                 type_positions_prev_image
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions_prev_image.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions_prev_image.len()
+                    ))?,
                 type_positions_next_image
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions_next_image.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions_next_image.len()
+                    ))?,
             )
             .map(
                 |zip_items!(force, position, position_prev_image, position_next_image)| {
@@ -112,7 +139,8 @@ mod distinguishable {
                         * 2.0.into()
                         * self.potential_prefactor.clone();
                     self.potential_prefactor.clone()
-                        * (connection_prev.clone().magnitude_squared() + connection_next.clone().magnitude_squared())
+                        * (connection_prev.clone().magnitude_squared()
+                            + connection_next.clone().magnitude_squared())
                 },
             );
             let first = iter.next().ok_or(EmptyError)?;
@@ -128,19 +156,30 @@ mod distinguishable {
             let mut iter = zip_iterators!(
                 type_positions
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions.len()
+                    ))?,
                 type_positions_prev_image
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions_prev_image.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions_prev_image.len()
+                    ))?,
                 type_positions_next_image
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions_next_image.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions_next_image.len()
+                    ))?,
             )
-            .map(|zip_items!(position, position_prev_image, position_next_image)| {
-                self.potential_prefactor.clone()
-                    * ((position.clone() - position_prev_image.clone()).magnitude_squared()
-                        + (position.clone() - position_next_image.clone()).magnitude_squared())
-            });
+            .map(
+                |zip_items!(position, position_prev_image, position_next_image)| {
+                    self.potential_prefactor.clone()
+                        * ((position.clone() - position_prev_image.clone()).magnitude_squared()
+                            + (position.clone() - position_next_image.clone()).magnitude_squared())
+                },
+            );
             let first = iter.next().ok_or(EmptyError)?;
             Ok(iter.fold(first, |accum, element| accum + element))
         }
@@ -156,15 +195,25 @@ mod distinguishable {
                 group_forces,
                 type_positions
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions.len()
+                    ))?,
                 type_positions_prev_image
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions_prev_image.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions_prev_image.len()
+                    ))?,
                 type_positions_next_image
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions_next_image.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions_next_image.len()
+                    ))?,
             ) {
-                *force = (position_prev_image.clone() + position_next_image.clone() - position.clone() * 2.0.into())
+                *force = (position_prev_image.clone() + position_next_image.clone()
+                    - position.clone() * 2.0.into())
                     * 2.0.into()
                     * self.potential_prefactor.clone();
             }
@@ -182,15 +231,25 @@ mod distinguishable {
                 group_forces,
                 type_positions
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions.len()
+                    ))?,
                 type_positions_prev_image
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions_prev_image.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions_prev_image.len()
+                    ))?,
                 type_positions_next_image
                     .get(self.group_range.clone())
-                    .ok_or_else(|| InvalidRangeError::new(self.group_range.clone(), type_positions_next_image.len()))?,
+                    .ok_or_else(|| InvalidRangeError::new(
+                        self.group_range.clone(),
+                        type_positions_next_image.len()
+                    ))?,
             ) {
-                *force += (position_prev_image.clone() + position_next_image.clone() - position.clone() * 2.0.into())
+                *force += (position_prev_image.clone() + position_next_image.clone()
+                    - position.clone() * 2.0.into())
                     * 2.0.into()
                     * self.potential_prefactor.clone();
             }

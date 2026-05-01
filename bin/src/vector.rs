@@ -116,7 +116,12 @@ mod simd_vector {
 
     impl<const N: usize, T> Vector<N> for SimdVector<N, T>
     where
-        T: SimdElement + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Sum,
+        T: SimdElement
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Sum,
         Simd<T, N>: Add<Output = Simd<T, N>>
             + Sub<Output = Simd<T, N>>
             + Mul<Output = Simd<T, N>>
@@ -167,7 +172,10 @@ mod array_vector {
 
         fn add(self, rhs: Self) -> Self::Output {
             let mut uninit = [const { MaybeUninit::uninit() }; N];
-            for ((elem_uninit, elem_self), elem_rhs) in uninit.iter_mut().zip(self.0.into_iter()).zip(rhs.0.into_iter())
+            for ((elem_uninit, elem_self), elem_rhs) in uninit
+                .iter_mut()
+                .zip(self.0.into_iter())
+                .zip(rhs.0.into_iter())
             {
                 elem_uninit.write(elem_self + elem_rhs);
             }
@@ -196,7 +204,10 @@ mod array_vector {
 
         fn sub(self, rhs: Self) -> Self::Output {
             let mut uninit = [const { MaybeUninit::uninit() }; N];
-            for ((elem_uninit, elem_self), elem_rhs) in uninit.iter_mut().zip(self.0.into_iter()).zip(rhs.0.into_iter())
+            for ((elem_uninit, elem_self), elem_rhs) in uninit
+                .iter_mut()
+                .zip(self.0.into_iter())
+                .zip(rhs.0.into_iter())
             {
                 elem_uninit.write(elem_self - elem_rhs);
             }
@@ -319,7 +330,11 @@ mod array_vector {
         }
 
         fn dot(self, rhs: Self) -> Self::Element {
-            self.0.into_iter().zip(rhs.0).map(|(lhs, rhs)| lhs * rhs).sum()
+            self.0
+                .into_iter()
+                .zip(rhs.0)
+                .map(|(lhs, rhs)| lhs * rhs)
+                .sum()
         }
     }
 }

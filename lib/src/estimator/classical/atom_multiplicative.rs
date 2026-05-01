@@ -15,7 +15,8 @@ use crate::{
         sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
     },
     estimator::classical::{
-        InnerClassicalEstimator, LeadingClassicalEstimator, MainClassicalEstimator, TrailingClassicalEstimator,
+        InnerClassicalEstimator, LeadingClassicalEstimator, MainClassicalEstimator,
+        TrailingClassicalEstimator,
     },
     potential::exchange::{
         InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
@@ -47,12 +48,20 @@ where
 ///
 /// For any type `E` that implements this trait, [`MultiplicativeClassicalEstimator<E>`]
 /// atomatically implements [`LeadingClassicalEstimator`].
-pub trait LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-where
+pub trait LeadingAtomMultiplicativeClassicalEstimator<
+    T,
+    V,
+    Multiplier,
+    Dist,
+    DistQuad,
+    Boson,
+    BosonQuad,
+> where
     T: Clone,
     Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
@@ -101,8 +110,15 @@ where
 ///
 /// For any type `E` that implements this trait, [`MultiplicativeClassicalEstimator<E>`]
 /// atomatically implements [`InnerClassicalEstimator`].
-pub trait InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-where
+pub trait InnerAtomMultiplicativeClassicalEstimator<
+    T,
+    V,
+    Multiplier,
+    Dist,
+    DistQuad,
+    Boson,
+    BosonQuad,
+> where
     T: Clone,
     Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
@@ -155,12 +171,20 @@ where
 ///
 /// For any type `E` that implements this trait, [`MultiplicativeClassicalEstimator<E>`]
 /// atomatically implements [`TrailingClassicalEstimator`].
-pub trait TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-where
+pub trait TrailingAtomMultiplicativeClassicalEstimator<
+    T,
+    V,
+    Multiplier,
+    Dist,
+    DistQuad,
+    Boson,
+    BosonQuad,
+> where
     T: Clone,
     Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
@@ -205,11 +229,20 @@ where
 }
 
 impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
-    LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
+    LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
+    for E
 where
     T: Clone,
     Multiplier: SyncMulSender<
-            <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomMultiplicativeClassicalEstimator<
+                T,
+                V,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
@@ -221,14 +254,44 @@ where
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    E: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
+    E: InnerAtomMultiplicativeClassicalEstimator<
+            T,
+            V,
+            Multiplier,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+        > + InnerIsLeading
+        + ?Sized,
 {
-    type Output =
-        <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type ErrorAtom =
-        <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom;
-    type ErrorSystem =
-        <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+    type Output = <Self as InnerAtomMultiplicativeClassicalEstimator<
+        T,
+        V,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type ErrorAtom = <Self as InnerAtomMultiplicativeClassicalEstimator<
+        T,
+        V,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorAtom;
+    type ErrorSystem = <Self as InnerAtomMultiplicativeClassicalEstimator<
+        T,
+        V,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorSystem;
 
     fn calculate_distinguishable(
         &mut self,
@@ -254,7 +317,7 @@ where
             position,
             momentum,
             physical_force,
-            exchange_force
+            exchange_force,
         )
     }
 
@@ -282,17 +345,26 @@ where
             position,
             momentum,
             physical_force,
-            exchange_force
+            exchange_force,
         )
     }
 }
 
 impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
-    TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
+    TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
+    for E
 where
     T: Clone,
     Multiplier: SyncMulSender<
-            <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomMultiplicativeClassicalEstimator<
+                T,
+                V,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
@@ -304,16 +376,44 @@ where
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    E: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>
-        + InnerIsTrailing
+    E: InnerAtomMultiplicativeClassicalEstimator<
+            T,
+            V,
+            Multiplier,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+        > + InnerIsTrailing
         + ?Sized,
 {
-    type Output =
-        <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type ErrorAtom =
-        <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom;
-    type ErrorSystem =
-        <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+    type Output = <Self as InnerAtomMultiplicativeClassicalEstimator<
+        T,
+        V,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type ErrorAtom = <Self as InnerAtomMultiplicativeClassicalEstimator<
+        T,
+        V,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorAtom;
+    type ErrorSystem = <Self as InnerAtomMultiplicativeClassicalEstimator<
+        T,
+        V,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorSystem;
 
     fn calculate_distinguishable(
         &mut self,
@@ -328,7 +428,19 @@ where
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
-        InnerAtomMultiplicativeClassicalEstimator::calculate_distinguishable(self, atom_index, exchange_potential, group_physical_potential_energy, group_exchange_potential_energy, group_heat, group_kinetic_energy, position, momentum, physical_force, exchange_force)
+        InnerAtomMultiplicativeClassicalEstimator::calculate_distinguishable(
+            self,
+            atom_index,
+            exchange_potential,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
+            position,
+            momentum,
+            physical_force,
+            exchange_force,
+        )
     }
 
     fn calculate_bosonic(
@@ -344,7 +456,19 @@ where
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::ErrorAtom> {
-        InnerAtomMultiplicativeClassicalEstimator::calculate_bosonic(self, atom_index, exchange_potential, group_physical_potential_energy, group_exchange_potential_energy, group_heat, group_kinetic_energy, position, momentum, physical_force, exchange_force)
+        InnerAtomMultiplicativeClassicalEstimator::calculate_bosonic(
+            self,
+            atom_index,
+            exchange_potential,
+            group_physical_potential_energy,
+            group_exchange_potential_energy,
+            group_heat,
+            group_kinetic_energy,
+            position,
+            momentum,
+            physical_force,
+            exchange_force,
+        )
     }
 }
 
@@ -358,17 +482,26 @@ where
     type Error = E::Error;
 }
 
-impl<T, V, Adder, Multiplier, E> MainClassicalEstimator<T, V, Adder, Multiplier> for MultiplicativeClassicalEstimator<E>
+impl<T, V, Adder, Multiplier, E> MainClassicalEstimator<T, V, Adder, Multiplier>
+    for MultiplicativeClassicalEstimator<E>
 where
-    Adder: SyncAddReciever<<Self as MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>>::Output> + ?Sized,
-    Multiplier: SyncMulReciever<<Self as MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>>::Output> + ?Sized,
+    Adder: SyncAddReciever<
+            <Self as MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>>::Output,
+        > + ?Sized,
+    Multiplier: SyncMulReciever<
+            <Self as MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>>::Output,
+        > + ?Sized,
     E: ?Sized,
     Self: MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>,
 {
     type Output = <Self as MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>>::Output;
     type Error = <Self as MainAtomMultiplicativeClassicalEstimator<T, V, Multiplier>>::Error;
 
-    fn calculate(&mut self, _adder: &mut Adder, multiplier: &mut Multiplier) -> Result<Self::Output, Self::Error> {
+    fn calculate(
+        &mut self,
+        _adder: &mut Adder,
+        multiplier: &mut Multiplier,
+    ) -> Result<Self::Output, Self::Error> {
         Ok(multiplier.recieve_prod()?.ok_or(EmptyError)?)
     }
 }
@@ -380,10 +513,19 @@ where
     T: Clone,
     Multiplier: SyncMulSender<E::Output> + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    E: LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
+    E: LeadingAtomMultiplicativeClassicalEstimator<
+            T,
+            V,
+            Multiplier,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+        >,
 {
     type Output = E::Output;
     type ErrorAtom = E::ErrorAtom;
@@ -450,22 +592,61 @@ impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as LeadingAtomMultiplicativeClassicalEstimator<
+                T,
+                V,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Multiplier: SyncMulSender<
-            <Self as LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as LeadingAtomMultiplicativeClassicalEstimator<
+                T,
+                V,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     E: ?Sized,
-    Self: LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
+    Self: LeadingAtomMultiplicativeClassicalEstimator<
+            T,
+            V,
+            Multiplier,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+        >,
 {
-    type Output =
-        <Self as LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type Error =
-        <Self as LeadingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+    type Output = <Self as LeadingAtomMultiplicativeClassicalEstimator<
+        T,
+        V,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type Error = <Self as LeadingAtomMultiplicativeClassicalEstimator<
+        T,
+        V,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorSystem;
 
     fn calculate_distinguishable(
         &mut self,
@@ -488,24 +669,27 @@ where
             images_groups_exchange_forces.read().read().read()
         )
         .enumerate()
-        .map(|(index, zip_items!(position, momentum, physical_force, exchange_force))| {
-            LeadingAtomMultiplicativeClassicalEstimator::calculate_distinguishable(
-                self,
-                index,
-                exchange_potential.clone(),
-                group_physical_potential_energy.clone(),
-                group_exchange_potential_energy.clone(),
-                group_heat.clone(),
-                group_kinetic_energy.clone(),
-                position,
-                momentum,
-                physical_force,
-                exchange_force,
-            )
-        });
+        .map(
+            |(index, zip_items!(position, momentum, physical_force, exchange_force))| {
+                LeadingAtomMultiplicativeClassicalEstimator::calculate_distinguishable(
+                    self,
+                    index,
+                    exchange_potential.clone(),
+                    group_physical_potential_energy.clone(),
+                    group_exchange_potential_energy.clone(),
+                    group_heat.clone(),
+                    group_kinetic_energy.clone(),
+                    position,
+                    momentum,
+                    physical_force,
+                    exchange_force,
+                )
+            },
+        );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        multiplier.send(
-            iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+        multiplier.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
                 Ok::<
                     _,
                     <Self as LeadingAtomMultiplicativeClassicalEstimator<
@@ -518,8 +702,8 @@ where
                         BosonQuad,
                     >>::ErrorAtom,
                 >(accum_observable * atom_observable?)
-            })?,
-        )?;
+            },
+        )?)?;
         Ok(())
     }
 
@@ -544,24 +728,27 @@ where
             images_groups_exchange_forces.read().read().read()
         )
         .enumerate()
-        .map(|(index, zip_items!(position, momentum, physical_force, exchange_force))| {
-            LeadingAtomMultiplicativeClassicalEstimator::calculate_bosonic(
-                self,
-                index,
-                exchange_potential.clone(),
-                group_physical_potential_energy.clone(),
-                group_exchange_potential_energy.clone(),
-                group_heat.clone(),
-                group_kinetic_energy.clone(),
-                position,
-                momentum,
-                physical_force,
-                exchange_force,
-            )
-        });
+        .map(
+            |(index, zip_items!(position, momentum, physical_force, exchange_force))| {
+                LeadingAtomMultiplicativeClassicalEstimator::calculate_bosonic(
+                    self,
+                    index,
+                    exchange_potential.clone(),
+                    group_physical_potential_energy.clone(),
+                    group_exchange_potential_energy.clone(),
+                    group_heat.clone(),
+                    group_kinetic_energy.clone(),
+                    position,
+                    momentum,
+                    physical_force,
+                    exchange_force,
+                )
+            },
+        );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        multiplier.send(
-            iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+        multiplier.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
                 Ok::<
                     _,
                     <Self as LeadingAtomMultiplicativeClassicalEstimator<
@@ -574,8 +761,8 @@ where
                         BosonQuad,
                     >>::ErrorAtom,
                 >(accum_observable * atom_observable?)
-            })?,
-        )?;
+            },
+        )?)?;
         Ok(())
     }
 }
@@ -590,7 +777,15 @@ where
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    E: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
+    E: InnerAtomMultiplicativeClassicalEstimator<
+            T,
+            V,
+            Multiplier,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+        >,
 {
     type Output = E::Output;
     type ErrorAtom = E::ErrorAtom;
@@ -657,45 +852,84 @@ impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomMultiplicativeClassicalEstimator<
+                T,
+                V,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Multiplier: SyncMulSender<
-            <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomMultiplicativeClassicalEstimator<
+                T,
+                V,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     E: ?Sized,
-    Self: InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
+    Self: InnerAtomMultiplicativeClassicalEstimator<
+            T,
+            V,
+            Multiplier,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+        >,
 {
-    type Output =
-        <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type Error =
-        <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+    type Output = <Self as InnerAtomMultiplicativeClassicalEstimator<
+        T,
+        V,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type Error = <Self as InnerAtomMultiplicativeClassicalEstimator<
+        T,
+        V,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorSystem;
 
-        fn calculate_distinguishable(
-            &mut self,
-            _adder: &mut Adder,
-            multiplier: &mut Multiplier,
-            exchange_potential: Scheme<&Dist, &DistQuad>,
-            group_physical_potential_energy: T,
-            group_exchange_potential_energy: T,
-            group_heat: T,
-            group_kinetic_energy: T,
-            images_groups_positions: &ElementRwLock<ImageHandle<V>>,
-            images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
-            images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-            images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
-        ) -> Result<(), Self::Error> {
-            let mut iter = zip_iterators!(
-                images_groups_positions.read().read().read(),
-                images_groups_momenta.read().read().read(),
-                images_groups_physical_forces.read().read().read(),
-                images_groups_exchange_forces.read().read().read()
-            )
-            .enumerate()
-            .map(|(index, zip_items!(position, momentum, physical_force, exchange_force))| {
+    fn calculate_distinguishable(
+        &mut self,
+        _adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Dist, &DistQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error> {
+        let mut iter = zip_iterators!(
+            images_groups_positions.read().read().read(),
+            images_groups_momenta.read().read().read(),
+            images_groups_physical_forces.read().read().read(),
+            images_groups_exchange_forces.read().read().read()
+        )
+        .enumerate()
+        .map(
+            |(index, zip_items!(position, momentum, physical_force, exchange_force))| {
                 InnerAtomMultiplicativeClassicalEstimator::calculate_distinguishable(
                     self,
                     index,
@@ -709,38 +943,52 @@ where
                     physical_force,
                     exchange_force,
                 )
-            });
-            let first_atom_observable = iter.next().ok_or(EmptyError)??;
-            multiplier.send(
-                iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                    Ok::<_, <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable * atom_observable?)
-                })?,
-            )?;
-            Ok(())
-        }
+            },
+        );
+        let first_atom_observable = iter.next().ok_or(EmptyError)??;
+        multiplier.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
+                Ok::<
+                    _,
+                    <Self as InnerAtomMultiplicativeClassicalEstimator<
+                        T,
+                        V,
+                        Multiplier,
+                        Dist,
+                        DistQuad,
+                        Boson,
+                        BosonQuad,
+                    >>::ErrorAtom,
+                >(accum_observable * atom_observable?)
+            },
+        )?)?;
+        Ok(())
+    }
 
-        fn calculate_bosonic(
-            &mut self,
-            _adder: &mut Adder,
-            multiplier: &mut Multiplier,
-            exchange_potential: Scheme<&Boson, &BosonQuad>,
-            group_physical_potential_energy: T,
-            group_exchange_potential_energy: T,
-            group_heat: T,
-            group_kinetic_energy: T,
-            images_groups_positions: &ElementRwLock<ImageHandle<V>>,
-            images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
-            images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-            images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
-        ) -> Result<(), Self::Error> {
-            let mut iter = zip_iterators!(
-                images_groups_positions.read().read().read(),
-                images_groups_momenta.read().read().read(),
-                images_groups_physical_forces.read().read().read(),
-                images_groups_exchange_forces.read().read().read()
-            )
-            .enumerate()
-            .map(|(index, zip_items!(position, momentum, physical_force, exchange_force))| {
+    fn calculate_bosonic(
+        &mut self,
+        _adder: &mut Adder,
+        multiplier: &mut Multiplier,
+        exchange_potential: Scheme<&Boson, &BosonQuad>,
+        group_physical_potential_energy: T,
+        group_exchange_potential_energy: T,
+        group_heat: T,
+        group_kinetic_energy: T,
+        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
+        images_groups_momenta: &ElementRwLock<ImageHandle<V>>,
+        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
+        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+    ) -> Result<(), Self::Error> {
+        let mut iter = zip_iterators!(
+            images_groups_positions.read().read().read(),
+            images_groups_momenta.read().read().read(),
+            images_groups_physical_forces.read().read().read(),
+            images_groups_exchange_forces.read().read().read()
+        )
+        .enumerate()
+        .map(
+            |(index, zip_items!(position, momentum, physical_force, exchange_force))| {
                 InnerAtomMultiplicativeClassicalEstimator::calculate_bosonic(
                     self,
                     index,
@@ -754,15 +1002,28 @@ where
                     physical_force,
                     exchange_force,
                 )
-            });
-            let first_atom_observable = iter.next().ok_or(EmptyError)??;
-            multiplier.send(
-                iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                    Ok::<_, <Self as InnerAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable * atom_observable?)
-                })?,
-            )?;
-            Ok(())
-        }
+            },
+        );
+        let first_atom_observable = iter.next().ok_or(EmptyError)??;
+        multiplier.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
+                Ok::<
+                    _,
+                    <Self as InnerAtomMultiplicativeClassicalEstimator<
+                        T,
+                        V,
+                        Multiplier,
+                        Dist,
+                        DistQuad,
+                        Boson,
+                        BosonQuad,
+                    >>::ErrorAtom,
+                >(accum_observable * atom_observable?)
+            },
+        )?)?;
+        Ok(())
+    }
 }
 
 impl<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
@@ -772,10 +1033,19 @@ where
     T: Clone,
     Multiplier: SyncMulSender<E::Output> + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    E: TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
+    E: TrailingAtomMultiplicativeClassicalEstimator<
+            T,
+            V,
+            Multiplier,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+        >,
 {
     type Output = E::Output;
     type ErrorAtom = E::ErrorAtom;
@@ -841,36 +1111,43 @@ impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
     for MultiplicativeClassicalEstimator<E>
 where
     T: Clone,
-    Adder:
-        SyncAddSender<
-                <Self as TrailingAtomMultiplicativeClassicalEstimator<
-                    T,
-                    V,
-                    Multiplier,
-                    Dist,
-                    DistQuad,
-                    Boson,
-                    BosonQuad,
-                >>::Output,
-            > + ?Sized,
-    Multiplier:
-        SyncMulSender<
-                <Self as TrailingAtomMultiplicativeClassicalEstimator<
-                    T,
-                    V,
-                    Multiplier,
-                    Dist,
-                    DistQuad,
-                    Boson,
-                    BosonQuad,
-                >>::Output,
-            > + ?Sized,
+    Adder: SyncAddSender<
+            <Self as TrailingAtomMultiplicativeClassicalEstimator<
+                T,
+                V,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
+        > + ?Sized,
+    Multiplier: SyncMulSender<
+            <Self as TrailingAtomMultiplicativeClassicalEstimator<
+                T,
+                V,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
+        > + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     E: ?Sized,
-    Self: TrailingAtomMultiplicativeClassicalEstimator<T, V, Multiplier, Dist, DistQuad, Boson, BosonQuad>,
+    Self: TrailingAtomMultiplicativeClassicalEstimator<
+            T,
+            V,
+            Multiplier,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+        >,
 {
     type Output = <Self as TrailingAtomMultiplicativeClassicalEstimator<
         T,
@@ -930,8 +1207,9 @@ where
             },
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        multiplier.send(
-            iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+        multiplier.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
                 Ok::<
                     _,
                     <Self as TrailingAtomMultiplicativeClassicalEstimator<
@@ -944,8 +1222,8 @@ where
                         BosonQuad,
                     >>::ErrorAtom,
                 >(accum_observable * atom_observable?)
-            })?,
-        )?;
+            },
+        )?)?;
         Ok(())
     }
 
@@ -988,8 +1266,9 @@ where
             },
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        multiplier.send(
-            iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+        multiplier.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
                 Ok::<
                     _,
                     <Self as TrailingAtomMultiplicativeClassicalEstimator<
@@ -1002,8 +1281,8 @@ where
                         BosonQuad,
                     >>::ErrorAtom,
                 >(accum_observable * atom_observable?)
-            })?,
-        )?;
+            },
+        )?)?;
         Ok(())
     }
 }

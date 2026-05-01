@@ -1,5 +1,5 @@
 use super::PhysicalPotential;
-use crate::core::GroupTypeHandle;
+use crate::{core::monte_carlo::ChangedGroup, potential::GroupInTypeInImage};
 use macros::{efficient_alternatives, heavy_computation};
 
 /// A trait for physical potentials that may be used in a Monte-Carlo algorithm.
@@ -15,12 +15,12 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
     #[heavy_computation]
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
-        changed_group_index: usize,
+        changed_group_index: ChangedGroup,
         changed_atom_index: usize,
         old_value: V,
-        groups_positions: &[GroupTypeHandle<V>],
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
-    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V>>::Error>;
+    ) -> Result<Option<T>, <Self as MonteCarloPhysicalPotential<T, V>>::Error>;
 
     /// Calculates the contribution of this group to the change in total physical
     /// potential energy of the image after a change in the position of a single atom
@@ -30,12 +30,12 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
     #[heavy_computation]
     fn calculate_potential_diff_add_changed_forces(
         &mut self,
-        changed_group_index: usize,
+        changed_group_index: ChangedGroup,
         changed_atom_index: usize,
         old_value: V,
-        groups_positions: &[GroupTypeHandle<V>],
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
-    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V>>::Error>;
+    ) -> Result<Option<T>, <Self as MonteCarloPhysicalPotential<T, V>>::Error>;
 
     /// Calculates the contribution of this group to the change in total physical
     /// potential energy of the image after a change in the position of a single atom.
@@ -48,20 +48,20 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
     )]
     fn calculate_potential_diff(
         &mut self,
-        changed_group_index: usize,
+        changed_group_index: ChangedGroup,
         changed_atom_index: usize,
         old_value: V,
-        groups_positions: &[GroupTypeHandle<V>],
-    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V>>::Error>;
+        positions: &GroupInTypeInImage<V>,
+    ) -> Result<Option<T>, <Self as MonteCarloPhysicalPotential<T, V>>::Error>;
 
     /// Sets the forces of this group after a change in the position of a single atom.
     #[efficient_alternatives("calculate_potential_diff_set_changed_forces")]
     fn set_changed_forces(
         &mut self,
-        changed_group_index: usize,
+        changed_group_index: ChangedGroup,
         changed_atom_index: usize,
         old_value: V,
-        groups_positions: &[GroupTypeHandle<V>],
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V>>::Error>;
 
@@ -70,10 +70,10 @@ pub trait MonteCarloPhysicalPotential<T, V>: PhysicalPotential<T, V> {
     #[efficient_alternatives("calculate_potential_diff_add_changed_forces")]
     fn add_changed_forces(
         &mut self,
-        changed_group_index: usize,
+        changed_group_index: ChangedGroup,
         changed_atom_index: usize,
         old_value: V,
-        groups_positions: &[GroupTypeHandle<V>],
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V>>::Error>;
 }

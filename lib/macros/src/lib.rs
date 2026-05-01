@@ -33,7 +33,9 @@ pub fn efficient_alternatives(args: TokenStream, item: TokenStream) -> TokenStre
             TokenTree::Punct(Punct::new('!', Spacing::Joint)),
             TokenTree::Group(Group::new(
                 Delimiter::Parenthesis,
-                [TokenTree::Literal(Literal::string(message))].into_iter().collect(),
+                [TokenTree::Literal(Literal::string(message))]
+                    .into_iter()
+                    .collect(),
             )),
             TokenTree::Punct(Punct::new(';', Spacing::Alone)),
         ]

@@ -58,16 +58,30 @@ mod harmonic {
             Ok(self.calculate_potential(atom_index, position)?)
         }
 
-        fn calculate_potential(&mut self, _atom_index: usize, position: &V) -> Result<T, Self::ErrorAtom> {
+        fn calculate_potential(
+            &mut self,
+            _atom_index: usize,
+            position: &V,
+        ) -> Result<T, Self::ErrorAtom> {
             Ok(self.potential_prefactor.clone() * position.clone().magnitude_squared())
         }
 
-        fn set_force(&mut self, _atom_index: usize, position: &V, force: &mut V) -> Result<(), Self::ErrorAtom> {
+        fn set_force(
+            &mut self,
+            _atom_index: usize,
+            position: &V,
+            force: &mut V,
+        ) -> Result<(), Self::ErrorAtom> {
             *force = -position.clone() * 2.0.into() * self.potential_prefactor.clone();
             Ok(())
         }
 
-        fn add_force(&mut self, _atom_index: usize, position: &V, force: &mut V) -> Result<(), Self::ErrorAtom> {
+        fn add_force(
+            &mut self,
+            _atom_index: usize,
+            position: &V,
+            force: &mut V,
+        ) -> Result<(), Self::ErrorAtom> {
             *force += -position.clone() * 2.0.into() * self.potential_prefactor.clone();
             Ok(())
         }

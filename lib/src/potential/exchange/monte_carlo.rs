@@ -1,3 +1,5 @@
+use crate::core::AtomGroup;
+
 use super::ExchangePotential;
 use macros::{efficient_alternatives, heavy_computation};
 
@@ -32,11 +34,11 @@ pub trait MonteCarloExchangePotential<T, V>: ExchangePotential<T, V> {
         changed_image: NeighboringImage,
         changed_atom_index: usize,
         old_value: V,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
+        type_positions_last_image: &[AtomGroup<V>],
+        type_positions_next_image: &[AtomGroup<V>],
+        type_positions: &[AtomGroup<V>],
         group_forces: &mut [V],
-    ) -> Result<T, <Self as MonteCarloExchangePotential<T, V>>::Error>;
+    ) -> Result<Option<T>, <Self as MonteCarloExchangePotential<T, V>>::Error>;
 
     /// Calculates the contribution of this group in this image to the change in total exchange
     /// potential energy of the type after a change in the position of a single atom
@@ -50,11 +52,11 @@ pub trait MonteCarloExchangePotential<T, V>: ExchangePotential<T, V> {
         changed_image: NeighboringImage,
         changed_atom_index: usize,
         old_value: V,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
+        type_positions_last_image: &[AtomGroup<V>],
+        type_positions_next_image: &[AtomGroup<V>],
+        type_positions: &[AtomGroup<V>],
         group_forces: &mut [V],
-    ) -> Result<T, <Self as MonteCarloExchangePotential<T, V>>::Error>;
+    ) -> Result<Option<T>, <Self as MonteCarloExchangePotential<T, V>>::Error>;
 
     /// Calculates the contribution of this group in this image to the change in total exchange
     /// potential energy of the type after a change in the position of a single atom
@@ -71,10 +73,10 @@ pub trait MonteCarloExchangePotential<T, V>: ExchangePotential<T, V> {
         changed_image: NeighboringImage,
         changed_atom_index: usize,
         old_value: V,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-    ) -> Result<T, <Self as MonteCarloExchangePotential<T, V>>::Error>;
+        type_positions_last_image: &[AtomGroup<V>],
+        type_positions_next_image: &[AtomGroup<V>],
+        type_positions: &[AtomGroup<V>],
+    ) -> Result<Option<T>, <Self as MonteCarloExchangePotential<T, V>>::Error>;
 
     /// Sets the forces of this group in this image after a change
     /// in the position of a single atom in either a neighboring or this image.
@@ -85,9 +87,9 @@ pub trait MonteCarloExchangePotential<T, V>: ExchangePotential<T, V> {
         changed_image: NeighboringImage,
         changed_atom_index: usize,
         old_value: V,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
+        type_positions_last_image: &[AtomGroup<V>],
+        type_positions_next_image: &[AtomGroup<V>],
+        type_positions: &[AtomGroup<V>],
         group_forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloExchangePotential<T, V>>::Error>;
 
@@ -100,9 +102,9 @@ pub trait MonteCarloExchangePotential<T, V>: ExchangePotential<T, V> {
         changed_image: NeighboringImage,
         changed_atom_index: usize,
         old_value: V,
-        type_positions_last_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
+        type_positions_last_image: &[AtomGroup<V>],
+        type_positions_next_image: &[AtomGroup<V>],
+        type_positions: &[AtomGroup<V>],
         group_forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloExchangePotential<T, V>>::Error>;
 }

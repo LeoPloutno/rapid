@@ -1,7 +1,6 @@
 //! A trait for thermalizing the system.
 
-use crate::ImageHandle;
-use arc_rw_lock::ElementRwLock;
+use crate::core::GroupInTypeInImageInSystem;
 use macros::heavy_computation;
 
 mod atom_decoupled;
@@ -23,10 +22,9 @@ pub trait Thermostat<T, V> {
     #[heavy_computation]
     fn thermalize(
         &mut self,
-        step_size: T,
-        images_groups_positions: &ElementRwLock<ImageHandle<V>>,
-        images_groups_physical_forces: &ElementRwLock<ImageHandle<V>>,
-        images_groups_exchange_forces: &ElementRwLock<ImageHandle<V>>,
+        positions: &GroupInTypeInImageInSystem<V>,
+        physical_forces: &GroupInTypeInImageInSystem<V>,
+        exchange_forces: &GroupInTypeInImageInSystem<V>,
         group_momenta: &mut [V],
     ) -> Result<T, Self::Error>;
 }

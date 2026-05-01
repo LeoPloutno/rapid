@@ -15,7 +15,8 @@ use crate::{
         sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
     },
     estimator::classical::{
-        InnerClassicalEstimator, LeadingClassicalEstimator, MainClassicalEstimator, TrailingClassicalEstimator,
+        InnerClassicalEstimator, LeadingClassicalEstimator, MainClassicalEstimator,
+        TrailingClassicalEstimator,
     },
     potential::exchange::{
         InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
@@ -52,7 +53,8 @@ where
     T: Clone,
     Adder: SyncAddSender<Self::Output> + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
@@ -160,7 +162,8 @@ where
     T: Clone,
     Adder: SyncAddSender<Self::Output> + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
@@ -209,7 +212,15 @@ impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, E>
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomAdditiveClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
@@ -221,13 +232,37 @@ where
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    E: InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
+    E: InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
+        + InnerIsLeading
+        + ?Sized,
 {
-    type Output = <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type ErrorAtom =
-        <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom;
-    type ErrorSystem =
-        <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+    type Output = <Self as InnerAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type ErrorAtom = <Self as InnerAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorAtom;
+    type ErrorSystem = <Self as InnerAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorSystem;
 
     fn calculate_distinguishable(
         &mut self,
@@ -291,7 +326,15 @@ impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, E>
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomAdditiveClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
@@ -303,13 +346,37 @@ where
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    E: InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
+    E: InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
+        + InnerIsTrailing
+        + ?Sized,
 {
-    type Output = <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type ErrorAtom =
-        <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom;
-    type ErrorSystem =
-        <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+    type Output = <Self as InnerAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type ErrorAtom = <Self as InnerAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorAtom;
+    type ErrorSystem = <Self as InnerAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorSystem;
 
     fn calculate_distinguishable(
         &mut self,
@@ -368,7 +435,8 @@ where
     }
 }
 
-impl<T, V, Adder, E> MainAtomAdditiveClassicalEstimator<T, V, Adder> for AdditiveClassicalEstimator<E>
+impl<T, V, Adder, E> MainAtomAdditiveClassicalEstimator<T, V, Adder>
+    for AdditiveClassicalEstimator<E>
 where
     Adder: SyncAddReciever<E::Output> + ?Sized,
     E: MainAtomAdditiveClassicalEstimator<T, V, Adder> + ?Sized,
@@ -377,17 +445,24 @@ where
     type Error = E::Error;
 }
 
-impl<T, V, Adder, Multiplier, E> MainClassicalEstimator<T, V, Adder, Multiplier> for AdditiveClassicalEstimator<E>
+impl<T, V, Adder, Multiplier, E> MainClassicalEstimator<T, V, Adder, Multiplier>
+    for AdditiveClassicalEstimator<E>
 where
-    Adder: SyncAddReciever<<Self as MainAtomAdditiveClassicalEstimator<T, V, Adder>>::Output> + ?Sized,
-    Multiplier: SyncMulReciever<<Self as MainAtomAdditiveClassicalEstimator<T, V, Adder>>::Output> + ?Sized,
+    Adder:
+        SyncAddReciever<<Self as MainAtomAdditiveClassicalEstimator<T, V, Adder>>::Output> + ?Sized,
+    Multiplier:
+        SyncMulReciever<<Self as MainAtomAdditiveClassicalEstimator<T, V, Adder>>::Output> + ?Sized,
     E: ?Sized,
     Self: MainAtomAdditiveClassicalEstimator<T, V, Adder>,
 {
     type Output = <Self as MainAtomAdditiveClassicalEstimator<T, V, Adder>>::Output;
     type Error = <Self as MainAtomAdditiveClassicalEstimator<T, V, Adder>>::Error;
 
-    fn calculate(&mut self, adder: &mut Adder, _multiplier: &mut Multiplier) -> Result<Self::Output, Self::Error> {
+    fn calculate(
+        &mut self,
+        adder: &mut Adder,
+        _multiplier: &mut Multiplier,
+    ) -> Result<Self::Output, Self::Error> {
         Ok(adder.recieve_sum()?.ok_or(EmptyError)?)
     }
 }
@@ -399,7 +474,8 @@ where
     T: Clone,
     Adder: SyncAddSender<E::Output> + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     E: LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
@@ -469,22 +545,53 @@ impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as LeadingAtomAdditiveClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Multiplier: SyncMulSender<
-            <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as LeadingAtomAdditiveClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     E: ?Sized,
     Self: LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output =
-        <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type Error =
-        <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+    type Output = <Self as LeadingAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type Error = <Self as LeadingAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorSystem;
 
     fn calculate_distinguishable(
         &mut self,
@@ -525,11 +632,23 @@ where
             },
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        adder.send(
-            iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                Ok::<_, <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
-            })?,
-        )?;
+        adder.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
+                Ok::<
+                    _,
+                    <Self as LeadingAtomAdditiveClassicalEstimator<
+                        T,
+                        V,
+                        Adder,
+                        Dist,
+                        DistQuad,
+                        Boson,
+                        BosonQuad,
+                    >>::ErrorAtom,
+                >(accum_observable + atom_observable?)
+            },
+        )?)?;
         Ok(())
     }
 
@@ -572,17 +691,30 @@ where
             },
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        adder.send(
-            iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                Ok::<_, <Self as LeadingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
-            })?,
-        )?;
+        adder.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
+                Ok::<
+                    _,
+                    <Self as LeadingAtomAdditiveClassicalEstimator<
+                        T,
+                        V,
+                        Adder,
+                        Dist,
+                        DistQuad,
+                        Boson,
+                        BosonQuad,
+                    >>::ErrorAtom,
+                >(accum_observable + atom_observable?)
+            },
+        )?)?;
         Ok(())
     }
 }
 
 impl<T, V, Adder, Dist, DistQuad, Boson, BosonQuad, E>
-    InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for AdditiveClassicalEstimator<E>
+    InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
+    for AdditiveClassicalEstimator<E>
 where
     T: Clone,
     Adder: SyncAddSender<E::Output> + ?Sized,
@@ -652,14 +784,31 @@ where
 }
 
 impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
-    InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for AdditiveClassicalEstimator<E>
+    InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
+    for AdditiveClassicalEstimator<E>
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomAdditiveClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Multiplier: SyncMulSender<
-            <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerAtomAdditiveClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
@@ -668,9 +817,24 @@ where
     E: ?Sized,
     Self: InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output = <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type Error =
-        <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+    type Output = <Self as InnerAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type Error = <Self as InnerAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorSystem;
 
     fn calculate_distinguishable(
         &mut self,
@@ -711,11 +875,23 @@ where
             },
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        adder.send(
-                    iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                        Ok::<_, <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
-                    })?,
-                )?;
+        adder.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
+                Ok::<
+                    _,
+                    <Self as InnerAtomAdditiveClassicalEstimator<
+                        T,
+                        V,
+                        Adder,
+                        Dist,
+                        DistQuad,
+                        Boson,
+                        BosonQuad,
+                    >>::ErrorAtom,
+                >(accum_observable + atom_observable?)
+            },
+        )?)?;
         Ok(())
     }
 
@@ -758,11 +934,23 @@ where
             },
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        adder.send(
-                    iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                        Ok::<_, <Self as InnerAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
-                    })?,
-                )?;
+        adder.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
+                Ok::<
+                    _,
+                    <Self as InnerAtomAdditiveClassicalEstimator<
+                        T,
+                        V,
+                        Adder,
+                        Dist,
+                        DistQuad,
+                        Boson,
+                        BosonQuad,
+                    >>::ErrorAtom,
+                >(accum_observable + atom_observable?)
+            },
+        )?)?;
         Ok(())
     }
 }
@@ -774,7 +962,8 @@ where
     T: Clone,
     Adder: SyncAddSender<E::Output> + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     E: TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
@@ -844,22 +1033,53 @@ impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
 where
     T: Clone,
     Adder: SyncAddSender<
-            <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as TrailingAtomAdditiveClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Multiplier: SyncMulSender<
-            <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as TrailingAtomAdditiveClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     E: ?Sized,
     Self: TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>,
 {
-    type Output =
-        <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type Error =
-        <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorSystem;
+    type Output = <Self as TrailingAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type Error = <Self as TrailingAtomAdditiveClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::ErrorSystem;
 
     fn calculate_distinguishable(
         &mut self,
@@ -900,11 +1120,23 @@ where
             },
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        adder.send(
-                    iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                        Ok::<_, <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
-                    })?,
-                )?;
+        adder.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
+                Ok::<
+                    _,
+                    <Self as TrailingAtomAdditiveClassicalEstimator<
+                        T,
+                        V,
+                        Adder,
+                        Dist,
+                        DistQuad,
+                        Boson,
+                        BosonQuad,
+                    >>::ErrorAtom,
+                >(accum_observable + atom_observable?)
+            },
+        )?)?;
         Ok(())
     }
 
@@ -947,11 +1179,23 @@ where
             },
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        adder.send(
-                    iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-                        Ok::<_, <Self as TrailingAtomAdditiveClassicalEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>>::ErrorAtom>(accum_observable + atom_observable?)
-                    })?,
-                )?;
+        adder.send(iter.try_fold(
+            first_atom_observable,
+            |accum_observable, atom_observable| {
+                Ok::<
+                    _,
+                    <Self as TrailingAtomAdditiveClassicalEstimator<
+                        T,
+                        V,
+                        Adder,
+                        Dist,
+                        DistQuad,
+                        Boson,
+                        BosonQuad,
+                    >>::ErrorAtom,
+                >(accum_observable + atom_observable?)
+            },
+        )?)?;
         Ok(())
     }
 }

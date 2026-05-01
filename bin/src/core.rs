@@ -99,7 +99,9 @@ mod unimplemented {
         type QuadraticPotential = Self;
         type ResiduePotential = Self;
 
-        fn as_quadratic_expansion(&'a mut self) -> (Self::QuadraticPotential, Self::ResiduePotential) {
+        fn as_quadratic_expansion(
+            &'a mut self,
+        ) -> (Self::QuadraticPotential, Self::ResiduePotential) {
             (Self, Self)
         }
     }
@@ -126,7 +128,8 @@ mod unimplemented {
         fn eigenvalues(&self, _eigenvalues: &mut [T]) {}
     }
 
-    impl<T, V, Phys, Dist, Boson, Therm> InnerPropagator<T, V, Phys, Dist, Boson, Therm> for Unimplemented
+    impl<T, V, Phys, Dist, Boson, Therm> InnerPropagator<T, V, Phys, Dist, Boson, Therm>
+        for Unimplemented
     where
         Phys: PhysicalPotential<T, V> + ?Sized,
         Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
@@ -150,7 +153,8 @@ mod unimplemented {
         }
     }
 
-    impl<T, V, Phys, Dist, Boson, Therm> InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> for Unimplemented
+    impl<T, V, Phys, Dist, Boson, Therm>
+        InnerQuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm> for Unimplemented
     where
         Phys: PhysicalPotential<T, V> + ?Sized,
         Dist: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,

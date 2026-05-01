@@ -5,28 +5,21 @@ use std::{iter::FusedIterator, marker::PhantomData, num::NonZero, ptr::NonNull};
 fn cold_path() {}
 
 #[derive(Debug)]
-pub(crate) struct Stride<'a, T> {
+pub(crate) struct StrideMut<'a, T> {
     start: NonNull<T>,
     end: NonNull<T>,
     stride: NonZero<usize>,
-    phantom: PhantomData<&'a T>,
+    phantom: PhantomData<&'a mut T>,
 }
 
-impl<'a, T> Clone for Stride<'a, T> {
-    fn clone(&self) -> Self {
-        Self { ..*self }
-    }
-}
-
-impl<'a, T> Copy for Stride<'a, T> {}
-
-impl<'a, T> Iterator for Stride<'a, T> {
-    type Item = &'a T;
+impl<'a, T> Iterator for StrideMut<'a, T> {
+    type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
-            // SAFETY: By construction, `start` points to valid and live data.
-            let ret = Some(unsafe { self.start.as_ref() });
+            // SAFETY: - By construction, `start` points to valid and live data.
+            //         - The offseting guarantees no other iterator has access to this element.
+            let ret = Some(unsafe { self.start.as_mut() });
             // SAFETY: `end` is a multiple of `stride` apart from `start` and is within or right outside the allocation.
             //         Checked above that `start < end`.
             self.start = unsafe { self.start.add(self.stride.into()) };
@@ -38,15 +31,16 @@ impl<'a, T> Iterator for Stride<'a, T> {
     }
 }
 
-impl<'a, T> DoubleEndedIterator for Stride<'a, T> {
+impl<'a, T> DoubleEndedIterator for StrideMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
             // SAFETY: `end` is a multiple of `stride` apart from `start` and is within or right outside the allocation.
             //         Checked above that `start < end`.
             self.end = unsafe { self.end.sub(self.stride.into()) };
-            // SAFETY: By construction, `end` points to or right outside valid and live data.
-            //         Moved it in-bounds above.
-            Some(unsafe { self.end.as_ref() })
+            // SAFETY: - By construction, `end` points to or right outside valid and live data.
+            //           Moved it in-bounds above.
+            //         - The offseting guarantees no other iterator has access to this element.
+            Some(unsafe { self.end.as_mut() })
         } else {
             cold_path();
             None
@@ -54,7 +48,7 @@ impl<'a, T> DoubleEndedIterator for Stride<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for Stride<'a, T> {
+impl<'a, T> ExactSizeIterator for StrideMut<'a, T> {
     fn len(&self) -> usize {
         if self.start < self.end {
             // SAFETY: - Checked above that `start < end`.
@@ -67,28 +61,28 @@ impl<'a, T> ExactSizeIterator for Stride<'a, T> {
     }
 }
 
-impl<'a, T> FusedIterator for Stride<'a, T> {}
+impl<'a, T> FusedIterator for StrideMut<'a, T> {}
 
-pub(crate) struct Strides<'a, T> {
+pub(crate) struct StridesMut<'a, T> {
     start: NonNull<T>,
     end: NonNull<T>,
-    remainder: &'a [T],
+    remainder: &'a mut [T],
     stride: NonZero<usize>,
 }
 
-impl<'a, T> Strides<'a, T> {
-    pub fn into_remainder(self) -> &'a [T] {
+impl<'a, T> StridesMut<'a, T> {
+    pub fn into_remainder(self) -> &'a mut [T] {
         self.remainder
     }
 
-    pub fn from_slice(mut s: &'a [T], stride: usize) -> Self {
+    pub fn from_slice(mut s: &'a mut [T], stride: usize) -> Self {
         let stride = NonZero::new(stride).expect("stride must be non-zero");
         let start = NonNull::from(&*s).to_raw_parts().0.cast();
         let n = s.len() / stride;
         if n > 0 {
             // SAFETY: Checked above that `n * stride <= s.len()`.
             let remainder = unsafe {
-                s.split_off(n.unchecked_mul(stride.into())..)
+                s.split_off_mut(n.unchecked_mul(stride.into())..)
                     .unwrap_unchecked()
             };
             Self {
@@ -109,8 +103,8 @@ impl<'a, T> Strides<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for Strides<'a, T> {
-    type Item = Stride<'a, T>;
+impl<'a, T> Iterator for StridesMut<'a, T> {
+    type Item = StrideMut<'a, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
@@ -123,7 +117,7 @@ impl<'a, T> Iterator for Strides<'a, T> {
                     //         - By construction, both pointers are derived from the same allocation.
                     .offset_from_unsigned(self.end)
             } / self.stride;
-            let ret = Some(Stride {
+            let ret = Some(StrideMut {
                 start: self.start,
                 end: unsafe { self.start.add(chunks) },
                 stride: self.stride,
@@ -141,7 +135,7 @@ impl<'a, T> Iterator for Strides<'a, T> {
     }
 }
 
-impl<'a, T> DoubleEndedIterator for Strides<'a, T> {
+impl<'a, T> DoubleEndedIterator for StridesMut<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
             // SAFETY: Checked above that `start < end`.
@@ -157,7 +151,7 @@ impl<'a, T> DoubleEndedIterator for Strides<'a, T> {
                     //         - By construction, both pointers are derived from the same allocation.
                     .offset_from_unsigned(self.end)
             } / self.stride;
-            Some(Stride {
+            Some(StrideMut {
                 start: self.end,
                 end: unsafe { self.end.add(chunks) },
                 stride: self.stride,
@@ -170,11 +164,11 @@ impl<'a, T> DoubleEndedIterator for Strides<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for Strides<'a, T> {
+impl<'a, T> ExactSizeIterator for StridesMut<'a, T> {
     fn len(&self) -> usize {
         // SAFETY: By construction, `start` cannot exceed `end`
         unsafe { self.end.offset_from_unsigned(self.start) }
     }
 }
 
-impl<'a, T> FusedIterator for Strides<'a, T> {}
+impl<'a, T> FusedIterator for StridesMut<'a, T> {}

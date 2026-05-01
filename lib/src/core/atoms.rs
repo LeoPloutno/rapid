@@ -4,7 +4,7 @@ use crate::core::stat::Stat;
 
 /// Information about atoms of the same type.
 #[derive(Clone, Debug)]
-pub struct AtomType<T> {
+pub struct AtomTypeInfo<T> {
     /// Unique identifier.
     pub id: usize,
     /// Atomic symbol

@@ -73,7 +73,11 @@ impl<Q: DerefMut, C: DerefMut, S: DerefMut> ObservablesOutputOption<Q, C, S> {
     /// creating a new one containing mutable references to the inner types' `Deref::Target` types.
     pub fn as_deref_mut(
         &mut self,
-    ) -> ObservablesOutputOption<&mut <Q as Deref>::Target, &mut <C as Deref>::Target, &mut <S as Deref>::Target> {
+    ) -> ObservablesOutputOption<
+        &mut <Q as Deref>::Target,
+        &mut <C as Deref>::Target,
+        &mut <S as Deref>::Target,
+    > {
         match self {
             Self::None => ObservablesOutputOption::None,
             Self::Quantum(ObservablesOutput {

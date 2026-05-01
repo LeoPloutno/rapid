@@ -1,14 +1,44 @@
 #![feature(ptr_metadata, substr_range)]
 #![allow(clippy::too_many_arguments)]
 #![warn(missing_docs)]
+#![allow(clippy::too_many_arguments)]
+#![warn(missing_docs)]
+
 //! This library defines the core simulation entities, such as propagators,
 //! potentials, thermostats, etc.
 //! To run a simulation, simply call `[run]` with the right arguments.
 
-#![feature(new_range_api, ptr_metadata)]
-#![allow(clippy::too_many_arguments)]
-#![warn(missing_docs)]
-
+use crate::{
+    core::{
+        AtomTypeReaderLock, GroupsIter, Scheme, SchemeDependent, Vector,
+        error::{CommError, EmptyError},
+        factory::{Factory, FullFactory},
+        stat::{Bosonic, Distinguishable, Stat},
+        sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
+    },
+    estimator::{
+        classical::{
+            InnerClassicalEstimator, LeadingClassicalEstimator, MainClassicalEstimator,
+            TrailingClassicalEstimator,
+        },
+        quantum::{
+            InnerQuantumEstimator, LeadingQuantumEstimator, MainQuantumEstimator,
+            TrailingQuantumEstimator,
+        },
+    },
+    output::{ObservablesOutput, ObservablesOutputOption, ValuesOutput, VectorsOutput},
+    potential::physical::PhysicalPotential,
+    propagator::{
+        InnerPropagator, LeadingPropagator, TrailingPropagator,
+        quadratic::{
+            InnerQuadraticExpansionPropagator, LeadingQuadraticExpansionPropagator,
+            TrailingQuadraticExpansionPropagator,
+        },
+    },
+    stride_mut::StridesMut,
+    thermostat::Thermostat,
+};
+use arc_rw_lock::ElementRwLock;
 use std::{
     fmt::Display,
     iter,
@@ -17,50 +47,13 @@ use std::{
     thread,
 };
 
-use arc_rw_lock::ElementRwLock;
-
-use crate::{
-    core::{
-        AtomType, GroupImageHandle, GroupTypeHandle, GroupsIter, Scheme, SchemeDependent, Vector,
-        error::{CommError, EmptyError},
-        factory::{Factory, FullFactory},
-        stat::{Bosonic, Distinguishable, Stat},
-        sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
-    },
-    estimator::{
-        classical::{
-            InnerClassicalEstimator, LeadingClassicalEstimator, MainClassicalEstimator, TrailingClassicalEstimator,
-        },
-        quantum::{InnerQuantumEstimator, LeadingQuantumEstimator, MainQuantumEstimator, TrailingQuantumEstimator},
-    },
-    output::{ObservablesOutput, ObservablesOutputOption, ValuesOutput, VectorsOutput},
-    potential::{
-        exchange::{
-            InnerExchangePotential, LeadingExchangePotential, TrailingExchangePotential,
-            quadratic::{
-                InnerQuadraticExpansionExchangePotential, LeadingQuadraticExpansionExchangePotential,
-                TrailingQuadraticExpansionExchangePotential,
-            },
-        },
-        physical::PhysicalPotential,
-    },
-    propagator::{
-        InnerPropagator, LeadingPropagator, TrailingPropagator,
-        quadratic::{
-            InnerQuadraticExpansionPropagator, LeadingQuadraticExpansionPropagator,
-            TrailingQuadraticExpansionPropagator,
-        },
-    },
-    stride::StridesMut,
-    thermostat::Thermostat,
-};
-
 pub mod core;
 pub mod estimator;
 pub mod output;
 pub mod potential;
 pub mod propagator;
 mod stride;
+mod stride_mut;
 pub mod thermostat;
 
 /// Alias for a handle to a handle.
@@ -73,8 +66,17 @@ fn run_step_leading_group<
     V: Vector<N, Element = T> + Clone,
     AdderSender: SyncAddSender<Output> + ?Sized,
     MultiplierSender: SyncMulSender<Output> + ?Sized,
-    QuantumEst: LeadingQuantumEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
-        + ?Sized,
+    QuantumEst: LeadingQuantumEstimator<
+            T,
+            V,
+            AdderSender,
+            MultiplierSender,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+            Output = Output,
+        > + ?Sized,
     ClassicalEst: LeadingClassicalEstimator<
             T,
             V,
@@ -106,7 +108,7 @@ fn run_step_leading_group<
 >(
     step: usize,
     barrier: &Barrier,
-    atom_type: &AtomType<T>,
+    atom_type: &AtomTypeReaderLock<T>,
     adder: &mut AdderSender,
     multiplier: &mut MultiplierSender,
     mut quantum_estimators: Option<&mut [&mut QuantumEst]>,
@@ -152,12 +154,9 @@ fn run_step_leading_group<
             )?,
         };
 
-    let mut iter = momenta
-        .read()
-        .read()
-        .read()
-        .iter()
-        .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared());
+    let mut iter = momenta.read().read().read().iter().map(|momentum| {
+        T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared()
+    });
     let tmp = iter.next().ok_or(EmptyError)?;
     let group_kinetic_energy = iter.fold(tmp, |accum, elem| accum + elem);
 
@@ -167,12 +166,12 @@ fn run_step_leading_group<
                 adder,
                 multiplier,
                 match &propagator_and_exchange_potential {
-                    Scheme::Regular(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::Regular(exchange_potential.as_deref())
-                    }
-                    Scheme::QuadraticExpansion(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::QuadraticExpansion(exchange_potential.as_deref())
-                    }
+                    Scheme::Regular(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::Regular(exchange_potential.as_deref()),
+                    Scheme::QuadraticExpansion(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::QuadraticExpansion(exchange_potential.as_deref()),
                 },
                 group_physical_potential_energy.clone(),
                 group_exchange_potential_energy.clone(),
@@ -190,12 +189,12 @@ fn run_step_leading_group<
                 adder,
                 multiplier,
                 match &propagator_and_exchange_potential {
-                    Scheme::Regular(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::Regular(exchange_potential.as_deref())
-                    }
-                    Scheme::QuadraticExpansion(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::QuadraticExpansion(exchange_potential.as_deref())
-                    }
+                    Scheme::Regular(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::Regular(exchange_potential.as_deref()),
+                    Scheme::QuadraticExpansion(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::QuadraticExpansion(exchange_potential.as_deref()),
                 },
                 group_physical_potential_energy.clone(),
                 group_exchange_potential_energy.clone(),
@@ -220,10 +219,28 @@ fn run_step_inner_group<
     V: Vector<N, Element = T> + Clone,
     AdderSender: SyncAddSender<Output> + ?Sized,
     MultiplierSender: SyncMulSender<Output> + ?Sized,
-    QuantumEst: InnerQuantumEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
-        + ?Sized,
-    ClassicalEst: InnerClassicalEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
-        + ?Sized,
+    QuantumEst: InnerQuantumEstimator<
+            T,
+            V,
+            AdderSender,
+            MultiplierSender,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+            Output = Output,
+        > + ?Sized,
+    ClassicalEst: InnerClassicalEstimator<
+            T,
+            V,
+            AdderSender,
+            MultiplierSender,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+            Output = Output,
+        > + ?Sized,
     Prop: InnerPropagator<T, V, Phys, Dist, Boson, Therm> + ?Sized,
     PropQuad: InnerQuadraticExpansionPropagator<T, V, Phys, DistQuad, BosonQuad, Therm> + ?Sized,
     Phys: PhysicalPotential<T, V> + ?Sized,
@@ -243,7 +260,7 @@ fn run_step_inner_group<
 >(
     step: usize,
     barrier: &Barrier,
-    atom_type: &AtomType<T>,
+    atom_type: &AtomTypeReaderLock<T>,
     adder: &mut AdderSender,
     multiplier: &mut MultiplierSender,
     mut quantum_estimators: Option<&mut [&mut QuantumEst]>,
@@ -289,12 +306,9 @@ fn run_step_inner_group<
             )?,
         };
 
-    let mut iter = momenta
-        .read()
-        .read()
-        .read()
-        .iter()
-        .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared());
+    let mut iter = momenta.read().read().read().iter().map(|momentum| {
+        T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared()
+    });
     let tmp = iter.next().ok_or(EmptyError)?;
     let group_kinetic_energy = iter.fold(tmp, |accum, elem| accum + elem);
 
@@ -304,12 +318,12 @@ fn run_step_inner_group<
                 adder,
                 multiplier,
                 match &propagator_and_exchange_potential {
-                    Scheme::Regular(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::Regular(exchange_potential.as_deref())
-                    }
-                    Scheme::QuadraticExpansion(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::QuadraticExpansion(exchange_potential.as_deref())
-                    }
+                    Scheme::Regular(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::Regular(exchange_potential.as_deref()),
+                    Scheme::QuadraticExpansion(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::QuadraticExpansion(exchange_potential.as_deref()),
                 },
                 group_physical_potential_energy.clone(),
                 group_exchange_potential_energy.clone(),
@@ -327,12 +341,12 @@ fn run_step_inner_group<
                 adder,
                 multiplier,
                 match &propagator_and_exchange_potential {
-                    Scheme::Regular(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::Regular(exchange_potential.as_deref())
-                    }
-                    Scheme::QuadraticExpansion(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::QuadraticExpansion(exchange_potential.as_deref())
-                    }
+                    Scheme::Regular(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::Regular(exchange_potential.as_deref()),
+                    Scheme::QuadraticExpansion(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::QuadraticExpansion(exchange_potential.as_deref()),
                 },
                 group_physical_potential_energy.clone(),
                 group_exchange_potential_energy.clone(),
@@ -357,8 +371,17 @@ fn run_step_trailing_group<
     V: Vector<N, Element = T> + Clone,
     AdderSender: SyncAddSender<Output> + ?Sized,
     MultiplierSender: SyncMulSender<Output> + ?Sized,
-    QuantumEst: TrailingQuantumEstimator<T, V, AdderSender, MultiplierSender, Dist, DistQuad, Boson, BosonQuad, Output = Output>
-        + ?Sized,
+    QuantumEst: TrailingQuantumEstimator<
+            T,
+            V,
+            AdderSender,
+            MultiplierSender,
+            Dist,
+            DistQuad,
+            Boson,
+            BosonQuad,
+            Output = Output,
+        > + ?Sized,
     ClassicalEst: TrailingClassicalEstimator<
             T,
             V,
@@ -390,7 +413,7 @@ fn run_step_trailing_group<
 >(
     step: usize,
     barrier: &Barrier,
-    atom_type: &AtomType<T>,
+    atom_type: &AtomTypeReaderLock<T>,
     adder: &mut AdderSender,
     multiplier: &mut MultiplierSender,
     mut quantum_estimators: Option<&mut [&mut QuantumEst]>,
@@ -436,12 +459,9 @@ fn run_step_trailing_group<
             )?,
         };
 
-    let mut iter = momenta
-        .read()
-        .read()
-        .read()
-        .iter()
-        .map(|momentum| T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared());
+    let mut iter = momenta.read().read().read().iter().map(|momentum| {
+        T::from(0.5) * atom_type.mass.clone() * momentum.clone().magnitude_squared()
+    });
     let tmp = iter.next().ok_or(EmptyError)?;
     let group_kinetic_energy = iter.fold(tmp, |accum, elem| accum + elem);
 
@@ -451,12 +471,12 @@ fn run_step_trailing_group<
                 adder,
                 multiplier,
                 match &propagator_and_exchange_potential {
-                    Scheme::Regular(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::Regular(exchange_potential.as_deref())
-                    }
-                    Scheme::QuadraticExpansion(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::QuadraticExpansion(exchange_potential.as_deref())
-                    }
+                    Scheme::Regular(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::Regular(exchange_potential.as_deref()),
+                    Scheme::QuadraticExpansion(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::QuadraticExpansion(exchange_potential.as_deref()),
                 },
                 group_physical_potential_energy.clone(),
                 group_exchange_potential_energy.clone(),
@@ -474,12 +494,12 @@ fn run_step_trailing_group<
                 adder,
                 multiplier,
                 match &propagator_and_exchange_potential {
-                    Scheme::Regular(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::Regular(exchange_potential.as_deref())
-                    }
-                    Scheme::QuadraticExpansion(SchemeDependent { exchange_potential, .. }) => {
-                        Scheme::QuadraticExpansion(exchange_potential.as_deref())
-                    }
+                    Scheme::Regular(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::Regular(exchange_potential.as_deref()),
+                    Scheme::QuadraticExpansion(SchemeDependent {
+                        exchange_potential, ..
+                    }) => Scheme::QuadraticExpansion(exchange_potential.as_deref()),
                 },
                 group_physical_potential_energy.clone(),
                 group_exchange_potential_energy.clone(),
@@ -502,7 +522,15 @@ fn run_step_trailing_group<
 /// It is only called from the main thread.
 pub fn run<
     const N: usize,
-    T: Clone + Default + From<f32> + Add<Output = T> + Mul<Output = T> + Div<Output = T> + Display + Send + Sync,
+    T: Clone
+        + Default
+        + From<f32>
+        + Add<Output = T>
+        + Mul<Output = T>
+        + Div<Output = T>
+        + Display
+        + Send
+        + Sync,
     V: Vector<N, Element = T> + Clone + Display + Send,
     AdderReciever: SyncAddReciever<Output> + ?Sized,
     AdderSender: SyncAddSender<Output> + Send + ?Sized,
@@ -585,11 +613,17 @@ pub fn run<
         + ?Sized,
     ValsOut: ValuesOutput<Output> + ?Sized,
     PropLeading: LeadingPropagator<T, V, Phys, DistLeading, BosonLeading, Therm> + Send + ?Sized,
-    PropQuadLeading: LeadingQuadraticExpansionPropagator<T, V, Phys, DistQuadLeading, BosonQuadLeading, Therm> + Send + ?Sized,
+    PropQuadLeading: LeadingQuadraticExpansionPropagator<T, V, Phys, DistQuadLeading, BosonQuadLeading, Therm>
+        + Send
+        + ?Sized,
     PropInner: InnerPropagator<T, V, Phys, DistInner, BosonInner, Therm> + Send + ?Sized,
-    PropQuadInner: InnerQuadraticExpansionPropagator<T, V, Phys, DistQuadInner, BosonQuadInner, Therm> + Send + ?Sized,
+    PropQuadInner: InnerQuadraticExpansionPropagator<T, V, Phys, DistQuadInner, BosonQuadInner, Therm>
+        + Send
+        + ?Sized,
     PropTrailing: TrailingPropagator<T, V, Phys, DistTrailing, BosonTrailing, Therm> + Send + ?Sized,
-    PropQuadTrailing: TrailingQuadraticExpansionPropagator<T, V, Phys, DistQuadTrailing, BosonQuadTrailing, Therm> + Send + ?Sized,
+    PropQuadTrailing: TrailingQuadraticExpansionPropagator<T, V, Phys, DistQuadTrailing, BosonQuadTrailing, Therm>
+        + Send
+        + ?Sized,
     Phys: PhysicalPotential<T, V> + Send + ?Sized,
     DistLeading: LeadingExchangePotential<T, V> + Distinguishable + Send + ?Sized,
     DistQuadLeading: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + Send + ?Sized,
@@ -629,7 +663,7 @@ pub fn run<
 >(
     steps: usize,
     inner_images: usize,
-    atom_types: &[AtomType<T>],
+    atom_types: &[AtomTypeReaderLock<T>],
     adders: &mut (
              impl for<'a> FullFactory<
         'a,
@@ -651,16 +685,32 @@ pub fn run<
     > + ?Sized
          ),
     positions_out: Option<
-        &mut (impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send> + DoubleEndedIterator + ?Sized),
+        &mut (
+                 impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send>
+                 + DoubleEndedIterator
+                 + ?Sized
+             ),
     >,
     momenta_out: Option<
-        &mut (impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send> + DoubleEndedIterator + ?Sized),
+        &mut (
+                 impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send>
+                 + DoubleEndedIterator
+                 + ?Sized
+             ),
     >,
     physical_forces_out: Option<
-        &mut (impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send> + DoubleEndedIterator + ?Sized),
+        &mut (
+                 impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send>
+                 + DoubleEndedIterator
+                 + ?Sized
+             ),
     >,
     exchange_forces_out: Option<
-        &mut (impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send> + DoubleEndedIterator + ?Sized),
+        &mut (
+                 impl ExactSizeIterator<Item: DerefMut<Target = VecsOut> + Send>
+                 + DoubleEndedIterator
+                 + ?Sized
+             ),
     >,
     propagators_and_exchange_potentials: Scheme<
         SchemeDependent<
@@ -724,10 +774,22 @@ pub fn run<
         &mut ValsOut,
     >,
     physical_potentials: &mut (
-             impl for<'a> Factory<'a, T, Leading = &'a mut Phys, Inner = &'a mut Phys, Trailing = &'a mut Phys> + ?Sized
+             impl for<'a> Factory<
+        'a,
+        T,
+        Leading = &'a mut Phys,
+        Inner = &'a mut Phys,
+        Trailing = &'a mut Phys,
+    > + ?Sized
          ),
     thermostats: &mut (
-             impl for<'a> Factory<'a, T, Leading = &'a mut Therm, Inner = &'a mut Therm, Trailing = &'a mut Therm> + ?Sized
+             impl for<'a> Factory<
+        'a,
+        T,
+        Leading = &'a mut Therm,
+        Inner = &'a mut Therm,
+        Trailing = &'a mut Therm,
+    > + ?Sized
          ),
     positions: &mut (
              impl for<'a> Factory<
@@ -772,7 +834,8 @@ pub fn run<
             let n_estimators = $estimators.len();
             let mut uninit_main_estimators = Box::new_uninit_slice(n_estimators);
             let mut uninit_leading_estimators = Box::new_uninit_slice($groups * n_estimators);
-            let mut uninit_inner_estimators = Box::new_uninit_slice($groups * inner_images * n_estimators);
+            let mut uninit_inner_estimators =
+                Box::new_uninit_slice($groups * inner_images * n_estimators);
             let mut uninit_trailing_estimators = Box::new_uninit_slice($groups * n_estimators);
             for zip_items!(
                 estimator,
@@ -787,8 +850,12 @@ pub fn run<
                 StridesMut::from_slice(&mut uninit_inner_estimators, n_estimators),
                 StridesMut::from_slice(&mut uninit_trailing_estimators, n_estimators),
             ) {
-                let (main_estimator, leading_estimators, inner_estimators_iter, trailing_estimators) =
-                    estimator.produce(inner_images, atom_types);
+                let (
+                    main_estimator,
+                    leading_estimators,
+                    inner_estimators_iter,
+                    trailing_estimators,
+                ) = estimator.produce(inner_images, atom_types);
 
                 assert_eq!(leading_estimators.len(), $groups);
                 assert_eq!(inner_estimators_iter.len(), inner_images);
@@ -814,8 +881,10 @@ pub fn run<
                 for inner_estimators in inner_estimators_iter {
                     assert_eq!(inner_estimators.len(), $groups);
 
-                    for (uninit_inner_estimator, inner_estimator) in
-                        uninit_inner_estimators.by_ref().take($groups).zip(inner_estimators)
+                    for (uninit_inner_estimator, inner_estimator) in uninit_inner_estimators
+                        .by_ref()
+                        .take($groups)
+                        .zip(inner_estimators)
                     {
                         uninit_inner_estimator.write(inner_estimator);
                     }
@@ -834,9 +903,13 @@ pub fn run<
         }};
     }
 
-    let groups = atom_types.iter().map(|&AtomType { groups, .. }| groups.total()).sum();
+    let groups = atom_types
+        .iter()
+        .map(|&AtomTypeReaderLock { groups, .. }| groups.total())
+        .sum();
 
-    let (main_adder, leading_adders, inner_adders_iter, trailing_adders) = adders.produce(inner_images, atom_types);
+    let (main_adder, leading_adders, inner_adders_iter, trailing_adders) =
+        adders.produce(inner_images, atom_types);
     assert_eq!(leading_adders.len(), groups);
     assert_eq!(inner_adders_iter.len(), inner_images);
     assert_eq!(trailing_adders.len(), groups);
@@ -867,26 +940,32 @@ pub fn run<
         } else {
             (None, None, None)
         };
-    let (mut leading_physical_forces_out, mut inner_physical_forces_out_iter, mut trailing_physical_forces_out) =
-        if let Some(iter) = physical_forces_out {
-            assert_eq!(iter.len(), inner_images + 2);
+    let (
+        mut leading_physical_forces_out,
+        mut inner_physical_forces_out_iter,
+        mut trailing_physical_forces_out,
+    ) = if let Some(iter) = physical_forces_out {
+        assert_eq!(iter.len(), inner_images + 2);
 
-            let leading = iter.next().ok_or(EmptyError)?;
-            let trailing = iter.next_back().ok_or(EmptyError)?;
-            (Some(leading), Some(iter), Some(trailing))
-        } else {
-            (None, None, None)
-        };
-    let (mut leading_exchange_forces_out, mut inner_exchange_forces_out_iter, mut trailing_exchange_forces_out) =
-        if let Some(iter) = exchange_forces_out {
-            assert_eq!(iter.len(), inner_images + 2);
+        let leading = iter.next().ok_or(EmptyError)?;
+        let trailing = iter.next_back().ok_or(EmptyError)?;
+        (Some(leading), Some(iter), Some(trailing))
+    } else {
+        (None, None, None)
+    };
+    let (
+        mut leading_exchange_forces_out,
+        mut inner_exchange_forces_out_iter,
+        mut trailing_exchange_forces_out,
+    ) = if let Some(iter) = exchange_forces_out {
+        assert_eq!(iter.len(), inner_images + 2);
 
-            let leading = iter.next().ok_or(EmptyError)?;
-            let trailing = iter.next_back().ok_or(EmptyError)?;
-            (Some(leading), Some(iter), Some(trailing))
-        } else {
-            (None, None, None)
-        };
+        let leading = iter.next().ok_or(EmptyError)?;
+        let trailing = iter.next_back().ok_or(EmptyError)?;
+        (Some(leading), Some(iter), Some(trailing))
+    } else {
+        (None, None, None)
+    };
 
     let (
         mut main_estimators,
@@ -896,7 +975,12 @@ pub fn run<
             mut inner_quantum_estimators,
             mut trailing_quantum_estimators,
         ),
-        (n_debug_estimators, mut leading_debug_estimators, mut inner_debug_estimators, mut trailing_debug_estimators),
+        (
+            n_debug_estimators,
+            mut leading_debug_estimators,
+            mut inner_debug_estimators,
+            mut trailing_debug_estimators,
+        ),
     ) = match estimators {
         ObservablesOutputOption::None => (
             ObservablesOutputOption::None,
@@ -904,8 +988,13 @@ pub fn run<
             (0, None, None, None),
         ),
         ObservablesOutputOption::Quantum(ObservablesOutput { estimators, stream }) => {
-            let (n_estimators, main_estimators, leading_estimators, inner_estimators, trailing_estimators) =
-                produce_estimators!(estimators, groups);
+            let (
+                n_estimators,
+                main_estimators,
+                leading_estimators,
+                inner_estimators,
+                trailing_estimators,
+            ) = produce_estimators!(estimators, groups);
             (
                 ObservablesOutputOption::Quantum(ObservablesOutput {
                     estimators: main_estimators,
@@ -921,8 +1010,13 @@ pub fn run<
             )
         }
         ObservablesOutputOption::Classical(ObservablesOutput { estimators, stream }) => {
-            let (n_estimators, main_estimators, leading_estimators, inner_estimators, trailing_estimators) =
-                produce_estimators!(estimators, groups);
+            let (
+                n_estimators,
+                main_estimators,
+                leading_estimators,
+                inner_estimators,
+                trailing_estimators,
+            ) = produce_estimators!(estimators, groups);
             (
                 ObservablesOutputOption::Classical(ObservablesOutput {
                     estimators: main_estimators,
@@ -1037,8 +1131,11 @@ pub fn run<
             assert_eq!(inner_propagators_iter.len(), inner_images);
             assert_eq!(trailing_propagators.len(), groups);
 
-            let (leading_exchange_potentials, inner_exchange_potentials_iter, trailing_exchange_potentials) =
-                exchange_potential.produce(inner_images, atom_types);
+            let (
+                leading_exchange_potentials,
+                inner_exchange_potentials_iter,
+                trailing_exchange_potentials,
+            ) = exchange_potential.produce(inner_images, atom_types);
             assert_eq!(leading_exchange_potentials.len(), groups);
             assert_eq!(inner_exchange_potentials_iter.len(), inner_images);
             assert_eq!(trailing_exchange_potentials.len(), groups);
@@ -1068,8 +1165,11 @@ pub fn run<
             assert_eq!(inner_propagators_iter.len(), inner_images);
             assert_eq!(trailing_propagators.len(), groups);
 
-            let (leading_exchange_potentials, inner_exchange_potentials_iter, trailing_exchange_potentials) =
-                exchange_potential.produce(inner_images, atom_types);
+            let (
+                leading_exchange_potentials,
+                inner_exchange_potentials_iter,
+                trailing_exchange_potentials,
+            ) = exchange_potential.produce(inner_images, atom_types);
             assert_eq!(leading_exchange_potentials.len(), groups);
             assert_eq!(inner_exchange_potentials_iter.len(), inner_images);
             assert_eq!(trailing_exchange_potentials.len(), groups);
@@ -1102,12 +1202,14 @@ pub fn run<
     assert_eq!(inner_thermostats_iter.len(), inner_images);
     assert_eq!(trailing_thermostats.len(), groups);
 
-    let (leading_positions, inner_positions_iter, trailing_positions) = positions.produce(inner_images, atom_types);
+    let (leading_positions, inner_positions_iter, trailing_positions) =
+        positions.produce(inner_images, atom_types);
     assert_eq!(leading_positions.len(), groups);
     assert_eq!(inner_positions_iter.len(), inner_images);
     assert_eq!(trailing_positions.len(), groups);
 
-    let (leading_momenta, inner_momenta_iter, trailing_momenta) = momenta.produce(inner_images, atom_types);
+    let (leading_momenta, inner_momenta_iter, trailing_momenta) =
+        momenta.produce(inner_images, atom_types);
     assert_eq!(leading_momenta.len(), groups);
     assert_eq!(inner_momenta_iter.len(), inner_images);
     assert_eq!(trailing_momenta.len(), groups);
@@ -1162,10 +1264,12 @@ pub fn run<
                         propagator,
                         exchange_potential,
                     }) => match (propagator.next(), exchange_potential.next()) {
-                        (Some(propagator), Some(exchange_potential)) => Some(Scheme::Regular(SchemeDependent {
-                            propagator,
-                            exchange_potential,
-                        })),
+                        (Some(propagator), Some(exchange_potential)) => {
+                            Some(Scheme::Regular(SchemeDependent {
+                                propagator,
+                                exchange_potential,
+                            }))
+                        }
                         _ => None,
                     },
                     Scheme::QuadraticExpansion(SchemeDependent {
@@ -1308,7 +1412,10 @@ pub fn run<
                     if let Some(momenta_out) = leading_momenta_out.as_deref_mut() {
                         momenta_out.write(
                             step,
-                            &momenta.read().read_image().map_err(|_| CommError::Leading { group })?,
+                            &momenta
+                                .read()
+                                .read_image()
+                                .map_err(|_| CommError::Leading { group })?,
                         )?;
                     }
                     if let Some(physical_forces_out) = leading_physical_forces_out.as_deref_mut() {
@@ -1461,10 +1568,12 @@ pub fn run<
                         propagator,
                         exchange_potential,
                     }) => match (propagator.next(), exchange_potential.next()) {
-                        (Some(propagator), Some(exchange_potential)) => Some(Scheme::Regular(SchemeDependent {
-                            propagator,
-                            exchange_potential,
-                        })),
+                        (Some(propagator), Some(exchange_potential)) => {
+                            Some(Scheme::Regular(SchemeDependent {
+                                propagator,
+                                exchange_potential,
+                            }))
+                        }
                         _ => None,
                     },
                     Scheme::QuadraticExpansion(SchemeDependent {
@@ -1488,10 +1597,10 @@ pub fn run<
             inner_physical_forces_iter,
             inner_exchange_forces_iter,
         ) {
-            let mut quantum_estimators_iter =
-                inner_quantum_estimators.map(|estimators| estimators.chunks_exact_mut(n_quantum_estimators));
-            let mut debug_estimators_iter =
-                inner_debug_estimators.map(|estimators| estimators.chunks_exact_mut(n_debug_estimators));
+            let mut quantum_estimators_iter = inner_quantum_estimators
+                .map(|estimators| estimators.chunks_exact_mut(n_quantum_estimators));
+            let mut debug_estimators_iter = inner_debug_estimators
+                .map(|estimators| estimators.chunks_exact_mut(n_debug_estimators));
             let mut inner_iter = zip_iterators!(
                 GroupsIter::from_atom_types(atom_types)
                     .enumerate()
@@ -1516,10 +1625,12 @@ pub fn run<
                             propagator,
                             exchange_potential,
                         }) => match (propagator.next(), exchange_potential.next()) {
-                            (Some(propagator), Some(exchange_potential)) => Some(Scheme::Regular(SchemeDependent {
-                                propagator,
-                                exchange_potential,
-                            })),
+                            (Some(propagator), Some(exchange_potential)) => {
+                                Some(Scheme::Regular(SchemeDependent {
+                                    propagator,
+                                    exchange_potential,
+                                }))
+                            }
                             _ => None,
                         },
                         Scheme::QuadraticExpansion(SchemeDependent {
@@ -1663,10 +1774,14 @@ pub fn run<
                         if let Some(momenta_out) = inner_momenta_out.as_deref_mut() {
                             momenta_out.write(
                                 step,
-                                &momenta.read().read_image().map_err(|_| CommError::Leading { group })?,
+                                &momenta
+                                    .read()
+                                    .read_image()
+                                    .map_err(|_| CommError::Leading { group })?,
                             )?;
                         }
-                        if let Some(physical_forces_out) = inner_physical_forces_out.as_deref_mut() {
+                        if let Some(physical_forces_out) = inner_physical_forces_out.as_deref_mut()
+                        {
                             physical_forces_out.write(
                                 step,
                                 &physical_forces
@@ -1675,7 +1790,8 @@ pub fn run<
                                     .map_err(|_| CommError::Leading { group })?,
                             )?;
                         }
-                        if let Some(exchange_forces_out) = inner_exchange_forces_out.as_deref_mut() {
+                        if let Some(exchange_forces_out) = inner_exchange_forces_out.as_deref_mut()
+                        {
                             exchange_forces_out.write(
                                 step,
                                 &exchange_forces
@@ -1779,10 +1895,12 @@ pub fn run<
                         propagator,
                         exchange_potential,
                     }) => match (propagator.next(), exchange_potential.next()) {
-                        (Some(propagator), Some(exchange_potential)) => Some(Scheme::Regular(SchemeDependent {
-                            propagator,
-                            exchange_potential,
-                        })),
+                        (Some(propagator), Some(exchange_potential)) => {
+                            Some(Scheme::Regular(SchemeDependent {
+                                propagator,
+                                exchange_potential,
+                            }))
+                        }
                         _ => None,
                     },
                     Scheme::QuadraticExpansion(SchemeDependent {
@@ -1927,7 +2045,10 @@ pub fn run<
                     if let Some(momenta_out) = trailing_momenta_out.as_deref_mut() {
                         momenta_out.write(
                             step,
-                            &momenta.read().read_image().map_err(|_| CommError::Leading { group })?,
+                            &momenta
+                                .read()
+                                .read_image()
+                                .map_err(|_| CommError::Leading { group })?,
                         )?;
                     }
                     if let Some(physical_forces_out) = trailing_physical_forces_out.as_deref_mut() {

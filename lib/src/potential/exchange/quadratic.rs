@@ -1,7 +1,8 @@
 //! Traits for exchange potentials expanded to the second order.
 
-use crate::{core::GroupImageHandle, potential::exchange::ExchangePotential};
-use arc_rw_lock::UniqueArcSliceRwLock;
+use super::ExchangePotential;
+use crate::{core::AtomTypeReaderLock, stride::Stride};
+use std::iter::FusedIterator;
 
 /// A trait for exchange potential that may be expanded to second order.
 pub trait QuadraticExpansionExchangePotential<'a, T, V> {
@@ -29,14 +30,14 @@ pub trait Transform<T, V> {
     /// is the same as the number of atoms in the group allocated to it.
     fn transform(
         &mut self,
-        images_type_coordinates: &[GroupImageHandle<V>],
+        images_type_coordinates: TypeAcrossImages<V>,
         group_modes: &mut [V],
     ) -> Result<(), Self::Error>;
 
     /// Transforms all modes into the coordinates of this group.
     fn inverse_transform(
         &mut self,
-        modes: &[UniqueArcSliceRwLock<V>],
+        modes: TypeAcrossImages<V>,
         group_coordinates: &mut [V],
     ) -> Result<(), Self::Error>;
 
@@ -46,3 +47,39 @@ pub trait Transform<T, V> {
     /// the group allocated to this transformation is set.
     fn eigenvalues(&self, eigenvalues: &mut [T]) -> Result<(), Self::Error>;
 }
+
+#[derive(Debug)]
+pub struct TypeAcrossImages<'a, V>(Stride<'a, AtomTypeReaderLock<V>>);
+
+impl<'a, V> Clone for TypeAcrossImages<'a, V> {
+    fn clone(&self) -> Self {
+        Self { ..*self }
+    }
+}
+
+impl<'a, V> Copy for TypeAcrossImages<'a, V> {}
+
+impl<'a, V> Iterator for TypeAcrossImages<'a, V> {
+    type Item = &'a AtomTypeReaderLock<V>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl<'a, V> DoubleEndedIterator for TypeAcrossImages<'a, V> {
+    #[inline(always)]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.next_back()
+    }
+}
+
+impl<'a, V> ExactSizeIterator for TypeAcrossImages<'a, V> {
+    #[inline(always)]
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<'a, V> FusedIterator for TypeAcrossImages<'a, V> {}

@@ -1,5 +1,6 @@
 //! Traits for updating the forces and calculating the exchange potential energy.
 
+use super::GroupInTypeInImage;
 use macros::{efficient_alternatives, heavy_computation};
 
 pub mod quadratic;
@@ -8,6 +9,8 @@ pub mod quadratic;
 mod monte_carlo;
 #[cfg(feature = "monte_carlo")]
 pub use monte_carlo::{MonteCarloExchangePotential, NeighboringImage};
+
+use crate::core::AtomGroup;
 
 /// A trait for exchange potentials.
 pub trait ExchangePotential<T, V> {
@@ -25,9 +28,9 @@ pub trait ExchangePotential<T, V> {
     #[heavy_computation]
     fn calculate_potential_set_forces(
         &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
+        positions_prev_image: &GroupInTypeInImage<V>,
+        positions_next_image: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
     ) -> Result<T, Self::Error>;
 
@@ -38,9 +41,9 @@ pub trait ExchangePotential<T, V> {
     #[heavy_computation]
     fn calculate_potential_add_forces(
         &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
+        positions_prev_image: &GroupInTypeInImage<V>,
+        positions_next_image: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
     ) -> Result<T, Self::Error>;
 
@@ -52,28 +55,28 @@ pub trait ExchangePotential<T, V> {
     #[efficient_alternatives("calculate_potential_set_forces", "calculate_potential_add_forces")]
     fn calculate_potential(
         &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
+        positions_prev_image: &GroupInTypeInImage<V>,
+        positions_next_image: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
     ) -> Result<T, Self::Error>;
 
     /// Sets the forces of this group in this image.
     #[efficient_alternatives("calculate_potential_set_forces")]
     fn set_forces(
         &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
-        group_forces: &mut [V],
+        positions_prev_image: &GroupInTypeInImage<V>,
+        positions_next_image: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
+        group_forces: &mut [AtomGroup<V>],
     ) -> Result<(), Self::Error>;
 
     /// Adds the forces arising from this potential to the forces of this group in this image.
     #[efficient_alternatives("calculate_potential_add_forces")]
     fn add_forces(
         &mut self,
-        type_positions_prev_image: &[V],
-        type_positions_next_image: &[V],
-        type_positions: &[V],
+        positions_prev_image: &GroupInTypeInImage<V>,
+        positions_next_image: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
     ) -> Result<(), Self::Error>;
 }

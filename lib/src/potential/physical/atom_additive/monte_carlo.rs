@@ -1,7 +1,9 @@
-use super::AtomAdditivePhysicalPotential;
+use super::{
+    super::MonteCarloPhysicalPotential, AdditivePhysicalPotential, AtomAdditivePhysicalPotential,
+};
 use crate::{
-    core::{Additive as AdditiveMonteCarloPhysicalPotential, GroupTypeHandle, error::InvalidIndexError},
-    potential::physical::MonteCarloPhysicalPotential,
+    core::{error::InvalidIndexError, monte_carlo::ChangedGroup},
+    potential::GroupInTypeInImage,
 };
 use macros::efficient_alternatives;
 use std::ops::Add;
@@ -10,14 +12,16 @@ use std::ops::Add;
 ///
 /// For any type `P` that implements this trait, [`AdditiveMonteCarloPhysicalPotential<P>`]
 /// atomatically implements [`MonteCarloPhysicalPotential`].
-pub trait AtomAdditiveMonteCarloPhysicalPotential<T, V>: AtomAdditivePhysicalPotential<T, V>
+pub trait AtomAdditiveMonteCarloPhysicalPotential<T, V>:
+    AtomAdditivePhysicalPotential<T, V>
 where
-    T: Default + Add<Output = T>,
+    T: Add<Output = T>,
 {
     /// The type of error `Self` returns.
     type ErrorAtom;
     /// The type of error [`AdditiveMonteCarloPhysicalPotential<Self>`] returns.
-    type ErrorSystem: From<<Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom> + From<InvalidIndexError>;
+    type ErrorSystem: From<<Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom>
+        + From<InvalidIndexError>;
 
     /// Calculates the change in the physical potential energy of this atom
     /// after a change in its position and sets the force of this atom accordingly.
@@ -81,7 +85,7 @@ where
     ) -> Result<(), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom>;
 }
 
-impl<T, V, P> AtomAdditiveMonteCarloPhysicalPotential<T, V> for AdditiveMonteCarloPhysicalPotential<P>
+impl<T, V, P> AtomAdditiveMonteCarloPhysicalPotential<T, V> for AdditivePhysicalPotential<P>
 where
     T: Default + Add<Output = T>,
     P: AtomAdditiveMonteCarloPhysicalPotential<T, V> + ?Sized,
@@ -121,7 +125,8 @@ where
         position: &V,
     ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom> {
         #[allow(deprecated)]
-        self.0.calculate_potential_diff(atom_index, old_value, position)
+        self.0
+            .calculate_potential_diff(atom_index, old_value, position)
     }
 
     #[inline(always)]
@@ -133,7 +138,8 @@ where
         force: &mut V,
     ) -> Result<(), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom> {
         #[allow(deprecated)]
-        self.0.set_changed_force(atom_index, old_value, position, force)
+        self.0
+            .set_changed_force(atom_index, old_value, position, force)
     }
 
     #[inline(always)]
@@ -145,13 +151,14 @@ where
         force: &mut V,
     ) -> Result<(), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom> {
         #[allow(deprecated)]
-        self.0.add_changed_force(atom_index, old_value, position, force)
+        self.0
+            .add_changed_force(atom_index, old_value, position, force)
     }
 }
 
-impl<T, V, P> MonteCarloPhysicalPotential<T, V> for AdditiveMonteCarloPhysicalPotential<P>
+impl<T, V, P> MonteCarloPhysicalPotential<T, V> for AdditivePhysicalPotential<P>
 where
-    T: Default + Add<Output = T>,
+    T: Add<Output = T>,
     P: ?Sized,
     Self: AtomAdditiveMonteCarloPhysicalPotential<T, V>,
 {
@@ -159,121 +166,105 @@ where
 
     fn calculate_potential_diff_set_changed_forces(
         &mut self,
-        changed_group_index: usize,
+        changed_group_index: ChangedGroup,
         changed_atom_index: usize,
         old_value: V,
-        groups_positions: &[GroupTypeHandle<V>],
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
-    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V>>::Error> {
-        if self.group_index() == changed_group_index {
-            let group_positions = groups_positions
-                .get(changed_group_index)
-                .ok_or_else(|| InvalidIndexError::new(changed_group_index, groups_positions.len()))?
-                .read();
+    ) -> Result<Option<T>, <Self as MonteCarloPhysicalPotential<T, V>>::Error> {
+        if let ChangedGroup::This = changed_group_index {
             let group_forces_len = group_forces.len();
-            Ok(
+            Ok(Some(
                 AtomAdditiveMonteCarloPhysicalPotential::calculate_potential_diff_set_changed_force(
                     self,
                     changed_atom_index,
                     old_value,
-                    group_positions
+                    positions
                         .get(changed_atom_index)
-                        .ok_or(InvalidIndexError::new(changed_atom_index, group_positions.len()))?,
+                        .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
                     group_forces
                         .get_mut(changed_atom_index)
-                        .ok_or(InvalidIndexError::new(changed_atom_index, group_forces_len))?,
+                        .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
                 )?,
-            )
+            ))
         } else {
-            Ok(T::default())
+            Ok(None)
         }
     }
 
     fn calculate_potential_diff_add_changed_forces(
         &mut self,
-        changed_group_index: usize,
+        changed_group_index: ChangedGroup,
         changed_atom_index: usize,
         old_value: V,
-        groups_positions: &[GroupTypeHandle<V>],
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
-    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V>>::Error> {
-        if self.group_index() == changed_group_index {
-            let group_positions = groups_positions
-                .get(changed_group_index)
-                .ok_or_else(|| InvalidIndexError::new(changed_group_index, groups_positions.len()))?
-                .read();
+    ) -> Result<Option<T>, <Self as MonteCarloPhysicalPotential<T, V>>::Error> {
+        if let ChangedGroup::This = changed_group_index {
             let group_forces_len = group_forces.len();
-            Ok(
+            Ok(Some(
                 AtomAdditiveMonteCarloPhysicalPotential::calculate_potential_diff_add_changed_force(
                     self,
                     changed_atom_index,
                     old_value,
-                    group_positions
+                    positions
                         .get(changed_atom_index)
-                        .ok_or(InvalidIndexError::new(changed_atom_index, group_positions.len()))?,
+                        .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
                     group_forces
                         .get_mut(changed_atom_index)
-                        .ok_or(InvalidIndexError::new(changed_atom_index, group_forces_len))?,
+                        .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
                 )?,
-            )
+            ))
         } else {
-            Ok(T::default())
+            Ok(None)
         }
     }
 
     fn calculate_potential_diff(
         &mut self,
-        changed_group_index: usize,
+        changed_group_index: ChangedGroup,
         changed_atom_index: usize,
         old_value: V,
-        groups_positions: &[GroupTypeHandle<V>],
-    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V>>::Error> {
-        if self.group_index() == changed_group_index {
-            let group_positions = groups_positions
-                .get(changed_group_index)
-                .ok_or_else(|| InvalidIndexError::new(changed_group_index, groups_positions.len()))?
-                .read();
-            Ok(
-                #[allow(deprecated)]
+        positions: &GroupInTypeInImage<V>,
+    ) -> Result<Option<T>, <Self as MonteCarloPhysicalPotential<T, V>>::Error> {
+        if let ChangedGroup::This = changed_group_index {
+            #[allow(deprecated)]
+            Ok(Some(
                 AtomAdditiveMonteCarloPhysicalPotential::calculate_potential_diff(
                     self,
                     changed_atom_index,
                     old_value,
-                    group_positions
-                        .get(changed_atom_index)
-                        .ok_or(InvalidIndexError::new(changed_atom_index, group_positions.len()))?,
+                    positions.get(changed_atom_index).ok_or_else(|| {
+                        InvalidIndexError::new(changed_atom_index, positions.len())
+                    })?,
                 )?,
-            )
+            ))
         } else {
-            Ok(T::default())
+            Ok(None)
         }
     }
 
     fn set_changed_forces(
         &mut self,
-        changed_group_index: usize,
+        changed_group_index: ChangedGroup,
         changed_atom_index: usize,
         old_value: V,
-        groups_positions: &[GroupTypeHandle<V>],
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V>>::Error> {
-        if self.group_index() == changed_group_index {
-            let group_positions = groups_positions
-                .get(changed_group_index)
-                .ok_or_else(|| InvalidIndexError::new(changed_group_index, groups_positions.len()))?
-                .read();
+        if let ChangedGroup::This = changed_group_index {
             let group_forces_len = group_forces.len();
             #[allow(deprecated)]
             AtomAdditiveMonteCarloPhysicalPotential::set_changed_force(
                 self,
                 changed_atom_index,
                 old_value,
-                group_positions
+                positions
                     .get(changed_atom_index)
-                    .ok_or(InvalidIndexError::new(changed_atom_index, group_positions.len()))?,
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
                 group_forces
                     .get_mut(changed_atom_index)
-                    .ok_or(InvalidIndexError::new(changed_atom_index, group_forces_len))?,
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
             )?;
         }
         Ok(())
@@ -281,29 +272,25 @@ where
 
     fn add_changed_forces(
         &mut self,
-        changed_group_index: usize,
+        changed_group_index: ChangedGroup,
         changed_atom_index: usize,
         old_value: V,
-        groups_positions: &[GroupTypeHandle<V>],
+        positions: &GroupInTypeInImage<V>,
         group_forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V>>::Error> {
-        if self.group_index() == changed_group_index {
-            let group_positions = groups_positions
-                .get(changed_group_index)
-                .ok_or_else(|| InvalidIndexError::new(changed_group_index, groups_positions.len()))?
-                .read();
+        if let ChangedGroup::This = changed_group_index {
             let group_forces_len = group_forces.len();
             #[allow(deprecated)]
-            AtomAdditiveMonteCarloPhysicalPotential::add_changed_force(
+            AtomAdditiveMonteCarloPhysicalPotential::set_changed_force(
                 self,
                 changed_atom_index,
                 old_value,
-                group_positions
+                positions
                     .get(changed_atom_index)
-                    .ok_or(InvalidIndexError::new(changed_atom_index, group_positions.len()))?,
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
                 group_forces
                     .get_mut(changed_atom_index)
-                    .ok_or(InvalidIndexError::new(changed_atom_index, group_forces_len))?,
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
             )?;
         }
         Ok(())

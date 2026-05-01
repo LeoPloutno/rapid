@@ -1,13 +1,42 @@
-use std::{alloc::Allocator, mem, ops::Range, process, ptr::NonNull, sync::atomic::Ordering};
-
 use crate::{
-    ElementRwLock, SliceRwLock, UniqueArcSliceRwLock,
+    ArcMappedRwLock, ArcReaderLock, MappedRwLock, MappedRwLockGuard, ReaderLock, ReaderLockGuard,
+    UniqueArcMappedRwLock,
     arc::InnerArc,
     slice::{iter::IterMut, iter_mut::Iter},
+};
+use std::{
+    alloc::{Allocator, Global},
+    mem,
+    ops::Range,
+    process,
+    ptr::NonNull,
+    sync::atomic::Ordering,
 };
 
 mod iter;
 mod iter_mut;
+
+pub type ElementRwLock<T> = MappedRwLock<T, [T]>;
+
+pub type ElementRwLockGuard<'a, T> = MappedRwLockGuard<'a, T>;
+
+pub type ArcElementRwLock<T, A = Global> = ArcMappedRwLock<T, [T], A>;
+
+pub type UniqueArcElementRwLock<T, A = Global> = UniqueArcMappedRwLock<T, [T], A>;
+
+pub type SliceRwLock<T> = MappedRwLock<[T], [T]>;
+
+pub type SliceRwLockGuard<'a, T> = MappedRwLockGuard<'a, [T]>;
+
+pub type SliceReaderLock<T> = ReaderLock<[T]>;
+
+pub type SliceReaderLockGuard<'a, T> = ReaderLockGuard<'a, [T]>;
+
+pub type ArcSliceRwLock<T, A = Global> = ArcMappedRwLock<[T], [T], A>;
+
+pub type ArcSliceReaderLock<T, A = Global> = ArcReaderLock<[T], A>;
+
+pub type UniqueArcSliceRwLock<T, A = Global> = UniqueArcMappedRwLock<[T], [T], A>;
 
 impl<T> ElementRwLock<T> {
     pub const fn element_offset(&self) -> usize {

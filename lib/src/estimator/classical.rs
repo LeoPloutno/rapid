@@ -36,7 +36,11 @@ where
     type Error;
 
     /// Calculates the quantity.
-    fn calculate(&mut self, adder: &mut Adder, multiplier: &mut Multiplier) -> Result<Self::Output, Self::Error>;
+    fn calculate(
+        &mut self,
+        adder: &mut Adder,
+        multiplier: &mut Multiplier,
+    ) -> Result<Self::Output, Self::Error>;
 }
 
 /// A trait for quantities calculated from the whole system treated as a classical one,
@@ -46,7 +50,8 @@ where
     Adder: SyncAddSender<Self::Output> + ?Sized,
     Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: LeadingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
@@ -152,7 +157,8 @@ where
     Adder: SyncAddSender<Self::Output> + ?Sized,
     Multiplier: SyncMulSender<Self::Output> + ?Sized,
     Dist: TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+    DistQuad:
+        for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
     Boson: TrailingExchangePotential<T, V> + Bosonic + ?Sized,
     BosonQuad: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
 {
@@ -202,10 +208,28 @@ impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
     LeadingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
 where
     Adder: SyncAddSender<
-            <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Multiplier: SyncMulSender<
-            <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + LeadingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
@@ -217,10 +241,30 @@ where
         + for<'a> LeadingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    E: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsLeading + ?Sized,
+    E: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
+        + InnerIsLeading
+        + ?Sized,
 {
-    type Output = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type Error = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Error;
+    type Output = <Self as InnerClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type Error = <Self as InnerClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Error;
 
     fn calculate_distinguishable(
         &mut self,
@@ -287,10 +331,28 @@ impl<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad, E>
     TrailingClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> for E
 where
     Adder: SyncAddSender<
-            <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Multiplier: SyncMulSender<
-            <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output,
+            <Self as InnerClassicalEstimator<
+                T,
+                V,
+                Adder,
+                Multiplier,
+                Dist,
+                DistQuad,
+                Boson,
+                BosonQuad,
+            >>::Output,
         > + ?Sized,
     Dist: InnerExchangePotential<T, V> + TrailingExchangePotential<T, V> + Distinguishable + ?Sized,
     DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V>
@@ -302,10 +364,30 @@ where
         + for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V>
         + Bosonic
         + ?Sized,
-    E: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad> + InnerIsTrailing + ?Sized,
+    E: InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>
+        + InnerIsTrailing
+        + ?Sized,
 {
-    type Output = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Output;
-    type Error = <Self as InnerClassicalEstimator<T, V, Adder, Multiplier, Dist, DistQuad, Boson, BosonQuad>>::Error;
+    type Output = <Self as InnerClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Output;
+    type Error = <Self as InnerClassicalEstimator<
+        T,
+        V,
+        Adder,
+        Multiplier,
+        Dist,
+        DistQuad,
+        Boson,
+        BosonQuad,
+    >>::Error;
 
     fn calculate_distinguishable(
         &mut self,

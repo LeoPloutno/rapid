@@ -13,7 +13,11 @@ mod mapped {
         sync::atomic::{self, Ordering},
     };
 
-    pub struct ArcMappedRwLock<T: ?Sized, U: ?Sized = dyn Send + Sync + 'static, A: Allocator = Global> {
+    pub struct ArcMappedRwLock<
+        T: ?Sized,
+        U: ?Sized = dyn Send + Sync + 'static,
+        A: Allocator = Global,
+    > {
         pub(crate) lock: MappedRwLock<T, U>,
         pub(crate) allocator: A,
     }
@@ -75,7 +79,11 @@ mod mapped {
     {
     }
 
-    pub struct UniqueArcMappedRwLock<T: ?Sized, U: ?Sized = dyn Send + Sync + 'static, A: Allocator = Global> {
+    pub struct UniqueArcMappedRwLock<
+        T: ?Sized,
+        U: ?Sized = dyn Send + Sync + 'static,
+        A: Allocator = Global,
+    > {
         pub(crate) lock: MappedRwLock<T, U>,
         pub(crate) allocator: A,
     }
@@ -115,25 +123,33 @@ mod mapped {
         }
     }
 
-    impl<T: ?Sized, U: ?Sized, A: Allocator> AsRef<MappedRwLock<T, U>> for UniqueArcMappedRwLock<T, U, A> {
+    impl<T: ?Sized, U: ?Sized, A: Allocator> AsRef<MappedRwLock<T, U>>
+        for UniqueArcMappedRwLock<T, U, A>
+    {
         fn as_ref(&self) -> &MappedRwLock<T, U> {
             &self.lock
         }
     }
 
-    impl<T: ?Sized, U: ?Sized, A: Allocator> AsMut<MappedRwLock<T, U>> for UniqueArcMappedRwLock<T, U, A> {
+    impl<T: ?Sized, U: ?Sized, A: Allocator> AsMut<MappedRwLock<T, U>>
+        for UniqueArcMappedRwLock<T, U, A>
+    {
         fn as_mut(&mut self) -> &mut MappedRwLock<T, U> {
             &mut self.lock
         }
     }
 
-    impl<T: ?Sized, U: ?Sized, A: Allocator> Borrow<MappedRwLock<T, U>> for UniqueArcMappedRwLock<T, U, A> {
+    impl<T: ?Sized, U: ?Sized, A: Allocator> Borrow<MappedRwLock<T, U>>
+        for UniqueArcMappedRwLock<T, U, A>
+    {
         fn borrow(&self) -> &MappedRwLock<T, U> {
             &self.lock
         }
     }
 
-    impl<T: ?Sized, U: ?Sized, A: Allocator> BorrowMut<MappedRwLock<T, U>> for UniqueArcMappedRwLock<T, U, A> {
+    impl<T: ?Sized, U: ?Sized, A: Allocator> BorrowMut<MappedRwLock<T, U>>
+        for UniqueArcMappedRwLock<T, U, A>
+    {
         fn borrow_mut(&mut self) -> &mut MappedRwLock<T, U> {
             &mut self.lock
         }

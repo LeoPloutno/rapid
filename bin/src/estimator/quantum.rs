@@ -12,8 +12,12 @@ mod virial_kinetic_energy {
             stat::{Bosonic, Distinguishable},
             sync_ops::{SyncAddReciever, SyncAddSender},
         },
-        estimator::quantum::atom_additive::{InnerAtomAdditiveQuantumEstimator, MainAtomAdditiveQuantumEstimator},
-        potential::exchange::{InnerExchangePotential, quadratic::InnerQuadraticExpansionExchangePotential},
+        estimator::quantum::atom_additive::{
+            InnerAtomAdditiveQuantumEstimator, MainAtomAdditiveQuantumEstimator,
+        },
+        potential::exchange::{
+            InnerExchangePotential, quadratic::InnerQuadraticExpansionExchangePotential,
+        },
     };
 
     pub struct VirialKineticEnergy<const N: usize>;
@@ -28,7 +32,8 @@ mod virial_kinetic_energy {
 
     impl<const N: usize> InnerIsTrailing for VirialKineticEnergy<N> {}
 
-    impl<const N: usize, T, V, Adder> MainAtomAdditiveQuantumEstimator<T, V, Adder> for VirialKineticEnergy<N>
+    impl<const N: usize, T, V, Adder> MainAtomAdditiveQuantumEstimator<T, V, Adder>
+        for VirialKineticEnergy<N>
     where
         Adder: SyncAddReciever<T, Error: Error + 'static> + ?Sized,
     {
@@ -37,13 +42,15 @@ mod virial_kinetic_energy {
     }
 
     impl<const N: usize, T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
-        InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad> for VirialKineticEnergy<N>
+        InnerAtomAdditiveQuantumEstimator<T, V, Adder, Dist, DistQuad, Boson, BosonQuad>
+        for VirialKineticEnergy<N>
     where
         T: Clone + From<f32> + Add<Output = T> + Mul<Output = T>,
         V: Vector<N, Element = T> + Clone,
         Adder: SyncAddSender<T, Error: Error + 'static> + ?Sized,
         Dist: InnerExchangePotential<T, V> + Distinguishable + ?Sized,
-        DistQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
+        DistQuad:
+            for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
         Boson: InnerExchangePotential<T, V> + Bosonic + ?Sized,
         BosonQuad: for<'a> InnerQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
     {
