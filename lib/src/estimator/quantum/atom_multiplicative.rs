@@ -1,4 +1,4 @@
-//! Traits and types for estimators that can be expressed as a product of observables
+//! Traits and types for quantum estimators that can be expressed as a product of observables
 //! that depend only on a single atom.
 
 use super::{

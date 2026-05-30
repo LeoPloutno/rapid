@@ -26,7 +26,7 @@ use crate::{
             TrailingQuantumEstimator,
         },
     },
-    output::{ObservablesOutput, ObservablesOutputOption, ValuesOutput, VectorsOutput},
+    output::{ObservablesOutput, ObservablesOutputOption, ValuesStream, VectorsStream},
     potential::physical::PhysicalPotential,
     propagator::{
         InnerPropagator, LeadingPropagator, TrailingPropagator,
@@ -536,7 +536,7 @@ pub fn run<
     AdderSender: SyncAddSender<Output> + Send + ?Sized,
     MultiplierReciever: SyncMulReciever<Output> + ?Sized,
     MultiplierSender: SyncMulSender<Output> + Send + ?Sized,
-    VecsOut: VectorsOutput<N, T, V> + ?Sized,
+    VecsOut: VectorsStream<N, T, V> + ?Sized,
     QuantumEstMain: MainQuantumEstimator<T, V, AdderReciever, MultiplierReciever, Output = Output> + Send + ?Sized,
     QuantumEstLeading: LeadingQuantumEstimator<
             T,
@@ -611,7 +611,7 @@ pub fn run<
             Output = Output,
         > + Send
         + ?Sized,
-    ValsOut: ValuesOutput<Output> + ?Sized,
+    ValsOut: ValuesStream<Output> + ?Sized,
     PropLeading: LeadingPropagator<T, V, Phys, DistLeading, BosonLeading, Therm> + Send + ?Sized,
     PropQuadLeading: LeadingQuadraticExpansionPropagator<T, V, Phys, DistQuadLeading, BosonQuadLeading, Therm>
         + Send

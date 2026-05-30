@@ -1,4 +1,4 @@
-//! Traits and types for estimators that can be expressed as a sum of observables
+//! Traits and types for qunatum estimators that can be expressed as a sum of observables
 //! that depend only on a single atom.
 
 use super::{

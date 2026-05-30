@@ -2,7 +2,7 @@
 
 use crate::{
     core::{
-        AtomGroup, AtomTypeReaderLock, MapInWhole, MapOutsideWhole, Scheme,
+        GroupInTypeInImageInSystem, Scheme,
         stat::{Bosonic, Distinguishable},
         sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
     },
@@ -64,14 +64,6 @@ impl<E> MinimalQuantumEstimator<E> {
         Self(value)
     }
 }
-
-pub type GroupInTypeInImageInSystem<'a, V> = MapOutsideWhole<
-    &'a AtomGroup<V>,
-    MapInWhole<
-        &'a AtomTypeReaderLock<V>,
-        MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>,
-    >,
->;
 
 /// A trait for quantum estimators that recieve
 /// the calculations of quantum estimator senders

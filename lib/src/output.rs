@@ -2,41 +2,45 @@
 
 use std::ops::{Deref, DerefMut};
 
-use crate::core::{GroupTypeHandle, Vector};
+use crate::core::{GroupInTypeInImageInSystem, Vector};
 
-/// A trait for streams that write to coordinate files, such as '.xyz' files.
-pub trait VectorsOutput<const N: usize, T, V>
-where
-    V: Vector<N, Element = T>,
-{
+/// A trait for streams that write into a file as the simulation progresses.
+pub trait StepStream {
     /// The type associated with an error returned by the implementor.
     type Error;
 
-    /// Write the vectors of the atoms in all groups to the stream.
-    fn write(&mut self, step: usize, vectors: &[GroupTypeHandle<V>]) -> Result<(), Self::Error>;
-}
-
-/// A trait for streams that write values into the output file.
-pub trait ValuesOutput<T> {
-    /// The type associated with an error returned by the implementor.
-    type Error;
-
-    /// Writes the prelude.
-    fn write_step(&mut self, step: usize) -> Result<(), Self::Error>;
-
-    /// Writes the value.
-    fn write_value(&mut self, value: T) -> Result<(), Self::Error>;
+    /// Writes a prelude.
+    fn write_prelude(&mut self, step: usize) -> Result<(), Self::Error>;
 
     /// Ends the current line and starts a new one.
     fn new_line(&mut self) -> Result<(), Self::Error>;
 }
 
+/// A trait for streams that write to coordinate files, such as '.xyz' files.
+pub trait VectorsStream<const N: usize, T, V>: StepStream
+where
+    V: Vector<N, Element = T>,
+{
+    /// Writes the vectors.
+    fn write_vectors(
+        &mut self,
+        step: usize,
+        vectors: &GroupInTypeInImageInSystem<V>,
+    ) -> Result<(), Self::Error>;
+}
+
+/// A trait for streams that write values into the output file.
+pub trait ValuesStream<T>: StepStream {
+    /// Writes the value.
+    fn write_value(&mut self, value: T) -> Result<(), Self::Error>;
+}
+
 /// A struct which contains the estimators and the output stream.
-pub struct ObservablesOutput<T, U> {
+pub struct ObservablesOutput<E, O> {
     /// The estimators.
-    pub estimators: T,
+    pub estimators: E,
     /// The stream.
-    pub stream: U,
+    pub stream: O,
 }
 
 /// An enum which contains the estimators and output stream for the two kinds of observables.
