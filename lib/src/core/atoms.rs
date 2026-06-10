@@ -1,4 +1,4 @@
-use std::{iter::FusedIterator, num::NonZeroUsize, slice::Iter};
+use std::{iter::FusedIterator, num::NonZeroUsize};
 
 use crate::core::stat::Stat;
 
@@ -124,6 +124,7 @@ impl ExactSizeIterator for GroupSizesIter {
 
 impl FusedIterator for GroupSizesIter {}
 
+/*
 /// An iterator over `(atom_type, group_size)` pairs.
 pub struct GroupsIter<'a, T> {
     atom_types_iter: Iter<'a, AtomType<T>>,
@@ -178,3 +179,4 @@ impl<'a, T> Iterator for GroupsIter<'a, T> {
 }
 
 impl<'a, T> FusedIterator for GroupsIter<'a, T> {}
+*/

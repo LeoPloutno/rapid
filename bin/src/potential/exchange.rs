@@ -1,5 +1,8 @@
 mod distinguishable {
-    use std::ops::{Add, Mul, Range};
+    use std::{
+        ops::{Add, Mul},
+        range::Range,
+    };
 
     use lib::{
         core::{

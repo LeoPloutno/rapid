@@ -3,7 +3,7 @@ use std::{
     convert::Infallible,
     error::Error,
     fmt::{Display, Formatter, Result as FmtResult},
-    ops::Range,
+    range::Range,
 };
 
 /// An error that represents invalid indexing with indices.

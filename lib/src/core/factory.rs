@@ -1,6 +1,6 @@
 //! Traits for producing different yet connected types of objects.
 
-use crate::core::atoms::AtomType;
+use crate::core::atoms::AtomTypeInfo;
 
 /// A trait for "factories" that produce iterators for leading, inner and trailing images.
 pub trait Factory<'a, T> {
@@ -21,7 +21,7 @@ pub trait Factory<'a, T> {
     fn produce(
         &'a mut self,
         inner_images: usize,
-        atom_types: &[AtomType<T>],
+        atom_types: &[AtomTypeInfo<T>],
     ) -> (Self::LeadingIter, Self::InnerIter, Self::TrailingIter);
 }
 
@@ -46,7 +46,7 @@ pub trait FullFactory<'a, T> {
     fn produce(
         &'a mut self,
         inner_images: usize,
-        atom_types: &[AtomType<T>],
+        atom_types: &[AtomTypeInfo<T>],
     ) -> (
         Self::Main,
         Self::LeadingIter,

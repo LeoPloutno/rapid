@@ -544,7 +544,7 @@ pub type GroupInTypeInImageInSystem<'a, V> = MapOutsideWhole<
 
 mod atoms;
 
-pub use atoms::{AtomTypeInfo, GroupSizes, GroupSizesIter, GroupsIter};
+pub use atoms::{AtomTypeInfo, GroupSizes, GroupSizesIter};
 
 pub mod error;
 

@@ -6,10 +6,9 @@ use crate::{
 };
 use std::{
     alloc::{Allocator, Global},
-    mem,
-    ops::Range,
-    process,
+    mem, process,
     ptr::NonNull,
+    range::Range,
     sync::atomic::Ordering,
 };
 
@@ -61,11 +60,11 @@ impl<T> SliceRwLock<T> {
         let ptr = ptr.cast::<T>();
         // SAFETY: By construction, `ptr` points to a subslice of `ptr_whole`.
         let start = unsafe { ptr.offset_from_unsigned(ptr_whole) };
-        start
-            ..(
-                // SAFETY: By construction, `start + len` points within or right outside the allocation.
-                unsafe { start.unchecked_add(len) }
-            )
+        Range {
+            start,
+            // SAFETY: By construction, `start + len` points within or right outside the allocation.
+            end: unsafe { start.unchecked_add(len) },
+        }
     }
 }
 
