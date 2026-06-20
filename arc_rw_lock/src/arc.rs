@@ -180,6 +180,7 @@ mod reader {
         alloc::{Allocator, Global},
         borrow::Borrow,
         convert::AsRef,
+        fmt::Debug,
         mem::needs_drop,
         ops::Deref,
         sync::atomic::{self, Ordering},
@@ -243,6 +244,12 @@ mod reader {
         T: Send + Sync + ?Sized,
         A: Allocator + Sync,
     {
+    }
+
+    impl<T: ?Sized, A: Allocator> Debug for ArcReaderLock<T, A> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            todo!()
+        }
     }
 }
 pub use reader::ArcReaderLock;

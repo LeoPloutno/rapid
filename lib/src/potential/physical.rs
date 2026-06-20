@@ -1,14 +1,12 @@
 //! Traits for updating the forces and calculating the physical potential energy.
 
+use super::GroupInTypeInImage;
+use crate::core::sync_ops::{SyncAddReceiver, SyncAddSender, SyncMulReceiver, SyncMulSender};
+use macros::{efficient_alternatives, heavy_computation};
 use std::sync::{
     Barrier, RwLock,
     mpsc::{Receiver, Sender},
 };
-
-use crate::core::sync_ops::{SyncAddReceiver, SyncAddSender, SyncMulReceiver, SyncMulSender};
-
-use super::GroupInTypeInImage;
-use macros::{efficient_alternatives, heavy_computation};
 
 mod atom_additive;
 pub use atom_additive::AtomAdditivePhysicalPotential;
@@ -46,7 +44,7 @@ where
         adder: &mut AS,
         multiplier: &mut MS,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), Self::Error>;
 
     /// Calculates the contribution of this group to the total physical potential energy
@@ -63,7 +61,7 @@ where
         adder: &mut AR,
         multiplier: &mut MR,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group to the total physical potential energy
@@ -79,7 +77,7 @@ where
         adder: &mut AS,
         multiplier: &mut MS,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), Self::Error>;
 
     /// Calculates the contribution of this group to the total physical potential energy
@@ -96,7 +94,7 @@ where
         adder: &mut AR,
         multiplier: &mut MR,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<T, Self::Error>;
 
     /// Calculates the contribution of this group to the total physical potential energy
@@ -146,7 +144,7 @@ where
     fn set_forces(
         &mut self,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), Self::Error>;
 
     /// Adds the forces arising from this potential to the forces of this group.
@@ -157,6 +155,6 @@ where
     fn add_forces(
         &mut self,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), Self::Error>;
 }

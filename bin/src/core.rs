@@ -50,7 +50,7 @@ mod unimplemented {
             _type_positions_prev_image: &[V],
             _type_positions_next_image: &[V],
             _type_positions: &[V],
-            _group_forces: &mut [V],
+            _forces_group: &mut [V],
         ) -> Result<T, Self::Error> {
             Err(UnimplementedError)
         }
@@ -60,7 +60,7 @@ mod unimplemented {
             _type_positions_prev_image: &[V],
             _type_positions_next_image: &[V],
             _type_positions: &[V],
-            _group_forces: &mut [V],
+            _forces_group: &mut [V],
         ) -> Result<T, Self::Error> {
             Err(UnimplementedError)
         }
@@ -79,7 +79,7 @@ mod unimplemented {
             _type_positions_prev_image: &[V],
             _type_positions_next_image: &[V],
             _type_positions: &[V],
-            _group_forces: &mut [V],
+            _forces_group: &mut [V],
         ) -> Result<(), Self::Error> {
             Err(UnimplementedError)
         }
@@ -89,7 +89,7 @@ mod unimplemented {
             _type_positions_prev_image: &[V],
             _type_positions_next_image: &[V],
             _type_positions: &[V],
-            _group_forces: &mut [V],
+            _forces_group: &mut [V],
         ) -> Result<(), Self::Error> {
             Err(UnimplementedError)
         }

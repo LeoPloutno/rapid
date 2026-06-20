@@ -43,7 +43,7 @@ where
         old_energy: T,
         old_position: V,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error>;
 
     /// Calculates the contribution of this group to the change in total physical
@@ -65,7 +65,7 @@ where
         old_energy: T,
         old_position: V,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error>;
 
     /// Calculates the contribution of this group to the change in total physical
@@ -86,7 +86,7 @@ where
         old_energy: T,
         old_position: V,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error>;
 
     /// Calculates the contribution of this group to the change in total physical
@@ -108,7 +108,7 @@ where
         old_energy: T,
         old_position: V,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error>;
 
     /// Calculates the contribution of this group to the change in total physical
@@ -169,7 +169,7 @@ where
         changed_atom_index: usize,
         old_position: V,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error>;
 
     /// Adds the forces arising from this potential to the forces of this group
@@ -184,6 +184,6 @@ where
         changed_atom_index: usize,
         old_position: V,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error>;
 }

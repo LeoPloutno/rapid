@@ -1,18 +1,30 @@
 //! Traits for exchange potentials expanded to the second order.
 
 use super::ExchangePotential;
-use crate::{core::AtomTypeReaderLock, stride::Stride};
+use crate::{
+    core::{
+        AtomTypeReaderLock,
+        sync_ops::{SyncAddReceiver, SyncAddSender, SyncMulReceiver, SyncMulSender},
+    },
+    stride::Stride,
+};
 use std::iter::FusedIterator;
 
 /// A trait for exchange potential that may be expanded to second order.
-pub trait QuadraticExpansionExchangePotential<'a, T, V> {
+pub trait QuadraticExpansionExchangePotential<'a, T, V, AS, MS, AR, MR>
+where
+    AS: SyncAddSender<T> + ?Sized,
+    MS: SyncMulSender<T> + ?Sized,
+    AR: SyncAddReceiver<T> + ?Sized,
+    MR: SyncMulReceiver<T> + ?Sized,
+{
     /// The transformation that yields the modes such that
     /// the second order term is the sum over all modes squared times their
     /// respective eigenvalues.
     type QuadraticPotential: Transform<T, V>;
     /// The term left after the expansion to second order.
     /// Contains interactions of third order and higher.
-    type ResidualPotential: ExchangePotential<T, V>;
+    type ResidualPotential: ExchangePotential<T, V, AS, MS, AR, MR>;
 
     /// Treats `self` as a sum of harmonic oscillators - the modes -
     /// and a residual term of third order and beyond.

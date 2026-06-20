@@ -176,9 +176,9 @@ where
         adder: &mut AS,
         _multiplier: &mut MS,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), Self::Error> {
-        let mut iter = zip_iterators!(positions.read(), group_forces)
+        let mut iter = zip_iterators!(positions.read(), forces_group)
             .enumerate()
             .map(|(index, zip_items!(position, force))| {
                 AtomAdditivePhysicalPotential::calculate_energy_set_force(
@@ -206,9 +206,9 @@ where
         adder: &mut AR,
         _multiplier: &mut MR,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<T, Self::Error> {
-        let mut iter = zip_iterators!(positions.read(), group_forces)
+        let mut iter = zip_iterators!(positions.read(), forces_group)
             .enumerate()
             .map(|(index, zip_items!(position, force))| {
                 AtomAdditivePhysicalPotential::calculate_energy_set_force(
@@ -235,9 +235,9 @@ where
         adder: &mut AS,
         _multiplier: &mut MS,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), Self::Error> {
-        let mut iter = zip_iterators!(positions.read(), group_forces)
+        let mut iter = zip_iterators!(positions.read(), forces_group)
             .enumerate()
             .map(|(index, zip_items!(position, force))| {
                 AtomAdditivePhysicalPotential::calculate_energy_set_force(
@@ -265,9 +265,9 @@ where
         adder: &mut AR,
         _multiplier: &mut MR,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<T, Self::Error> {
-        let mut iter = zip_iterators!(positions.read(), group_forces)
+        let mut iter = zip_iterators!(positions.read(), forces_group)
             .enumerate()
             .map(|(index, zip_items!(position, force))| {
                 AtomAdditivePhysicalPotential::calculate_energy_set_force(
@@ -348,10 +348,10 @@ where
     fn set_forces(
         &mut self,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), Self::Error> {
         for (index, zip_items!(position, force)) in
-            zip_iterators!(positions.read(), group_forces).enumerate()
+            zip_iterators!(positions.read(), forces_group).enumerate()
         {
             #[allow(deprecated)]
             AtomAdditivePhysicalPotential::set_force(self, index, position, force)?;
@@ -362,10 +362,10 @@ where
     fn add_forces(
         &mut self,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces_group: &mut [V],
     ) -> Result<(), Self::Error> {
         for (index, zip_items!(position, force)) in
-            zip_iterators!(positions.read(), group_forces).enumerate()
+            zip_iterators!(positions.read(), forces_group).enumerate()
         {
             #[allow(deprecated)]
             AtomAdditivePhysicalPotential::add_force(self, index, position, force)?;
