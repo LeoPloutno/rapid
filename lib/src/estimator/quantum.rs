@@ -4,7 +4,7 @@ use crate::{
     core::{
         GroupInTypeInImageInSystem, Scheme,
         stat::{Bosonic, Distinguishable},
-        sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
+        sync_ops::{SyncAddReceiver, SyncAddSender, SyncMulReceiver, SyncMulSender},
     },
     potential::{
         exchange::{ExchangePotential, quadratic::QuadraticExpansionExchangePotential},
@@ -14,12 +14,12 @@ use crate::{
 
 mod atom_additive;
 pub use atom_additive::{
-    AtomAdditiveMinimalQuantumEstimatorSender, AtomAdditiveQuantumEstimatorReciever,
+    AtomAdditiveMinimalQuantumEstimatorSender, AtomAdditiveQuantumEstimatorReceiver,
     AtomAdditiveQuantumEstimatorSender,
 };
 mod atom_multiplicative;
 pub use atom_multiplicative::{
-    AtomMultiplicativeMinimalQuantumEstimatorSender, AtomMultiplicativeQuantumEstimatorReciever,
+    AtomMultiplicativeMinimalQuantumEstimatorSender, AtomMultiplicativeQuantumEstimatorReceiver,
     AtomMultiplicativeQuantumEstimatorSender,
 };
 
@@ -65,13 +65,13 @@ impl<E> MinimalQuantumEstimator<E> {
     }
 }
 
-/// A trait for quantum estimators that recieve
+/// A trait for quantum estimators that receive
 /// the calculations of quantum estimator senders
 /// and outut the final value.
-pub trait QuantumEstimatorReciever<T, V, Adder, Multiplier>
+pub trait QuantumEstimatorReceiver<T, V, Adder, Multiplier>
 where
-    Adder: SyncAddReciever<Self::Output> + ?Sized,
-    Multiplier: SyncMulReciever<Self::Output> + ?Sized,
+    Adder: SyncAddReceiver<Self::Output> + ?Sized,
+    Multiplier: SyncMulReceiver<Self::Output> + ?Sized,
 {
     /// The type associated with the output returned by the implementor.
     type Output;
@@ -103,7 +103,7 @@ where
     type Error;
 
     /// Calculates the contribution of this group to the observable
-    /// and sends it to a [`QuantumEstimatorReciever`].
+    /// and sends it to a [`QuantumEstimatorReceiver`].
     ///
     /// Assumes this group obeys distinguishable statistics.
     fn calculate_distinguishable(
@@ -120,7 +120,7 @@ where
     ) -> Result<(), Self::Error>;
 
     /// Calculates the contribution of this group to the observable
-    /// and sends it to a [`QuantumEstimatorReciever`].
+    /// and sends it to a [`QuantumEstimatorReceiver`].
     ///
     /// Assumes this group obeys bosonic statistics.
     fn calculate_bosonic(
@@ -150,7 +150,7 @@ where
     type Error;
 
     /// Calculates the contribution of this group to the observable
-    /// and sends it to a [`QuantumEstimatorReciever`].
+    /// and sends it to a [`QuantumEstimatorReceiver`].
     ///
     /// Assumes this group obeys distinguishable statistics.
     fn calculate_distinguishable(
@@ -166,7 +166,7 @@ where
     ) -> Result<(), Self::Error>;
 
     /// Calculates the contribution of this group to the observable
-    /// and sends it to a [`QuantumEstimatorReciever`].
+    /// and sends it to a [`QuantumEstimatorReceiver`].
     ///
     /// Assumes this group obeys bosonic statistics.
     fn calculate_bosonic(

@@ -3,14 +3,14 @@
 
 use super::{
     EstimatorImages, GroupInTypeInImageInSystem, MinimalQuantumEstimatorSender,
-    QuantumEstimatorReciever, QuantumEstimatorSender,
+    QuantumEstimatorReceiver, QuantumEstimatorSender,
 };
 use crate::{
     core::{
         Scheme,
         error::EmptyError,
         stat::{Bosonic, Distinguishable},
-        sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
+        sync_ops::{SyncAddReceiver, SyncAddSender, SyncMulReceiver, SyncMulSender},
     },
     potential::{
         exchange::{ExchangePotential, quadratic::QuadraticExpansionExchangePotential},
@@ -40,14 +40,14 @@ impl<E> AdditiveMinimalQuantumEstimator<E> {
     }
 }
 
-/// A trait for recievers of quantum estimators that can be expressed
+/// A trait for receivers of quantum estimators that can be expressed
 /// as a sum of observables that depend only on a singe atom.
 ///
 /// For any type `E` that implements this trait, [`AdditiveQuantumEstimator<E>`]
-/// atomatically implements [`QuantumEstimatorReciever`].
-pub trait AtomAdditiveQuantumEstimatorReciever<T, V, Adder>
+/// atomatically implements [`QuantumEstimatorReceiver`].
+pub trait AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>
 where
-    Adder: SyncAddReciever<Self::Output> + ?Sized,
+    Adder: SyncAddReceiver<Self::Output> + ?Sized,
 {
     /// The type of output `Self` and [`AdditiveQuantumEstimator<Self>`] produce.
     type Output;
@@ -59,7 +59,7 @@ where
 /// as a sum of observables that depend only on a singe atom.
 ///
 /// For any type `E` that implements this trait, [`AdditiveQuantumEstimator<E>`]
-/// atomatically implements [`QuantumEstimatorReciever`].
+/// atomatically implements [`QuantumEstimatorReceiver`].
 pub trait AtomAdditiveQuantumEstimatorSender<T, V, Adder, Phys, Dist, DistQuad, Boson, BosonQuad>
 where
     Adder: SyncAddSender<Self::Output> + ?Sized,
@@ -118,28 +118,28 @@ where
     ) -> Result<Self::Output, Self::ErrorAtom>;
 }
 
-impl<T, V, Adder, E> AtomAdditiveQuantumEstimatorReciever<T, V, Adder>
+impl<T, V, Adder, E> AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>
     for AdditiveQuantumEstimator<E>
 where
-    Adder: SyncAddReciever<E::Output> + ?Sized,
-    E: AtomAdditiveQuantumEstimatorReciever<T, V, Adder> + ?Sized,
+    Adder: SyncAddReceiver<E::Output> + ?Sized,
+    E: AtomAdditiveQuantumEstimatorReceiver<T, V, Adder> + ?Sized,
 {
     type Output = E::Output;
     type Error = E::Error;
 }
 
-impl<T, V, Adder, Multiplier, E> QuantumEstimatorReciever<T, V, Adder, Multiplier>
+impl<T, V, Adder, Multiplier, E> QuantumEstimatorReceiver<T, V, Adder, Multiplier>
     for AdditiveQuantumEstimator<E>
 where
-    Adder: SyncAddReciever<<Self as AtomAdditiveQuantumEstimatorReciever<T, V, Adder>>::Output>
+    Adder: SyncAddReceiver<<Self as AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>>::Output>
         + ?Sized,
-    Multiplier: SyncMulReciever<<Self as AtomAdditiveQuantumEstimatorReciever<T, V, Adder>>::Output>
+    Multiplier: SyncMulReceiver<<Self as AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>>::Output>
         + ?Sized,
     E: ?Sized,
-    Self: AtomAdditiveQuantumEstimatorReciever<T, V, Adder>,
+    Self: AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>,
 {
-    type Output = <Self as AtomAdditiveQuantumEstimatorReciever<T, V, Adder>>::Output;
-    type Error = <Self as AtomAdditiveQuantumEstimatorReciever<T, V, Adder>>::Error;
+    type Output = <Self as AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>>::Output;
+    type Error = <Self as AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>>::Error;
 
     #[inline(always)]
     fn calculate(
@@ -147,7 +147,7 @@ where
         adder: &mut Adder,
         _multiplier: &mut Multiplier,
     ) -> Result<Self::Output, Self::Error> {
-        Ok(adder.recieve_sum()?.ok_or(EmptyError)?)
+        Ok(adder.recv_sum()?.ok_or(EmptyError)?)
     }
 }
 

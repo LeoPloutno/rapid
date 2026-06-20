@@ -15,21 +15,21 @@ mod map_in_whole {
     }
 
     impl<T, U> MapInWhole<T, U> {
-        pub const fn as_map(&self) -> &T::Target
+        pub fn as_map(&self) -> &T::Target
         where
             T: Deref,
         {
             &*self.map
         }
 
-        pub const fn as_whole(&self) -> &U::Target
+        pub fn as_whole(&self) -> &U::Target
         where
             U: Deref,
         {
             &*&self.whole
         }
 
-        pub const fn as_ref(&self) -> MapInWhole<&T::Target, &U::Target>
+        pub fn as_ref(&self) -> MapInWhole<&T::Target, &U::Target>
         where
             T: Deref,
             U: Deref,
@@ -66,11 +66,11 @@ mod map_in_whole {
             let element_ptr = ptr::from_ref(self.map);
             unsafe {
                 // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of an element - `self.subfield` - from the
+                //         - The offset of an element - `self.map` - from the
                 //           origin - `self.whole` if always less than the length of the slice.
                 slice::from_raw_parts(
                     slice_ptr,
-                    // SAFETY: By construction, `self.subfield` points to an element of `self.whole`,
+                    // SAFETY: By construction, `self.map` points to an element of `self.whole`,
                     //         so it always exceeds or is the start of the slice.
                     element_ptr.offset_from_unsigned(slice_ptr),
                 )
@@ -84,11 +84,11 @@ mod map_in_whole {
             let slice_end_ptr = self.whole.as_ptr_range().end;
             let element_ptr = ptr::from_ref(self.map);
             unsafe {
-                // SAFETY: - By construction, `self.subfield` points to an element of `self.whole`.
+                // SAFETY: - By construction, `self.map` points to an element of `self.whole`.
                 //         - `element_ptr + (slice_end_ptr - element_ptr) = slice_end_ptr`.
                 slice::from_raw_parts(
                     element_ptr,
-                    // SAFETY: By construction, `self.subfield` points to an element of `self.whole`,
+                    // SAFETY: By construction, `self.map` points to an element of `self.whole`,
                     //         so the it does not exceed the end of the slice.
                     slice_end_ptr.offset_from_unsigned(element_ptr),
                 )
@@ -99,7 +99,7 @@ mod map_in_whole {
             if const { size_of::<T>() == 0 } {
                 panic!("elements are zero-sized");
             }
-            // SAFETY: By construction, `self.subfield` points to an element of `self.whole`,
+            // SAFETY: By construction, `self.map` points to an element of `self.whole`,
             //         so the it does not exceed the end of the slice.
             unsafe { ptr::from_ref(self.map).offset_from_unsigned(self.whole.as_ptr()) }
         }
@@ -110,15 +110,15 @@ mod map_in_whole {
             if const { size_of::<T>() == 0 } {
                 return self.whole.map;
             }
-            let slice_ptr = self.whole.as_ptr();
+            let slice_ptr = self.whole.map.as_ptr();
             let element_ptr = ptr::from_ref(self.map);
             unsafe {
                 // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of an element - `self.subfield` - from the
-                //           origin - `self.whole.subfield` if always less than the length of the slice.
+                //         - The offset of an element - `self.map` - from the
+                //           origin - `self.whole.map` if always less than the length of the slice.
                 slice::from_raw_parts(
                     slice_ptr,
-                    // SAFETY: By construction, `self.subfield` points to an element of `self.whole.subfield`,
+                    // SAFETY: By construction, `self.map` points to an element of `self.whole.map`,
                     //         so it always exceeds or is the start of the slice.
                     element_ptr.offset_from_unsigned(slice_ptr),
                 )
@@ -129,14 +129,14 @@ mod map_in_whole {
             if const { size_of::<T>() == 0 } {
                 return self.whole.map;
             }
-            let slice_end_ptr = self.whole.as_ptr_range().end;
+            let slice_end_ptr = self.whole.map.as_ptr_range().end;
             let element_ptr = ptr::from_ref(self.map);
             unsafe {
-                // SAFETY: - By construction, `self.subfield` points to an element of `self.whole.subfield`.
+                // SAFETY: - By construction, `self.map` points to an element of `self.whole.map`.
                 //         - `element_ptr + (slice_end_ptr - element_ptr) = slice_end_ptr`.
                 slice::from_raw_parts(
                     element_ptr,
-                    // SAFETY: By construction, `self.subfield` points to an element of `self.whole.subfield`,
+                    // SAFETY: By construction, `self.map` points to an element of `self.whole.map`,
                     //         so the it does not exceed the end of the slice.
                     slice_end_ptr.offset_from_unsigned(element_ptr),
                 )
@@ -147,7 +147,7 @@ mod map_in_whole {
             if const { size_of::<T>() == 0 } {
                 panic!("elements are zero-sized");
             }
-            // SAFETY: By construction, `self.subfield` points to an element of `self.whole.subfield`,
+            // SAFETY: By construction, `self.map` points to an element of `self.whole.map`,
             //         so the it does not exceed the end of the slice.
             unsafe { ptr::from_ref(self.map).offset_from_unsigned(self.whole.map.as_ptr()) }
         }
@@ -162,11 +162,11 @@ mod map_in_whole {
             let element_ptr = ptr::from_ref(self.map.whole);
             unsafe {
                 // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of an element - `self.subfield.whole` - from the
+                //         - The offset of an element - `self.map.whole` - from the
                 //           origin - `self.whole` if always less than the length of the slice.
                 slice::from_raw_parts(
                     slice_ptr,
-                    // SAFETY: By construction, `self.subfield.whole` points to an element of `self.whole`,
+                    // SAFETY: By construction, `self.map.whole` points to an element of `self.whole`,
                     //         so it always exceeds or is the start of the slice.
                     element_ptr.offset_from_unsigned(slice_ptr),
                 )
@@ -180,11 +180,11 @@ mod map_in_whole {
             let slice_end_ptr = self.whole.as_ptr_range().end;
             let element_ptr = ptr::from_ref(self.map.whole);
             unsafe {
-                // SAFETY: - By construction, `self.subfield.whole` points to an element of `self.whole`.
+                // SAFETY: - By construction, `self.map.whole` points to an element of `self.whole`.
                 //         - `element_ptr + (slice_end_ptr - element_ptr) = slice_end_ptr`.
                 slice::from_raw_parts(
                     element_ptr,
-                    // SAFETY: By construction, `self.subfield.whole` points to an element of `self.whole`,
+                    // SAFETY: By construction, `self.map.whole` points to an element of `self.whole`,
                     //         so the it does not exceed the end of the slice.
                     slice_end_ptr.offset_from_unsigned(element_ptr),
                 )
@@ -195,7 +195,7 @@ mod map_in_whole {
             if const { size_of::<T>() == 0 } {
                 panic!("elements are zero-sized");
             }
-            // SAFETY: By construction, `self.subfield.whole` points to an element of `self.whole`,
+            // SAFETY: By construction, `self.map.whole` points to an element of `self.whole`,
             //         so the it does not exceed the end of the slice.
             unsafe { ptr::from_ref(self.map.whole).offset_from_unsigned(self.whole.as_ptr()) }
         }
@@ -210,12 +210,12 @@ mod map_in_whole {
             let subslice_ptr = self.map.as_ptr();
             unsafe {
                 // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of a subslice - `self.subfield` from the
+                //         - The offset of a subslice - `self.map` from the
                 //           origin - `self.whole` - is always less than or equal to the
                 //           length of the slice.
                 slice::from_raw_parts(
                     slice_ptr,
-                    // SAFETY: By construction, `self.subfield` points to a subslice entirely within
+                    // SAFETY: By construction, `self.map` points to a subslice entirely within
                     //         `self.whole`, so its start always exceeds or is the slice's.
                     subslice_ptr.offset_from_unsigned(slice_ptr),
                 )
@@ -229,12 +229,12 @@ mod map_in_whole {
             let slice_end_ptr = self.whole.as_ptr_range().end;
             let subslice_end_ptr = self.map.as_ptr_range().end;
             unsafe {
-                // SAFETY: - By construction, `self.subfield` points to a subslice entirely within
+                // SAFETY: - By construction, `self.map` points to a subslice entirely within
                 //           `self.whole`. Thus, the end of said subslice also points within it.
                 //         - `subslice_end_ptr + (slice_end_ptr - subslice_end_ptr) = slice_end_ptr`.
                 slice::from_raw_parts(
                     subslice_end_ptr,
-                    // SAFETY: By construction, `self.subfield` points to a subslice entirely within
+                    // SAFETY: By construction, `self.map` points to a subslice entirely within
                     //         `self.whole`, so the its end does not exceed the slice's.
                     slice_end_ptr.offset_from_unsigned(subslice_end_ptr),
                 )
@@ -247,7 +247,7 @@ mod map_in_whole {
             }
             let subslice_len = self.map.len();
             unsafe {
-                // SAFETY: By construction, `self.subfield` points to a subslice entirely within `self.whole`,
+                // SAFETY: By construction, `self.map` points to a subslice entirely within `self.whole`,
                 //         so its start does not preceed the slice's.
                 let start = self.map.as_ptr().offset_from_unsigned(self.whole.as_ptr());
                 Range {
@@ -268,13 +268,13 @@ mod map_in_whole {
             let subslice_ptr = self.map.as_ptr();
             unsafe {
                 // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of a subslice - `self.subfield` from the
-                //           origin - `self.whole.subfield` - is always less than or equal to the
+                //         - The offset of a subslice - `self.map` from the
+                //           origin - `self.whole.map` - is always less than or equal to the
                 //           length of the slice.
                 slice::from_raw_parts(
                     slice_ptr,
-                    // SAFETY: By construction, `self.subfield` points to a subslice entirely within
-                    //         `self.whole.subfield`, so its start always exceeds or is the slice's.
+                    // SAFETY: By construction, `self.map` points to a subslice entirely within
+                    //         `self.whole.map`, so its start always exceeds or is the slice's.
                     subslice_ptr.offset_from_unsigned(slice_ptr),
                 )
             }
@@ -284,16 +284,16 @@ mod map_in_whole {
             if const { size_of::<T>() == 0 } {
                 return self.whole.map;
             }
-            let slice_end_ptr = self.whole.as_ptr_range().end;
+            let slice_end_ptr = self.whole.map.as_ptr_range().end;
             let subslice_end_ptr = self.map.as_ptr_range().end;
             unsafe {
-                // SAFETY: - By construction, `self.subfield` points to a subslice entirely within
-                //           `self.whole.subfield`. Thus, the end of said subslice also points within it.
+                // SAFETY: - By construction, `self.map` points to a subslice entirely within
+                //           `self.whole.map`. Thus, the end of said subslice also points within it.
                 //         - `subslice_end_ptr + (slice_end_ptr - subslice_end_ptr) = slice_end_ptr`.
                 slice::from_raw_parts(
                     subslice_end_ptr,
-                    // SAFETY: By construction, `self.subfield` points to a subslice entirely within
-                    //         `self.whole.subfield`, so the its end does not exceed the slice's.
+                    // SAFETY: By construction, `self.map` points to a subslice entirely within
+                    //         `self.whole.map`, so the its end does not exceed the slice's.
                     slice_end_ptr.offset_from_unsigned(subslice_end_ptr),
                 )
             }
@@ -305,7 +305,7 @@ mod map_in_whole {
             }
             let subslice_len = self.map.len();
             unsafe {
-                // SAFETY: By construction, `self.subfield` points to a subslice entirely within `self.whole.subfield`,
+                // SAFETY: By construction, `self.map` points to a subslice entirely within `self.whole.map`,
                 //         so its start does not preceed the slice's.
                 let start = self
                     .map
@@ -326,15 +326,15 @@ mod map_in_whole {
                 return self.whole;
             }
             let slice_ptr = self.whole.as_ptr();
-            let subslice_ptr = self.map.whole.whole.as_ptr();
+            let subslice_ptr = self.map.whole.as_ptr();
             unsafe {
                 // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of a subslice - `self.subfield.whole` from the
+                //         - The offset of a subslice - `self.map.whole` from the
                 //           origin - `self.whole` - is always less than or equal to the
                 //           length of the slice.
                 slice::from_raw_parts(
                     slice_ptr,
-                    // SAFETY: By construction, `self.subfield.whole` points to a subslice entirely within
+                    // SAFETY: By construction, `self.map.whole` points to a subslice entirely within
                     //         `self.whole`, so its start always exceeds or is the slice's.
                     subslice_ptr.offset_from_unsigned(slice_ptr),
                 )
@@ -348,12 +348,12 @@ mod map_in_whole {
             let slice_end_ptr = self.whole.as_ptr_range().end;
             let subslice_end_ptr = self.map.whole.as_ptr_range().end;
             unsafe {
-                // SAFETY: - By construction, `self.subfield.whole` points to a subslice entirely within
+                // SAFETY: - By construction, `self.map.whole` points to a subslice entirely within
                 //           `self.whole`. Thus, the end of said subslice also points within it.
                 //         - `subslice_end_ptr + (slice_end_ptr - subslice_end_ptr) = slice_end_ptr`.
                 slice::from_raw_parts(
                     subslice_end_ptr,
-                    // SAFETY: By construction, `self.subfield.whole` points to a subslice entirely within
+                    // SAFETY: By construction, `self.map.whole` points to a subslice entirely within
                     //         `self.whole`, so the its end does not exceed the slice's.
                     slice_end_ptr.offset_from_unsigned(subslice_end_ptr),
                 )
@@ -366,7 +366,7 @@ mod map_in_whole {
             }
             let subslice_len = self.map.whole.len();
             unsafe {
-                // SAFETY: By construction, `self.subfield.whole` points to a subslice entirely within `self.whole`,
+                // SAFETY: By construction, `self.map.whole` points to a subslice entirely within `self.whole`,
                 //         so its start does not preceed the slice's.
                 let start = self
                     .map
@@ -394,35 +394,35 @@ mod map_outside_whole {
     }
 
     impl<T, U> MapOutsideWhole<T, U> {
-        pub const fn as_map(&self) -> &T::Target
+        pub fn as_map(&self) -> &T::Target
         where
             T: Deref,
         {
             &*self.map
         }
 
-        pub const fn as_map_mut(&mut self) -> &mut T::Target
+        pub fn as_map_mut(&mut self) -> &mut T::Target
         where
             T: DerefMut,
         {
             &mut *self.map
         }
 
-        pub const fn as_whole(&self) -> &U::Target
+        pub fn as_whole(&self) -> &U::Target
         where
             U: Deref,
         {
             &*self.whole
         }
 
-        pub const fn as_whole_mut(&mut self) -> &mut U::Target
+        pub fn as_whole_mut(&mut self) -> &mut U::Target
         where
             U: DerefMut,
         {
             &mut *self.whole
         }
 
-        pub const fn as_ref(&self) -> MapOutsideWhole<&T::Target, &U::Target>
+        pub fn as_ref(&self) -> MapOutsideWhole<&T::Target, &U::Target>
         where
             T: Deref,
             U: Deref,
@@ -433,7 +433,7 @@ mod map_outside_whole {
             }
         }
 
-        pub const fn as_mut(&mut self) -> MapOutsideWhole<&mut T::Target, &mut U::Target>
+        pub fn as_mut(&mut self) -> MapOutsideWhole<&mut T::Target, &mut U::Target>
         where
             T: DerefMut,
             U: DerefMut,
@@ -660,7 +660,7 @@ impl<T: DerefMut, U: DerefMut> Scheme<T, U> {
     ///
     /// Leaves the original `Scheme` in-place,
     /// creating a new one containing mutable references to the inner types' `Deref::Target` types.
-    pub fn as_deref(&mut self) -> Scheme<&mut T::Target, &mut U::Target> {
+    pub fn as_dere_mutf(&mut self) -> Scheme<&mut T::Target, &mut U::Target> {
         match self {
             Self::Regular(r) => Scheme::Regular(r),
             Self::QuadraticExpansion(r) => Scheme::QuadraticExpansion(r),

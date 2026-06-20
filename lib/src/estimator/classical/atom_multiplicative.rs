@@ -2,7 +2,7 @@
 //! that depend only on a single atom.
 
 use super::{
-    ClassicalEstimatorReciever, ClassicalEstimatorSender, GroupInTypeInImageInSystem,
+    ClassicalEstimatorReceiver, ClassicalEstimatorSender, GroupInTypeInImageInSystem,
     MinimalClassicalEstimatorSender,
 };
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
         Scheme,
         error::EmptyError,
         stat::{Bosonic, Distinguishable},
-        sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
+        sync_ops::{SyncAddReceiver, SyncAddSender, SyncMulReceiver, SyncMulSender},
     },
     potential::{
         exchange::{ExchangePotential, quadratic::QuadraticExpansionExchangePotential},
@@ -40,14 +40,14 @@ impl<E> MultiplicativeMinimalClassicalEstimator<E> {
     }
 }
 
-/// A trait for recievers of classical estimators that can be expressed
+/// A trait for receivers of classical estimators that can be expressed
 /// as a product of observables that depend only on a singe atom.
 ///
 /// For any type `E` that implements this trait, [`MultiplicativeClassicalEstimator<E>`]
-/// atomatically implements [`ClassicalEstimatorReciever`].
-pub trait AtomMultiplicativeClassicalEstimatorReciever<T, V, Multiplier>
+/// atomatically implements [`ClassicalEstimatorReceiver`].
+pub trait AtomMultiplicativeClassicalEstimatorReceiver<T, V, Multiplier>
 where
-    Multiplier: SyncMulReciever<Self::Output> + ?Sized,
+    Multiplier: SyncMulReceiver<Self::Output> + ?Sized,
 {
     /// The type of output `Self` and [`MultiplicativeClassicalEstimator<Self>`] produce.
     type Output;
@@ -59,7 +59,7 @@ where
 /// as a product of observables that depend only on a singe atom.
 ///
 /// For any type `E` that implements this trait, [`MultiplicativeClassicalEstimator<E>`]
-/// atomatically implements [`ClassicalEstimatorReciever`].
+/// atomatically implements [`ClassicalEstimatorReceiver`].
 pub trait AtomMultiplicativeClassicalEstimatorSender<
     T,
     V,
@@ -132,30 +132,30 @@ where
     ) -> Result<Self::Output, Self::ErrorAtom>;
 }
 
-impl<T, V, Multiplier, E> AtomMultiplicativeClassicalEstimatorReciever<T, V, Multiplier>
+impl<T, V, Multiplier, E> AtomMultiplicativeClassicalEstimatorReceiver<T, V, Multiplier>
     for MultiplicativeClassicalEstimator<E>
 where
-    Multiplier: SyncMulReciever<E::Output> + ?Sized,
-    E: AtomMultiplicativeClassicalEstimatorReciever<T, V, Multiplier> + ?Sized,
+    Multiplier: SyncMulReceiver<E::Output> + ?Sized,
+    E: AtomMultiplicativeClassicalEstimatorReceiver<T, V, Multiplier> + ?Sized,
 {
     type Output = E::Output;
     type Error = E::Error;
 }
 
-impl<T, V, Adder, Multiplier, E> ClassicalEstimatorReciever<T, V, Adder, Multiplier>
+impl<T, V, Adder, Multiplier, E> ClassicalEstimatorReceiver<T, V, Adder, Multiplier>
     for MultiplicativeClassicalEstimator<E>
 where
-    Adder: SyncAddReciever<
-            <Self as AtomMultiplicativeClassicalEstimatorReciever<T, V, Multiplier>>::Output,
+    Adder: SyncAddReceiver<
+            <Self as AtomMultiplicativeClassicalEstimatorReceiver<T, V, Multiplier>>::Output,
         > + ?Sized,
-    Multiplier: SyncMulReciever<
-            <Self as AtomMultiplicativeClassicalEstimatorReciever<T, V, Multiplier>>::Output,
+    Multiplier: SyncMulReceiver<
+            <Self as AtomMultiplicativeClassicalEstimatorReceiver<T, V, Multiplier>>::Output,
         > + ?Sized,
     E: ?Sized,
-    Self: AtomMultiplicativeClassicalEstimatorReciever<T, V, Multiplier>,
+    Self: AtomMultiplicativeClassicalEstimatorReceiver<T, V, Multiplier>,
 {
-    type Output = <Self as AtomMultiplicativeClassicalEstimatorReciever<T, V, Multiplier>>::Output;
-    type Error = <Self as AtomMultiplicativeClassicalEstimatorReciever<T, V, Multiplier>>::Error;
+    type Output = <Self as AtomMultiplicativeClassicalEstimatorReceiver<T, V, Multiplier>>::Output;
+    type Error = <Self as AtomMultiplicativeClassicalEstimatorReceiver<T, V, Multiplier>>::Error;
 
     #[inline(always)]
     fn calculate(
@@ -163,7 +163,7 @@ where
         _adder: &mut Adder,
         multiplier: &mut Multiplier,
     ) -> Result<Self::Output, Self::Error> {
-        Ok(multiplier.recieve_product()?.ok_or(EmptyError)?)
+        Ok(multiplier.receive_product()?.ok_or(EmptyError)?)
     }
 }
 

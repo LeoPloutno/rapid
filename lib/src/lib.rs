@@ -8,45 +8,6 @@
 //! potentials, thermostats, etc.
 //! To run a simulation, simply call `[run]` with the right arguments.
 
-use crate::{
-    core::{
-        AtomTypeReaderLock, GroupsIter, Scheme, SchemeDependent, Vector,
-        error::{CommError, EmptyError},
-        factory::{Factory, FullFactory},
-        stat::{Bosonic, Distinguishable, Stat},
-        sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
-    },
-    estimator::{
-        classical::{
-            InnerClassicalEstimator, LeadingClassicalEstimator, MainClassicalEstimator,
-            TrailingClassicalEstimator,
-        },
-        quantum::{
-            InnerQuantumEstimator, LeadingQuantumEstimator, MainQuantumEstimator,
-            TrailingQuantumEstimator,
-        },
-    },
-    output::{ObservablesOutput, ObservablesOutputOption, ValuesStream, VectorsStream},
-    potential::physical::PhysicalPotential,
-    propagator::{
-        InnerPropagator, LeadingPropagator, TrailingPropagator,
-        quadratic::{
-            InnerQuadraticExpansionPropagator, LeadingQuadraticExpansionPropagator,
-            TrailingQuadraticExpansionPropagator,
-        },
-    },
-    stride_mut::StridesMut,
-    thermostat::Thermostat,
-};
-use arc_rw_lock::ElementRwLock;
-use std::{
-    fmt::Display,
-    iter,
-    ops::{Add, DerefMut, Div, Mul},
-    sync::Barrier,
-    thread,
-};
-
 pub mod core;
 pub mod estimator;
 pub mod output;
@@ -56,6 +17,7 @@ mod stride;
 mod stride_mut;
 pub mod thermostat;
 
+/*
 /// Alias for a handle to a handle.
 pub type ImageHandle<V> = GroupImageHandle<GroupTypeHandle<V>>;
 
@@ -532,12 +494,12 @@ pub fn run<
         + Send
         + Sync,
     V: Vector<N, Element = T> + Clone + Display + Send,
-    AdderReciever: SyncAddReciever<Output> + ?Sized,
+    AdderReceiver: SyncAddReceiver<Output> + ?Sized,
     AdderSender: SyncAddSender<Output> + Send + ?Sized,
-    MultiplierReciever: SyncMulReciever<Output> + ?Sized,
+    MultiplierReceiver: SyncMulReceiver<Output> + ?Sized,
     MultiplierSender: SyncMulSender<Output> + Send + ?Sized,
     VecsOut: VectorsStream<N, T, V> + ?Sized,
-    QuantumEstMain: MainQuantumEstimator<T, V, AdderReciever, MultiplierReciever, Output = Output> + Send + ?Sized,
+    QuantumEstMain: MainQuantumEstimator<T, V, AdderReceiver, MultiplierReceiver, Output = Output> + Send + ?Sized,
     QuantumEstLeading: LeadingQuantumEstimator<
             T,
             V,
@@ -574,7 +536,7 @@ pub fn run<
             Output = Output,
         > + Send
         + ?Sized,
-    ClassicalEstMain: MainClassicalEstimator<T, V, AdderReciever, MultiplierReciever, Output = Output> + ?Sized,
+    ClassicalEstMain: MainClassicalEstimator<T, V, AdderReceiver, MultiplierReceiver, Output = Output> + ?Sized,
     ClassicalEstLeading: LeadingClassicalEstimator<
             T,
             V,
@@ -639,7 +601,7 @@ pub fn run<
     BosonQuadTrailing: for<'a> TrailingQuadraticExpansionExchangePotential<'a, T, V> + Bosonic + Send + ?Sized,
     Therm: Thermostat<T, V> + Send + ?Sized,
     Output,
-    Err: From<AdderReciever::Error>
+    Err: From<AdderReceiver::Error>
         + From<AdderSender::Error>
         + From<VecsOut::Error>
         + From<ValsOut::Error>
@@ -668,7 +630,7 @@ pub fn run<
              impl for<'a> FullFactory<
         'a,
         T,
-        Main = &'a mut AdderReciever,
+        Main = &'a mut AdderReceiver,
         Leading = &'a mut AdderSender,
         Inner = &'a mut AdderSender,
         Trailing = &'a mut AdderSender,
@@ -678,7 +640,7 @@ pub fn run<
              impl for<'a> FullFactory<
         'a,
         T,
-        Main = &'a mut MultiplierReciever,
+        Main = &'a mut MultiplierReceiver,
         Leading = &'a mut MultiplierSender,
         Inner = &'a mut MultiplierSender,
         Trailing = &'a mut MultiplierSender,
@@ -2199,3 +2161,4 @@ pub fn run<
         Ok(())
     })
 }
+*/

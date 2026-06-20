@@ -2,7 +2,7 @@
 //! that depend only on a single atom.
 
 use super::{
-    ClassicalEstimatorReciever, ClassicalEstimatorSender, GroupInTypeInImageInSystem,
+    ClassicalEstimatorReceiver, ClassicalEstimatorSender, GroupInTypeInImageInSystem,
     MinimalClassicalEstimatorSender,
 };
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
         Scheme,
         error::EmptyError,
         stat::{Bosonic, Distinguishable},
-        sync_ops::{SyncAddReciever, SyncAddSender, SyncMulReciever, SyncMulSender},
+        sync_ops::{SyncAddReceiver, SyncAddSender, SyncMulReceiver, SyncMulSender},
     },
     potential::{
         exchange::{ExchangePotential, quadratic::QuadraticExpansionExchangePotential},
@@ -40,14 +40,14 @@ impl<E> AdditiveMinimalClassicalEstimator<E> {
     }
 }
 
-/// A trait for recievers of classical estimators that can be expressed
+/// A trait for receivers of classical estimators that can be expressed
 /// as a sum of observables that depend only on a singe atom.
 ///
 /// For any type `E` that implements this trait, [`AdditiveClassicalEstimator<E>`]
-/// atomatically implements [`ClassicalEstimatorReciever`].
-pub trait AtomAdditiveClassicalEstimatorReciever<T, V, Adder>
+/// atomatically implements [`ClassicalEstimatorReceiver`].
+pub trait AtomAdditiveClassicalEstimatorReceiver<T, V, Adder>
 where
-    Adder: SyncAddReciever<Self::Output> + ?Sized,
+    Adder: SyncAddReceiver<Self::Output> + ?Sized,
 {
     /// The type of output `Self` and [`AdditiveClassicalEstimator<Self>`] produce.
     type Output;
@@ -59,7 +59,7 @@ where
 /// as a sum of observables that depend only on a singe atom.
 ///
 /// For any type `E` that implements this trait, [`AdditiveClassicalEstimator<E>`]
-/// atomatically implements [`ClassicalEstimatorReciever`].
+/// atomatically implements [`ClassicalEstimatorReceiver`].
 pub trait AtomAdditiveClassicalEstimatorSender<T, V, Adder, Phys, Dist, DistQuad, Boson, BosonQuad>
 where
     Adder: SyncAddSender<Self::Output> + ?Sized,
@@ -124,28 +124,28 @@ where
     ) -> Result<Self::Output, Self::ErrorAtom>;
 }
 
-impl<T, V, Adder, E> AtomAdditiveClassicalEstimatorReciever<T, V, Adder>
+impl<T, V, Adder, E> AtomAdditiveClassicalEstimatorReceiver<T, V, Adder>
     for AdditiveClassicalEstimator<E>
 where
-    Adder: SyncAddReciever<E::Output> + ?Sized,
-    E: AtomAdditiveClassicalEstimatorReciever<T, V, Adder> + ?Sized,
+    Adder: SyncAddReceiver<E::Output> + ?Sized,
+    E: AtomAdditiveClassicalEstimatorReceiver<T, V, Adder> + ?Sized,
 {
     type Output = E::Output;
     type Error = E::Error;
 }
 
-impl<T, V, Adder, Multiplier, E> ClassicalEstimatorReciever<T, V, Adder, Multiplier>
+impl<T, V, Adder, Multiplier, E> ClassicalEstimatorReceiver<T, V, Adder, Multiplier>
     for AdditiveClassicalEstimator<E>
 where
-    Adder: SyncAddReciever<<Self as AtomAdditiveClassicalEstimatorReciever<T, V, Adder>>::Output>
+    Adder: SyncAddReceiver<<Self as AtomAdditiveClassicalEstimatorReceiver<T, V, Adder>>::Output>
         + ?Sized,
-    Multiplier: SyncMulReciever<<Self as AtomAdditiveClassicalEstimatorReciever<T, V, Adder>>::Output>
+    Multiplier: SyncMulReceiver<<Self as AtomAdditiveClassicalEstimatorReceiver<T, V, Adder>>::Output>
         + ?Sized,
     E: ?Sized,
-    Self: AtomAdditiveClassicalEstimatorReciever<T, V, Adder>,
+    Self: AtomAdditiveClassicalEstimatorReceiver<T, V, Adder>,
 {
-    type Output = <Self as AtomAdditiveClassicalEstimatorReciever<T, V, Adder>>::Output;
-    type Error = <Self as AtomAdditiveClassicalEstimatorReciever<T, V, Adder>>::Error;
+    type Output = <Self as AtomAdditiveClassicalEstimatorReceiver<T, V, Adder>>::Output;
+    type Error = <Self as AtomAdditiveClassicalEstimatorReceiver<T, V, Adder>>::Error;
 
     #[inline(always)]
     fn calculate(
@@ -153,7 +153,7 @@ where
         adder: &mut Adder,
         _multiplier: &mut Multiplier,
     ) -> Result<Self::Output, Self::Error> {
-        Ok(adder.recieve_sum()?.ok_or(EmptyError)?)
+        Ok(adder.recv_sum()?.ok_or(EmptyError)?)
     }
 }
 

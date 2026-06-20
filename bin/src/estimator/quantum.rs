@@ -10,7 +10,7 @@ mod virial_kinetic_energy {
             Vector,
             marker::{InnerIsLeading, InnerIsTrailing},
             stat::{Bosonic, Distinguishable},
-            sync_ops::{SyncAddReciever, SyncAddSender},
+            sync_ops::{SyncAddReceiver, SyncAddSender},
         },
         estimator::quantum::atom_additive::{
             InnerAtomAdditiveQuantumEstimator, MainAtomAdditiveQuantumEstimator,
@@ -35,7 +35,7 @@ mod virial_kinetic_energy {
     impl<const N: usize, T, V, Adder> MainAtomAdditiveQuantumEstimator<T, V, Adder>
         for VirialKineticEnergy<N>
     where
-        Adder: SyncAddReciever<T, Error: Error + 'static> + ?Sized,
+        Adder: SyncAddReceiver<T, Error: Error + 'static> + ?Sized,
     {
         type Output = T;
         type Error = Box<dyn Error + 'static>;
