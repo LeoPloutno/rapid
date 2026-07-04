@@ -1,9 +1,7 @@
-use std::sync::{Barrier, RwLock};
-
-use crate::core::{AtomGroup, ValidOutput};
-
 use super::ExchangePotential;
+use crate::core::{AtomGroup, ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
+use std::sync::{Barrier, RwLock};
 
 /// An enum for tracking relations between images.
 #[derive(Clone, Copy, Debug)]
@@ -83,7 +81,7 @@ where
         "calculate_new_energy_set_changed_forces",
         "calculate_new_energy_add_changed_forces"
     )]
-    fn calculate_potential_diff(
+    fn update_energy_with_senders(
         &mut self,
         barrier: &Barrier,
         shared_value: &RwLock<T>,

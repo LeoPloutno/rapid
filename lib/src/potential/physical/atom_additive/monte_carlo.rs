@@ -1,6 +1,4 @@
-use super::{
-    super::MonteCarloPhysicalPotential, AdditivePhysicalPotential, AtomAdditivePhysicalPotential,
-};
+use super::{AdditivePhysicalPotential, AtomAdditivePhysicalPotential};
 use crate::{
     core::{
         MeaningfulOutput,
@@ -8,7 +6,7 @@ use crate::{
         monte_carlo::ChangedGroup,
         sync_ops::{SyncAddReceiver, SyncAddSender},
     },
-    potential::GroupInTypeInImage,
+    potential::{GroupInTypeInImage, physical::MonteCarloPhysicalPotential},
 };
 use macros::efficient_alternatives;
 use std::{

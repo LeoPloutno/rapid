@@ -67,10 +67,10 @@ mod distinguishable {
             type_positions_prev_image: &[V],
             type_positions_next_image: &[V],
             type_positions: &[V],
-            group_forces: &mut [V],
+            forces_group: &mut [V],
         ) -> Result<T, Self::Error> {
             let mut iter = zip_iterators!(
-                group_forces,
+                forces_group,
                 type_positions
                     .get(self.group_range.clone())
                     .ok_or_else(|| InvalidRangeError::new(
@@ -111,10 +111,10 @@ mod distinguishable {
             type_positions_prev_image: &[V],
             type_positions_next_image: &[V],
             type_positions: &[V],
-            group_forces: &mut [V],
+            forces_group: &mut [V],
         ) -> Result<T, Self::Error> {
             let mut iter = zip_iterators!(
-                group_forces,
+                forces_group,
                 type_positions
                     .get(self.group_range.clone())
                     .ok_or_else(|| InvalidRangeError::new(
@@ -192,10 +192,10 @@ mod distinguishable {
             type_positions_prev_image: &[V],
             type_positions_next_image: &[V],
             type_positions: &[V],
-            group_forces: &mut [V],
+            forces_group: &mut [V],
         ) -> Result<(), Self::Error> {
             for zip_items!(force, position, position_prev_image, position_next_image) in zip_iterators!(
-                group_forces,
+                forces_group,
                 type_positions
                     .get(self.group_range.clone())
                     .ok_or_else(|| InvalidRangeError::new(
@@ -228,10 +228,10 @@ mod distinguishable {
             type_positions_prev_image: &[V],
             type_positions_next_image: &[V],
             type_positions: &[V],
-            group_forces: &mut [V],
+            forces_group: &mut [V],
         ) -> Result<(), Self::Error> {
             for zip_items!(force, position, position_prev_image, position_next_image) in zip_iterators!(
-                group_forces,
+                forces_group,
                 type_positions
                     .get(self.group_range.clone())
                     .ok_or_else(|| InvalidRangeError::new(

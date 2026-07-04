@@ -1,9 +1,10 @@
 //! Traits for updating the forces and calculating the exchange potential energy.
 
-use std::sync::{Barrier, RwLock};
-
 use super::GroupInTypeInImage;
+use crate::core::AtomGroup;
+use crate::core::ValidOutput;
 use macros::{efficient_alternatives, heavy_computation};
+use std::sync::{Barrier, RwLock};
 
 pub mod quadratic;
 
@@ -11,8 +12,6 @@ pub mod quadratic;
 mod monte_carlo;
 #[cfg(feature = "monte_carlo")]
 pub use monte_carlo::{MonteCarloExchangePotential, NeighboringImage};
-
-use crate::core::{AtomGroup, ValidOutput};
 
 /// A trait for exchange potentials.
 pub trait ExchangePotential<T, V, A, M, O>
