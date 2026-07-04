@@ -34,7 +34,7 @@ mod harmonic {
         V: Vector<N, Element = T> + Clone,
     {
         type ErrorAtom = Infallible;
-        type ErrorSystem = EmptyError;
+        type SystemError = EmptyError;
 
         fn calculate_potential_set_force(
             &mut self,

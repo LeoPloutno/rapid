@@ -5,6 +5,16 @@ use std::ops::{
     Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign,
 };
 
+pub trait MeaningfulOutput {}
+
+impl !MeaningfulOutput for () {}
+
+pub trait ValidOutput<T> {}
+
+impl<T: MeaningfulOutput> ValidOutput<T> for T {}
+
+impl<T> ValidOutput<T> for () {}
+
 mod map_in_whole {
     use std::{ops::Deref, ptr, range::Range, slice};
 

@@ -3,15 +3,16 @@ use super::{
 };
 use crate::{
     core::{
+        MeaningfulOutput,
         error::InvalidIndexError,
         monte_carlo::ChangedGroup,
-        sync_ops::{SyncAddReceiver, SyncAddSender, SyncMulReceiver, SyncMulSender},
+        sync_ops::{SyncAddReceiver, SyncAddSender},
     },
     potential::GroupInTypeInImage,
 };
 use macros::efficient_alternatives;
 use std::{
-    ops::Add,
+    ops::{Add, AddAssign},
     sync::{
         Barrier, RwLock,
         mpsc::{Receiver, RecvError, SendError, Sender},
@@ -20,7 +21,7 @@ use std::{
 
 /// A trait for atom-additive physical potentials that may be used in a Monte-Carlo algorithm.
 ///
-/// For any type `P` that implements this trait, [`AdditiveMonteCarloPhysicalPotential<P>`]
+/// For any type `P` that implements this trait, [`dditiveMonteCarloPhysicalPotential<P>`]
 /// atomatically implements [`MonteCarloPhysicalPotential`].
 pub trait AtomAdditiveMonteCarloPhysicalPotential<T, V>:
     AtomAdditivePhysicalPotential<T, V>
@@ -28,404 +29,421 @@ where
     T: Add<Output = T>,
 {
     /// The type of error `Self` returns.
-    type ErrorAtom;
-    /// The type of error [`AdditiveMonteCarloPhysicalPotential<Self>`] returns.
-    type ErrorSystem: From<<Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom>
-        + From<InvalidIndexError>
-        + From<SendError<T>>
-        + From<RecvError>;
+    type AtomError;
+    /// The type of error [`dditiveMonteCarloPhysicalPotential<Self>`] returns.
+    type SystemError: From<<Self as AtomAdditivePhysicalPotential<T, V>>::AtomError>
+        + From<<Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError>
+        + From<InvalidIndexError>;
 
-    /// Calculates the change in the physical potential energy of this atom
-    /// after a change in its position and sets the force of this atom accordingly.
+    /// Calculates the contribution of an atom to the total physical potential energy
+    /// of the image and the force arising from it after a change in the atom's position.
     ///
-    /// Returns the change in physical physical potential energy.
-    fn calculate_energy_diff_set_changed_force(
+    /// Returns the contribution to the potential energy and the force.
+    fn calculate_new_energy_and_force(
         &mut self,
         atom_index: usize,
+        old_energy: T,
         old_position: V,
         position: &V,
-        force: &mut V,
-    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom>;
+    ) -> Result<(T, V), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError>;
 
-    /// Calculates the change in the physical potential energy of this atom
-    /// after a change in its position and adds the force arising from this potential
-    /// to the force of this atom.
+    /// Calculates the contribution of an atom to the total physical potential energy
+    /// of the image after a change in the atom's position.
     ///
-    /// Returns the change in physical potential energy.
-    fn calculate_energy_diff_add_changed_force(
+    /// Returns the contribution to the potential energy.
+    #[efficient_alternatives("update_energy_and_force")]
+    fn calculate_new_energy(
         &mut self,
         atom_index: usize,
+        old_energy: T,
         old_position: V,
         position: &V,
-        force: &mut V,
-    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom>;
-
-    /// Calculates the change in the physical potential energy of this atom
-    /// after a change in its position.
-    ///
-    /// Returns the change in physical potential energy.
-    #[efficient_alternatives(
-        "calculate_energy_diff_set_changed_force",
-        "calculate_energy_diff_add_changed_force"
-    )]
-    fn calculate_energy_diff(
-        &mut self,
-        atom_index: usize,
-        old_position: V,
-        position: &V,
-    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom>;
-
-    /// Sets the force of this atom after a change in its position.
-    #[efficient_alternatives("calculate_energy_diff_set_changed_force")]
-    fn set_changed_force(
-        &mut self,
-        atom_index: usize,
-        old_position: V,
-        position: &V,
-        force: &mut V,
-    ) -> Result<(), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom>;
-
-    /// Adds the force arising from this potential to the force of this atom
-    /// after a change in its position.
-    #[efficient_alternatives("calculate_energy_diff_add_changed_force")]
-    fn add_changed_force(
-        &mut self,
-        atom_index: usize,
-        old_position: V,
-        position: &V,
-        force: &mut V,
-    ) -> Result<(), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom>;
+    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError>;
 }
 
-impl<T, V, P> AtomAdditiveMonteCarloPhysicalPotential<T, V> for AdditivePhysicalPotential<P>
-where
-    T: Default + Add<Output = T>,
-    P: AtomAdditiveMonteCarloPhysicalPotential<T, V> + ?Sized,
-{
-    type ErrorAtom = <P as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom;
-    type ErrorSystem = <P as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorSystem;
-
-    #[inline(always)]
-    fn calculate_energy_diff_set_changed_force(
-        &mut self,
-        atom_index: usize,
-        old_position: V,
-        position: &V,
-        force: &mut V,
-    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom> {
-        self.0
-            .calculate_energy_diff_set_changed_force(atom_index, old_position, position, force)
-    }
-
-    #[inline(always)]
-    fn calculate_energy_diff_add_changed_force(
-        &mut self,
-        atom_index: usize,
-        old_position: V,
-        position: &V,
-        force: &mut V,
-    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom> {
-        self.0
-            .calculate_energy_diff_add_changed_force(atom_index, old_position, position, force)
-    }
-
-    #[inline(always)]
-    fn calculate_energy_diff(
-        &mut self,
-        atom_index: usize,
-        old_position: V,
-        position: &V,
-    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom> {
-        #[allow(deprecated)]
-        self.0
-            .calculate_energy_diff(atom_index, old_position, position)
-    }
-
-    #[inline(always)]
-    fn set_changed_force(
-        &mut self,
-        atom_index: usize,
-        old_position: V,
-        position: &V,
-        force: &mut V,
-    ) -> Result<(), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom> {
-        #[allow(deprecated)]
-        self.0
-            .set_changed_force(atom_index, old_position, position, force)
-    }
-
-    #[inline(always)]
-    fn add_changed_force(
-        &mut self,
-        atom_index: usize,
-        old_position: V,
-        position: &V,
-        force: &mut V,
-    ) -> Result<(), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorAtom> {
-        #[allow(deprecated)]
-        self.0
-            .add_changed_force(atom_index, old_position, position, force)
-    }
-}
-
-impl<T, V, AS, MS, AR, MR, P> MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>
-    for AdditivePhysicalPotential<P>
+impl<T, V, P, C> AtomAdditiveMonteCarloPhysicalPotential<T, V> for AdditivePhysicalPotential<P, C>
 where
     T: Add<Output = T>,
-    AS: SyncAddSender<T> + ?Sized,
-    MS: SyncMulSender<T> + ?Sized,
-    AR: SyncAddReceiver<T> + ?Sized,
-    MR: SyncMulReceiver<T> + ?Sized,
-    P: ?Sized,
-    <Self as AtomAdditivePhysicalPotential<T, V>>::ErrorSystem: From<AS::Error> + From<AR::Error>,
-    Self: AtomAdditiveMonteCarloPhysicalPotential<T, V>,
-    <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorSystem: From<AS::Error>,
+    V: AddAssign,
+    P: AtomAdditiveMonteCarloPhysicalPotential<T, V> + ?Sized,
 {
-    type Error = <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::ErrorSystem;
+    type AtomError = <P as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError;
+    type SystemError = <P as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::SystemError;
 
-    fn update_energy_set_changed_forces_with_senders(
+    fn calculate_new_energy_and_force(
         &mut self,
-        channel: &Sender<T>,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        _adder: &mut AS,
-        _multiplier: &mut MS,
-        changed_group: ChangedGroup,
-        changed_atom_index: usize,
-        _old_energy: T,
+        atom_index: usize,
+        old_energy: T,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
-    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error> {
-        if let ChangedGroup::This = changed_group {
-            let group_forces_len = group_forces.len();
-            let positions = positions.read();
-            let potential_energy_diff =
-                AtomAdditiveMonteCarloPhysicalPotential::calculate_energy_diff_set_changed_force(
-                    self,
-                    changed_atom_index,
-                    old_position,
-                    positions.get(changed_atom_index).ok_or_else(|| {
-                        InvalidIndexError::new(changed_atom_index, positions.len())
-                    })?,
-                    group_forces.get_mut(changed_atom_index).ok_or_else(|| {
-                        InvalidIndexError::new(changed_atom_index, group_forces_len)
-                    })?,
-                )?;
-            channel.send(potential_energy_diff)?;
-        }
-        Ok(())
+        position: &V,
+    ) -> Result<(T, V), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError> {
+        self.potential.calculate_new_energy_and_force(
+            atom_index,
+            old_energy,
+            old_position,
+            position,
+        )
     }
 
-    fn update_energy_set_changed_forces_with_receivers(
+    fn calculate_new_energy(
         &mut self,
-        channel: &Receiver<T>,
+        atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        position: &V,
+    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError> {
+        #[allow(deprecated)]
+        self.potential
+            .calculate_new_energy(atom_index, old_energy, old_position, position)
+    }
+}
+
+impl<T, V, A, M, P> MonteCarloPhysicalPotential<T, V, A, M, ()>
+    for AdditivePhysicalPotential<P, Sender<T>>
+where
+    T: Add<Output = T>,
+    V: AddAssign,
+    A: SyncAddSender<T> + ?Sized,
+    M: ?Sized,
+    Self: AtomAdditiveMonteCarloPhysicalPotential<T, V>,
+    <Self as AtomAdditivePhysicalPotential<T, V>>::SystemError: From<A::Error>,
+    <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::SystemError:
+        From<A::Error> + From<SendError<T>>,
+{
+    type Error = <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::SystemError;
+
+    fn calculate_new_energy_set_changed_forces(
+        &mut self,
         _barrier: &Barrier,
         _shared_value: &RwLock<T>,
-        _adder: &mut AR,
-        _multiplier: &mut MR,
+        _adder: &mut A,
+        _multiplier: &mut M,
         changed_group: ChangedGroup,
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
-    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error> {
-        Ok(if let ChangedGroup::This = changed_group {
-            let group_forces_len = group_forces.len();
-            let positions = positions.read();
-            AtomAdditiveMonteCarloPhysicalPotential::calculate_energy_diff_set_changed_force(
-                self,
-                changed_atom_index,
-                old_position,
-                positions
-                    .get(changed_atom_index)
-                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
-                group_forces
-                    .get_mut(changed_atom_index)
-                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
-            )?
-        } else {
-            channel.recv()?
-        } + old_energy)
-    }
-
-    fn update_energy_add_changed_forces_with_senders(
-        &mut self,
-        channel: &Sender<T>,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        _adder: &mut AS,
-        _multiplier: &mut MS,
-        changed_group: ChangedGroup,
-        changed_atom_index: usize,
-        _old_energy: T,
-        old_position: V,
-        positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
-    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error> {
+        forces: &mut [V],
+    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, A, M, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
-            let group_forces_len = group_forces.len();
             let positions = positions.read();
-            let potential_energy_diff =
-                AtomAdditiveMonteCarloPhysicalPotential::calculate_energy_diff_add_changed_force(
+            let (new_energy, new_force) =
+                AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
                     self,
                     changed_atom_index,
+                    old_energy,
                     old_position,
                     positions.get(changed_atom_index).ok_or_else(|| {
                         InvalidIndexError::new(changed_atom_index, positions.len())
                     })?,
-                    group_forces.get_mut(changed_atom_index).ok_or_else(|| {
-                        InvalidIndexError::new(changed_atom_index, group_forces_len)
-                    })?,
                 )?;
-            channel.send(potential_energy_diff)?;
+            let forces_len = forces.len();
+            *forces
+                .get_mut(changed_atom_index)
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? = new_force;
+            self.data.send(new_energy)?;
         }
         Ok(())
     }
 
-    fn update_energy_add_changed_forces_with_receivers(
+    fn calculate_new_energy_add_changed_forces(
         &mut self,
-        channel: &Receiver<T>,
         _barrier: &Barrier,
         _shared_value: &RwLock<T>,
-        _adder: &mut AR,
-        _multiplier: &mut MR,
+        _adder: &mut A,
+        _multiplier: &mut M,
         changed_group: ChangedGroup,
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
-    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error> {
-        Ok(if let ChangedGroup::This = changed_group {
-            let group_forces_len = group_forces.len();
+        forces: &mut [V],
+    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, A, M, ()>>::Error> {
+        if let ChangedGroup::This = changed_group {
             let positions = positions.read();
-            AtomAdditiveMonteCarloPhysicalPotential::calculate_energy_diff_add_changed_force(
-                self,
-                changed_atom_index,
-                old_position,
-                positions
-                    .get(changed_atom_index)
-                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
-                group_forces
-                    .get_mut(changed_atom_index)
-                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
-            )?
-        } else {
-            channel.recv()?
-        } + old_energy)
+            let (new_energy, new_force) =
+                AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
+                    self,
+                    changed_atom_index,
+                    old_energy,
+                    old_position,
+                    positions.get(changed_atom_index).ok_or_else(|| {
+                        InvalidIndexError::new(changed_atom_index, positions.len())
+                    })?,
+                )?;
+            let forces_len = forces.len();
+            *forces
+                .get_mut(changed_atom_index)
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? +=
+                new_force;
+            self.data.send(new_energy)?;
+        }
+        Ok(())
     }
 
-    fn update_energy_with_senders(
+    fn calculate_new_energy(
         &mut self,
-        channel: &Sender<T>,
         _barrier: &Barrier,
         _shared_value: &RwLock<T>,
-        _adder: &mut AS,
-        _multiplier: &mut MS,
+        _adder: &mut A,
+        _multiplier: &mut M,
         changed_group: ChangedGroup,
         changed_atom_index: usize,
-        _old_energy: T,
+        old_energy: T,
         old_position: V,
         positions: &GroupInTypeInImage<V>,
-    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error> {
+    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, A, M, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
             let positions = positions.read();
             #[allow(deprecated)]
-            let potential_energy_diff =
-                AtomAdditiveMonteCarloPhysicalPotential::calculate_energy_diff(
-                    self,
-                    changed_atom_index,
-                    old_position,
-                    positions.get(changed_atom_index).ok_or_else(|| {
-                        InvalidIndexError::new(changed_atom_index, positions.len())
-                    })?,
-                )?;
-            channel.send(potential_energy_diff)?;
-        }
-        Ok(())
-    }
-
-    fn update_energy_with_receivers(
-        &mut self,
-        channel: &Receiver<T>,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        _adder: &mut AR,
-        _multiplier: &mut MR,
-        changed_group: ChangedGroup,
-        changed_atom_index: usize,
-        old_energy: T,
-        old_position: V,
-        positions: &GroupInTypeInImage<V>,
-    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error> {
-        Ok(if let ChangedGroup::This = changed_group {
-            let positions = positions.read();
-            #[allow(deprecated)]
-            AtomAdditiveMonteCarloPhysicalPotential::calculate_energy_diff(
+            let new_energy = AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy(
                 self,
                 changed_atom_index,
+                old_energy,
                 old_position,
                 positions
                     .get(changed_atom_index)
                     .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
-            )?
-        } else {
-            channel.recv()?
-        } + old_energy)
+            )?;
+            self.data.send(new_energy)?;
+        }
+        Ok(())
     }
 
     fn set_changed_forces(
         &mut self,
+        _barrier: &Barrier,
+        _shared_value: &RwLock<T>,
+        _adder: &mut A,
+        _multiplier: &mut M,
         changed_group: ChangedGroup,
         changed_atom_index: usize,
-        old_position: V,
+        _old_position: V,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
-    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error> {
+        forces: &mut [V],
+    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, A, M, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
-            let group_forces_len = group_forces.len();
             let positions = positions.read();
             #[allow(deprecated)]
-            AtomAdditiveMonteCarloPhysicalPotential::set_changed_force(
+            let new_force = AtomAdditivePhysicalPotential::calculate_force(
                 self,
                 changed_atom_index,
-                old_position,
                 positions
                     .get(changed_atom_index)
                     .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
-                group_forces
-                    .get_mut(changed_atom_index)
-                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
             )?;
+            let forces_len = forces.len();
+            *forces
+                .get_mut(changed_atom_index)
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? = new_force;
         }
         Ok(())
     }
 
     fn add_changed_forces(
         &mut self,
+        _barrier: &Barrier,
+        _shared_value: &RwLock<T>,
+        _adder: &mut A,
+        _multiplier: &mut M,
         changed_group: ChangedGroup,
         changed_atom_index: usize,
-        old_position: V,
+        _old_position: V,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
-    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, AS, MS, AR, MR>>::Error> {
+        forces: &mut [V],
+    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, A, M, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
-            let group_forces_len = group_forces.len();
             let positions = positions.read();
             #[allow(deprecated)]
-            AtomAdditiveMonteCarloPhysicalPotential::add_changed_force(
+            let new_force = AtomAdditivePhysicalPotential::calculate_force(
                 self,
                 changed_atom_index,
+                positions
+                    .get(changed_atom_index)
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
+            )?;
+            let forces_len = forces.len();
+            *forces
+                .get_mut(changed_atom_index)
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? +=
+                new_force;
+        }
+        Ok(())
+    }
+}
+
+impl<T, V, A, M, P> MonteCarloPhysicalPotential<T, V, A, M, T>
+    for AdditivePhysicalPotential<P, Receiver<T>>
+where
+    T: Add<Output = T> + MeaningfulOutput,
+    V: AddAssign,
+    A: SyncAddReceiver<T> + ?Sized,
+    M: ?Sized,
+    Self: AtomAdditiveMonteCarloPhysicalPotential<T, V>,
+    <Self as AtomAdditivePhysicalPotential<T, V>>::SystemError: From<A::Error>,
+    <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::SystemError:
+        From<A::Error> + From<RecvError>,
+{
+    type Error = <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::SystemError;
+
+    fn calculate_new_energy_set_changed_forces(
+        &mut self,
+        _barrier: &Barrier,
+        _shared_value: &RwLock<T>,
+        _adder: &mut A,
+        _multiplier: &mut M,
+        changed_group: ChangedGroup,
+        changed_atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        positions: &GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, A, M, T>>::Error> {
+        if let ChangedGroup::This = changed_group {
+            let positions = positions.read();
+            let (new_energy, new_force) =
+                AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
+                    self,
+                    changed_atom_index,
+                    old_energy,
+                    old_position,
+                    positions.get(changed_atom_index).ok_or_else(|| {
+                        InvalidIndexError::new(changed_atom_index, positions.len())
+                    })?,
+                )?;
+            let forces_len = forces.len();
+            *forces
+                .get_mut(changed_atom_index)
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? = new_force;
+            Ok(new_energy)
+        } else {
+            Ok(self.data.recv()?)
+        }
+    }
+
+    fn calculate_new_energy_add_changed_forces(
+        &mut self,
+        _barrier: &Barrier,
+        _shared_value: &RwLock<T>,
+        _adder: &mut A,
+        _multiplier: &mut M,
+        changed_group: ChangedGroup,
+        changed_atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        positions: &GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, A, M, T>>::Error> {
+        if let ChangedGroup::This = changed_group {
+            let positions = positions.read();
+            let (new_energy, new_force) =
+                AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
+                    self,
+                    changed_atom_index,
+                    old_energy,
+                    old_position,
+                    positions.get(changed_atom_index).ok_or_else(|| {
+                        InvalidIndexError::new(changed_atom_index, positions.len())
+                    })?,
+                )?;
+            let forces_len = forces.len();
+            *forces
+                .get_mut(changed_atom_index)
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? +=
+                new_force;
+            Ok(new_energy)
+        } else {
+            Ok(self.data.recv()?)
+        }
+    }
+
+    fn calculate_new_energy(
+        &mut self,
+        _barrier: &Barrier,
+        _shared_value: &RwLock<T>,
+        _adder: &mut A,
+        _multiplier: &mut M,
+        changed_group: ChangedGroup,
+        changed_atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        positions: &GroupInTypeInImage<V>,
+    ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, A, M, T>>::Error> {
+        if let ChangedGroup::This = changed_group {
+            let positions = positions.read();
+            #[allow(deprecated)]
+            let new_energy = AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy(
+                self,
+                changed_atom_index,
+                old_energy,
                 old_position,
                 positions
                     .get(changed_atom_index)
                     .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
-                group_forces
-                    .get_mut(changed_atom_index)
-                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, group_forces_len))?,
             )?;
+            Ok(new_energy)
+        } else {
+            Ok(self.data.recv()?)
+        }
+    }
+
+    fn set_changed_forces(
+        &mut self,
+        _barrier: &Barrier,
+        _shared_value: &RwLock<T>,
+        _adder: &mut A,
+        _multiplier: &mut M,
+        changed_group: ChangedGroup,
+        changed_atom_index: usize,
+        _old_position: V,
+        positions: &GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, A, M, T>>::Error> {
+        if let ChangedGroup::This = changed_group {
+            let positions = positions.read();
+            #[allow(deprecated)]
+            let new_force = AtomAdditivePhysicalPotential::calculate_force(
+                self,
+                changed_atom_index,
+                positions
+                    .get(changed_atom_index)
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
+            )?;
+            let forces_len = forces.len();
+            *forces
+                .get_mut(changed_atom_index)
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? = new_force;
+        }
+        Ok(())
+    }
+
+    fn add_changed_forces(
+        &mut self,
+        _barrier: &Barrier,
+        _shared_value: &RwLock<T>,
+        _adder: &mut A,
+        _multiplier: &mut M,
+        changed_group: ChangedGroup,
+        changed_atom_index: usize,
+        _old_position: V,
+        positions: &GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, A, M, T>>::Error> {
+        if let ChangedGroup::This = changed_group {
+            let positions = positions.read();
+            #[allow(deprecated)]
+            let new_force = AtomAdditivePhysicalPotential::calculate_force(
+                self,
+                changed_atom_index,
+                positions
+                    .get(changed_atom_index)
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
+            )?;
+            let forces_len = forces.len();
+            *forces
+                .get_mut(changed_atom_index)
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? +=
+                new_force;
         }
         Ok(())
     }

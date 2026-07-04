@@ -1,5 +1,7 @@
 //! Traits for updating the forces and calculating the exchange potential energy.
 
+use std::sync::{Barrier, RwLock};
+
 use super::GroupInTypeInImage;
 use macros::{efficient_alternatives, heavy_computation};
 
@@ -10,73 +12,94 @@ mod monte_carlo;
 #[cfg(feature = "monte_carlo")]
 pub use monte_carlo::{MonteCarloExchangePotential, NeighboringImage};
 
-use crate::core::AtomGroup;
+use crate::core::{AtomGroup, ValidOutput};
 
 /// A trait for exchange potentials.
-pub trait ExchangePotential<T, V> {
+pub trait ExchangePotential<T, V, A, M, O>
+where
+    A: ?Sized,
+    M: ?Sized,
+    O: ValidOutput<T>,
+{
     /// The type associated with an error returned by the implementor.
     type Error;
 
-    /// Returns whether this exchange potential is invariant under
-    /// a cyclic permutation of the images.
-    fn is_cyclic(&self) -> bool;
-
-    /// Calculates the contribution of this group in this image to the total exchange potential energy
-    /// of the type and sets the forces of this group accordingly.
+    /// Calculates the contribution of a group to the total exchange potential energy
+    /// of the type and sets the forces of that group accordingly.
     ///
-    /// Returns the contribution to the total exchange potential energy.
+    /// Where applicable, returns the potential energy.
     #[heavy_computation]
-    fn calculate_potential_set_forces(
+    fn calculate_energy_set_forces(
         &mut self,
-        positions_prev_image: &GroupInTypeInImage<V>,
-        positions_next_image: &GroupInTypeInImage<V>,
+        barrier: &Barrier,
+        shared_value: &RwLock<T>,
+        adder: &mut A,
+        multiplier: &mut M,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
-    ) -> Result<T, Self::Error>;
+        forces: &mut [V],
+    ) -> Result<O, Self::Error>;
 
-    /// Calculates the contribution of this group in this image to the total exchange potential energy
-    /// of the type and adds the forces arising from this potential to the forces of this group.
+    /// Calculates the contribution of a group to the total exchange potential energy
+    /// of the type and adds the forces arising from this potential to the forces of that group.
     ///
-    /// Returns the contribution to the total exchange potential energy.
+    /// Where applicable, returns the potential energy.
     #[heavy_computation]
-    fn calculate_potential_add_forces(
+    fn calculate_energy_add_forces(
         &mut self,
-        positions_prev_image: &GroupInTypeInImage<V>,
-        positions_next_image: &GroupInTypeInImage<V>,
+        barrier: &Barrier,
+        shared_value: &RwLock<T>,
+        adder: &mut A,
+        multiplier: &mut M,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
-    ) -> Result<T, Self::Error>;
+        forces: &mut [V],
+    ) -> Result<O, Self::Error>;
 
-    /// Calculates the contribution of this group in this image to the total exchange potential energy
+    /// Calculates the contribution of a group to the total exchange potential energy
     /// of the type.
     ///
-    /// Returns the contribution to the total exchange potential energy.
+    /// Where applicable, returns the potential energy.
     #[heavy_computation]
-    #[efficient_alternatives("calculate_potential_set_forces", "calculate_potential_add_forces")]
-    fn calculate_potential(
+    #[efficient_alternatives("calculate_energy_set_forces", "calculate_energy_add_forces")]
+    fn calculate_energy(
         &mut self,
-        positions_prev_image: &GroupInTypeInImage<V>,
-        positions_next_image: &GroupInTypeInImage<V>,
+        barrier: &Barrier,
+        shared_value: &RwLock<T>,
+        adder: &mut A,
+        multiplier: &mut M,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,
-    ) -> Result<T, Self::Error>;
+    ) -> Result<O, Self::Error>;
 
-    /// Sets the forces of this group in this image.
-    #[efficient_alternatives("calculate_potential_set_forces")]
+    /// Sets the forces of a group.
+    #[efficient_alternatives("calculate_energy_set_forces")]
     fn set_forces(
         &mut self,
-        positions_prev_image: &GroupInTypeInImage<V>,
-        positions_next_image: &GroupInTypeInImage<V>,
+        barrier: &Barrier,
+        shared_value: &RwLock<T>,
+        adder: &mut A,
+        multiplier: &mut M,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [AtomGroup<V>],
+        forces: &mut [AtomGroup<V>],
     ) -> Result<(), Self::Error>;
 
-    /// Adds the forces arising from this potential to the forces of this group in this image.
-    #[efficient_alternatives("calculate_potential_add_forces")]
+    /// Adds the forces arising from this potential to the forces of a group.
+    #[efficient_alternatives("calculate_energy_add_forces")]
     fn add_forces(
         &mut self,
-        positions_prev_image: &GroupInTypeInImage<V>,
-        positions_next_image: &GroupInTypeInImage<V>,
+        barrier: &Barrier,
+        shared_value: &RwLock<T>,
+        adder: &mut A,
+        multiplier: &mut M,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,
-        group_forces: &mut [V],
+        forces: &mut [V],
     ) -> Result<(), Self::Error>;
 }
