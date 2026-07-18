@@ -1,12 +1,12 @@
 use super::{AdditivePhysicalPotential, AtomAdditivePhysicalPotential};
 use crate::{
     core::{
-        MeaningfulOutput,
+        GroupInTypeInImage, MeaningfulOutput,
         error::InvalidIndexError,
         monte_carlo::ChangedGroup,
         sync_ops::{SyncAddReceiver, SyncAddSender},
     },
-    potential::{GroupInTypeInImage, physical::MonteCarloPhysicalPotential},
+    potential::physical::MonteCarloPhysicalPotential,
 };
 use macros::efficient_alternatives;
 use std::{

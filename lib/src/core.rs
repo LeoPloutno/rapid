@@ -716,3 +716,8 @@ impl<T> Multiplicative<T> {
         Self(inner)
     }
 }
+
+pub type GroupInTypeInImage<'a, V> = MapOutsideWhole<
+    &'a AtomGroup<V>,
+    MapInWhole<&'a AtomTypeReaderLock<V>, &'a [AtomTypeReaderLock<V>]>,
+>;
