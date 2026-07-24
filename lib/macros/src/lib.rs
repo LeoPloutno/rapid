@@ -1,8 +1,23 @@
 #![feature(proc_macro_value)]
 
 extern crate proc_macro;
-
 use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
+
+fn error(message: &str) -> TokenStream {
+    [
+        TokenTree::Ident(Ident::new("compile_error", Span::call_site())),
+        TokenTree::Punct(Punct::new('!', Spacing::Joint)),
+        TokenTree::Group(Group::new(
+            Delimiter::Parenthesis,
+            [TokenTree::Literal(Literal::string(message))]
+                .into_iter()
+                .collect(),
+        )),
+        TokenTree::Punct(Punct::new(';', Spacing::Alone)),
+    ]
+    .into_iter()
+    .collect()
+}
 
 #[proc_macro_attribute]
 pub fn heavy_computation(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -27,22 +42,6 @@ pub fn heavy_computation(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn efficient_alternatives(args: TokenStream, item: TokenStream) -> TokenStream {
-    fn error(message: &str) -> TokenStream {
-        [
-            TokenTree::Ident(Ident::new("compile_error", Span::call_site())),
-            TokenTree::Punct(Punct::new('!', Spacing::Joint)),
-            TokenTree::Group(Group::new(
-                Delimiter::Parenthesis,
-                [TokenTree::Literal(Literal::string(message))]
-                    .into_iter()
-                    .collect(),
-            )),
-            TokenTree::Punct(Punct::new(';', Spacing::Alone)),
-        ]
-        .into_iter()
-        .collect()
-    }
-
     let mut message = String::from("consider using ");
     let mut iterator = args.clone().into_iter();
     while let Some(token_tree) = iterator.next() {

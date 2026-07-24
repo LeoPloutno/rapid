@@ -19,7 +19,7 @@ use std::{
 
 /// A trait for atom-additive physical potentials that may be used in a Monte-Carlo algorithm.
 ///
-/// For any type `P` that implements this trait, [`dditiveMonteCarloPhysicalPotential<P>`]
+/// For any type `P` that implements this trait, [`AdditiveMonteCarloPhysicalPotential<P>`]
 /// atomatically implements [`MonteCarloPhysicalPotential`].
 pub trait AtomAdditiveMonteCarloPhysicalPotential<T, V>:
     AtomAdditivePhysicalPotential<T, V>
@@ -28,7 +28,7 @@ where
 {
     /// The type of error `Self` returns.
     type AtomError;
-    /// The type of error [`dditiveMonteCarloPhysicalPotential<Self>`] returns.
+    /// The type of error [`AdditiveMonteCarloPhysicalPotential<Self>`] returns.
     type SystemError: From<<Self as AtomAdditivePhysicalPotential<T, V>>::AtomError>
         + From<<Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError>
         + From<InvalidIndexError>;

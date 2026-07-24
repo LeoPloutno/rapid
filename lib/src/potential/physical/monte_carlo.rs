@@ -8,7 +8,7 @@ use std::sync::{Barrier, RwLock};
 
 /// A trait for physical potentials that may be used in a Monte-Carlo algorithm.
 ///
-/// The generic parameter `O` is the type of the values returned by energy calculations.
+/// The generic parameter `O` is the type of the values returned by the energy calculations.
 /// Setting it to `()` implies that the calculations are sent to another potential
 /// that combines the recieved data and returns the total physical potential energy.
 pub trait MonteCarloPhysicalPotential<T, V, A, M, O>: PhysicalPotential<T, V, A, M, O>

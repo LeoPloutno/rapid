@@ -1,7 +1,6 @@
 //! Traits for updating the forces and calculating the exchange potential energy.
 
 use super::GroupInTypeInImage;
-use crate::core::AtomGroup;
 use crate::core::ValidOutput;
 use macros::{efficient_alternatives, heavy_computation};
 use std::sync::{Barrier, RwLock};
@@ -14,6 +13,10 @@ mod monte_carlo;
 pub use monte_carlo::{MonteCarloExchangePotential, NeighboringImage};
 
 /// A trait for exchange potentials.
+///
+/// The generic parameter `O` is the type of the values returned by the energy calculations.
+/// Setting it to `()` implies that the calculations are sent to another potential
+/// that combines the recieved data and returns the total exchange potential energy.
 pub trait ExchangePotential<T, V, A, M, O>
 where
     A: ?Sized,
@@ -85,7 +88,7 @@ where
         prev_image_positions: &GroupInTypeInImage<V>,
         next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,
-        forces: &mut [AtomGroup<V>],
+        forces: &mut [V],
     ) -> Result<(), Self::Error>;
 
     /// Adds the forces arising from this potential to the forces of a group.

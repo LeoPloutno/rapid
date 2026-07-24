@@ -19,6 +19,10 @@ pub enum NeighboringImage {
 }
 
 /// A trait for exchange potentials that may be used in a Monte-Carlo algorithm.
+///
+/// The generic parameter `O` is the type of the values returned by the energy calculations.
+/// Setting it to `()` implies that the calculations are sent to another potential
+/// that combines the recieved data and returns the total exchange potential energy.
 pub trait MonteCarloExchangePotential<T, V, A, M, O>: ExchangePotential<T, V, A, M, O>
 where
     A: ?Sized,
