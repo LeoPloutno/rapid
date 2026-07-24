@@ -1,8 +1,5 @@
 use super::PhysicalPotential;
-use crate::{
-    core::{ValidOutput, monte_carlo::ChangedGroup},
-    potential::GroupInTypeInImage,
-};
+use crate::core::{GroupInTypeInImage, ValidOutput, monte_carlo::ChangedGroup};
 use macros::{efficient_alternatives, heavy_computation};
 use std::sync::{Barrier, RwLock};
 

@@ -1,8 +1,6 @@
 //! Traits for updating the forces and calculating the physical potential energy.
 
-use crate::core::ValidOutput;
-
-use super::GroupInTypeInImage;
+use crate::core::{GroupInTypeInImage, ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
 use std::sync::{Barrier, RwLock};
 

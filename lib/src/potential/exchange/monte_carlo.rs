@@ -85,7 +85,7 @@ where
         "calculate_new_energy_set_changed_forces",
         "calculate_new_energy_add_changed_forces"
     )]
-    fn update_energy_with_senders(
+    fn calculate_new_energy(
         &mut self,
         barrier: &Barrier,
         shared_value: &RwLock<T>,
@@ -93,7 +93,8 @@ where
         multiplier: &mut M,
         changed_image: NeighboringImage,
         changed_atom_index: usize,
-        old_value: V,
+        old_energy: T,
+        old_position: V,
         prev_image_type_positions: &[AtomGroup<V>],
         next_image_type_positions: &[AtomGroup<V>],
         type_positions: &[AtomGroup<V>],
@@ -111,7 +112,8 @@ where
         multiplier: &mut M,
         changed_image: NeighboringImage,
         changed_atom_index: usize,
-        old_value: V,
+        old_energy: T,
+        old_position: V,
         prev_image_type_positions: &[AtomGroup<V>],
         next_image_type_positions: &[AtomGroup<V>],
         type_positions: &[AtomGroup<V>],

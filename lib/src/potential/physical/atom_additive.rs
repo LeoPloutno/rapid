@@ -1,11 +1,8 @@
 use super::PhysicalPotential;
-use crate::{
-    core::{
-        MeaningfulOutput,
-        error::{EmptyError, InvalidIndexError},
-        sync_ops::{SyncAddReceiver, SyncAddSender},
-    },
-    potential::GroupInTypeInImage,
+use crate::core::{
+    GroupInTypeInImage, MeaningfulOutput,
+    error::{EmptyError, InvalidIndexError},
+    sync_ops::{SyncAddReceiver, SyncAddSender},
 };
 use macros::efficient_alternatives;
 use std::{
@@ -27,7 +24,7 @@ cfg_select! {
     _ => "A wrapper for implementors of the [`AtomAdditivePhysicalPotential`] trait."
 }
 ]
-pub struct AdditivePhysicalPotential<P: ?Sized, D> {
+pub struct AdditivePhysicalPotential<P: ?Sized, D = ()> {
     data: D,
     potential: P,
 }

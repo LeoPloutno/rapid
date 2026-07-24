@@ -1,493 +1,254 @@
 //! Traits and types for qunatum estimators that can be expressed as a sum of observables
 //! that depend only on a single atom.
 
-use super::{
-    EstimatorImages, GroupInTypeInImageInSystem, MinimalQuantumEstimatorSender,
-    QuantumEstimatorReceiver, QuantumEstimatorSender,
-};
+use super::QuantumEstimator;
 use crate::{
     core::{
-        Scheme,
-        error::EmptyError,
-        stat::{Bosonic, Distinguishable},
-        sync_ops::{SyncAddReceiver, SyncAddSender, SyncMulReceiver, SyncMulSender},
-    },
-    potential::{
-        exchange::{ExchangePotential, quadratic::QuadraticExpansionExchangePotential},
-        physical::PhysicalPotential,
+        GroupInTypeInImage,
+        error::{EmptyError, InvalidIndexError},
+        sync_ops::SyncAddSender,
     },
     zip_items, zip_iterators,
 };
 use std::ops::Add;
 
-/// A wrapper for implementors of the `AtomAdditiveQuantumEstimator...` traits.
-pub struct AdditiveQuantumEstimator<E: ?Sized>(pub(crate) E);
-
-impl<E> AdditiveQuantumEstimator<E> {
-    /// Wraps the provided value with `AdditiveQuantumEstimator`.
-    pub const fn new(value: E) -> Self {
-        Self(value)
-    }
-}
-
-/// A wrapper for implementors of the [`AtomAdditiveMinimalQuantumEstimatorSender`] trait.
-pub struct AdditiveMinimalQuantumEstimator<E: ?Sized>(pub(crate) E);
-
-impl<E> AdditiveMinimalQuantumEstimator<E> {
-    /// Wraps the provided value with `AdditiveMinimalQuantumEstimator`.
-    pub const fn new(value: E) -> Self {
-        Self(value)
-    }
-}
-
-/// A trait for receivers of quantum estimators that can be expressed
-/// as a sum of observables that depend only on a singe atom.
+/// A trait for quantum estimators that can be expressed as a sum
+/// of estimators that each depend only on a single atom.
 ///
 /// For any type `E` that implements this trait, [`AdditiveQuantumEstimator<E>`]
-/// atomatically implements [`QuantumEstimatorReceiver`].
-pub trait AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>
-where
-    Adder: SyncAddReceiver<Self::Output> + ?Sized,
-{
-    /// The type of output `Self` and [`AdditiveQuantumEstimator<Self>`] produce.
-    type Output;
-    /// The type of error [`AdditiveQuantumEstimator<Self>`] returns.
-    type Error: From<Adder::Error> + From<EmptyError>;
-}
-
-/// A trait for senders of quantum estimators that can be expressed
-/// as a sum of observables that depend only on a singe atom.
-///
-/// For any type `E` that implements this trait, [`AdditiveQuantumEstimator<E>`]
-/// atomatically implements [`QuantumEstimatorReceiver`].
-pub trait AtomAdditiveQuantumEstimatorSender<T, V, Adder, Phys, Dist, DistQuad, Boson, BosonQuad>
-where
-    Adder: SyncAddSender<Self::Output> + ?Sized,
-    Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: ExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> QuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
-    Boson: ExchangePotential<T, V> + Bosonic + ?Sized,
-    BosonQuad: for<'a> QuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-{
+/// automatically implements [`QuantumEstimator`].
+pub trait AtomAdditiveQuantumEstimator<T: Clone, V> {
     /// The type of output `Self` and [`AdditiveQuantumEstimator<Self>`] return.
     type Output: Add<Output = Self::Output>;
     /// The type of error `Self` returns.
-    type ErrorAtom;
+    type AtomError;
     /// The type of error [`AdditiveQuantumEstimator<Self>`] returns.
-    type ErrorSystem: From<Self::ErrorAtom> + From<Adder::Error> + From<EmptyError>;
+    type SystemError: From<Self::AtomError> + From<EmptyError>;
 
-    /// Calculates the contribution of this atom to the observable.
+    /// Calculates the contribution of an atom to the contribution
+    /// of the image to the observable.
     fn calculate(
         &mut self,
         atom_index: usize,
-        physical_potential: &mut Phys,
-        exchange_potential: Scheme<&mut Dist, &mut DistQuad>,
-        group_physical_potential_energy: T,
-        group_exchange_potential_energy: T,
+        physical_potential_energy: T,
+        exchange_potential_energy: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
-    ) -> Result<Self::Output, Self::ErrorAtom>;
+    ) -> Result<Self::Output, Self::AtomError>;
 }
 
-/// A trait for atom-additive estimator senders that do not rely on either
-/// the physical nor the exchange potentials.
-///
-/// For any type `E` that implements this trait, [`AdditiveMinimalQuantumEstimator<E>`]
-/// atomatically implements [`MinimalQuantumEstimatorSender`].
-pub trait AtomAdditiveMinimalQuantumEstimatorSender<T, V, Adder>
-where
-    Adder: SyncAddSender<Self::Output> + ?Sized,
-{
-    /// The type of output `Self` and [`AdditiveMinimalQuantumEstimator<Self>`] return.
-    type Output: Add<Output = Self::Output>;
-    /// The type of error `Self` returns.
-    type ErrorAtom;
-    /// The type of error [`AdditiveMinimalQuantumEstimator<Self>`] returns.
-    type ErrorSystem: From<Self::ErrorAtom> + From<Adder::Error> + From<EmptyError>;
+mod value {
+    use super::{super::QuantumEstimator, AtomAdditiveQuantumEstimator};
+    use crate::{
+        core::{GroupInTypeInImage, error::EmptyError, sync_ops::SyncAddSender},
+        zip_items, zip_iterators,
+    };
+    use std::ops::Add;
 
-    /// Calculates the contribution of this atom to the observable.
-    fn calculate(
-        &mut self,
-        atom_index: usize,
-        group_physical_potential_energy: T,
-        group_exchange_potential_energy: T,
-        position: &V,
-        physical_force: &V,
-        exchange_force: &V,
-    ) -> Result<Self::Output, Self::ErrorAtom>;
-}
+    /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<Output = T>`] trait.
+    pub struct AdditiveValueQuantumEstimator<E: ?Sized>(pub(crate) E);
 
-impl<T, V, Adder, E> AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>
-    for AdditiveQuantumEstimator<E>
-where
-    Adder: SyncAddReceiver<E::Output> + ?Sized,
-    E: AtomAdditiveQuantumEstimatorReceiver<T, V, Adder> + ?Sized,
-{
-    type Output = E::Output;
-    type Error = E::Error;
-}
-
-impl<T, V, Adder, Multiplier, E> QuantumEstimatorReceiver<T, V, Adder, Multiplier>
-    for AdditiveQuantumEstimator<E>
-where
-    Adder: SyncAddReceiver<<Self as AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>>::Output>
-        + ?Sized,
-    Multiplier: SyncMulReceiver<<Self as AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>>::Output>
-        + ?Sized,
-    E: ?Sized,
-    Self: AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>,
-{
-    type Output = <Self as AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>>::Output;
-    type Error = <Self as AtomAdditiveQuantumEstimatorReceiver<T, V, Adder>>::Error;
-
-    #[inline(always)]
-    fn calculate(
-        &mut self,
-        adder: &mut Adder,
-        _multiplier: &mut Multiplier,
-    ) -> Result<Self::Output, Self::Error> {
-        Ok(adder.recv_sum()?.ok_or(EmptyError)?)
-    }
-}
-
-impl<T, V, Adder, Phys, Dist, DistQuad, Boson, BosonQuad, E>
-    AtomAdditiveQuantumEstimatorSender<T, V, Adder, Phys, Dist, DistQuad, Boson, BosonQuad>
-    for AdditiveQuantumEstimator<E>
-where
-    Adder: SyncAddSender<E::Output> + ?Sized,
-    Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: ExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> QuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
-    Boson: ExchangePotential<T, V> + Bosonic + ?Sized,
-    BosonQuad: for<'a> QuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    E: AtomAdditiveQuantumEstimatorSender<T, V, Adder, Phys, Dist, DistQuad, Boson, BosonQuad>
-        + ?Sized,
-{
-    type Output = E::Output;
-    type ErrorAtom = E::ErrorAtom;
-    type ErrorSystem = E::ErrorSystem;
-
-    #[inline(always)]
-    fn calculate(
-        &mut self,
-        atom_index: usize,
-        physical_potential: &mut Phys,
-        exchange_potential: Scheme<&mut Dist, &mut DistQuad>,
-        group_physical_potential_energy: T,
-        group_exchange_potential_energy: T,
-        position: &V,
-        physical_force: &V,
-        exchange_force: &V,
-    ) -> Result<Self::Output, Self::ErrorAtom> {
-        self.0.calculate(
-            atom_index,
-            physical_potential,
-            exchange_potential,
-            group_physical_potential_energy,
-            group_exchange_potential_energy,
-            position,
-            physical_force,
-            exchange_force,
-        )
-    }
-}
-
-impl<T, V, Adder, Multiplier, Phys, Dist, DistQuad, Boson, BosonQuad, E>
-    QuantumEstimatorSender<T, V, Adder, Multiplier, Phys, Dist, DistQuad, Boson, BosonQuad>
-    for AdditiveQuantumEstimator<E>
-where
-    Adder: SyncAddSender<
-            <Self as AtomAdditiveQuantumEstimatorSender<
-                T,
-                V,
-                Adder,
-                Phys,
-                Dist,
-                DistQuad,
-                Boson,
-                BosonQuad,
-            >>::Output,
-        > + ?Sized,
-    Multiplier: SyncMulSender<
-            <Self as AtomAdditiveQuantumEstimatorSender<
-                T,
-                V,
-                Adder,
-                Phys,
-                Dist,
-                DistQuad,
-                Boson,
-                BosonQuad,
-            >>::Output,
-        > + ?Sized,
-    Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: ExchangePotential<T, V> + Distinguishable + ?Sized,
-    DistQuad: for<'a> QuadraticExpansionExchangePotential<'a, T, V> + Distinguishable + ?Sized,
-    Boson: ExchangePotential<T, V> + Bosonic + ?Sized,
-    BosonQuad: for<'a> QuadraticExpansionExchangePotential<'a, T, V> + Bosonic + ?Sized,
-    E: ?Sized,
-    Self: AtomAdditiveQuantumEstimatorSender<T, V, Adder, Phys, Dist, DistQuad, Boson, BosonQuad>,
-{
-    type Output = <Self as AtomAdditiveQuantumEstimatorSender<
-        T,
-        V,
-        Adder,
-        Phys,
-        Dist,
-        DistQuad,
-        Boson,
-        BosonQuad,
-    >>::Output;
-    type Error = <Self as AtomAdditiveQuantumEstimatorSender<
-        T,
-        V,
-        Adder,
-        Phys,
-        Dist,
-        DistQuad,
-        Boson,
-        BosonQuad,
-    >>::ErrorSystem;
-
-    fn calculate_distinguishable(
-        &mut self,
-        adder: &mut Adder,
-        _multiplier: &mut Multiplier,
-        physical_potential: &mut Phys,
-        exchange_potential: Scheme<&mut Dist, &mut DistQuad>,
-        group_physical_potential_energy: T,
-        group_exchange_potential_energy: T,
-        positions: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-        physical_forces: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-        exchange_forces: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-    ) -> Result<(), Self::Error> {
-        let mut iter = zip_iterators!(
-            positions.read(),
-            physical_forces.read(),
-            exchange_forces.read()
-        )
-        .enumerate()
-        .map(
-            |(index, zip_items!(position, physical_force, exchange_force))| {
-                AtomAdditiveQuantumEstimatorSender::calculate(
-                    self,
-                    index,
-                    physical_potential,
-                    exchange_potential.as_deref_mut(),
-                    group_physical_potential_energy,
-                    group_exchange_potential_energy,
-                    position,
-                    physical_force,
-                    exchange_force,
-                )
-            },
-        );
-        let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        Ok(adder.send(iter.try_fold(
-            first_atom_observable,
-            |accum_observable, atom_observable| {
-                Ok::<
-                    _,
-                    <Self as AtomAdditiveQuantumEstimatorSender<
-                        T,
-                        V,
-                        Adder,
-                        Phys,
-                        Dist,
-                        DistQuad,
-                        Boson,
-                        BosonQuad,
-                    >>::ErrorAtom,
-                >(accum_observable + atom_observable?)
-            },
-        )?)?)
+    impl<E> AdditiveValueQuantumEstimator<E> {
+        /// Wraps the provided value with `AdditiveQuantumEstimator`.
+        pub const fn new(value: E) -> Self {
+            Self(value)
+        }
     }
 
-    fn calculate_bosonic(
-        &mut self,
-        adder: &mut Adder,
-        _multiplier: &mut Multiplier,
-        physical_potential: &mut Phys,
-        exchange_potential: Scheme<&mut Boson, &mut BosonQuad>,
-        group_physical_potential_energy: T,
-        group_exchange_potential_energy: T,
-        positions: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-        physical_forces: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-        exchange_forces: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-    ) -> Result<(), Self::Error> {
-        let mut iter = zip_iterators!(
-            positions.read(),
-            physical_forces.read(),
-            exchange_forces.read()
-        )
-        .enumerate()
-        .map(
-            |(index, zip_items!(position, physical_force, exchange_force))| {
-                AtomAdditiveQuantumEstimatorSender::calculate(
-                    self,
-                    index,
-                    physical_potential,
-                    exchange_potential.as_deref_mut(),
-                    group_physical_potential_energy,
-                    group_exchange_potential_energy,
-                    position,
-                    physical_force,
-                    exchange_force,
-                )
-            },
-        );
-        let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        Ok(adder.send(iter.try_fold(
-            first_atom_observable,
-            |accum_observable, atom_observable| {
-                Ok::<
-                    _,
-                    <Self as AtomAdditiveQuantumEstimatorSender<
-                        T,
-                        V,
-                        Adder,
-                        Phys,
-                        Dist,
-                        DistQuad,
-                        Boson,
-                        BosonQuad,
-                    >>::ErrorAtom,
-                >(accum_observable + atom_observable?)
-            },
-        )?)?)
+    impl<T, V, E> AtomAdditiveQuantumEstimator<T, V> for AdditiveValueQuantumEstimator<E>
+    where
+        T: Clone + Add<Output = T>,
+        E: AtomAdditiveQuantumEstimator<T, V, Output = T> + ?Sized,
+    {
+        type Output = T;
+        type AtomError = E::AtomError;
+        type SystemError = E::SystemError;
+
+        #[inline(always)]
+        fn calculate(
+            &mut self,
+            atom_index: usize,
+            physical_potential_energy: T,
+            exchange_potential_energy: T,
+            position: &V,
+            physical_force: &V,
+            exchange_force: &V,
+        ) -> Result<T, Self::AtomError> {
+            self.0.calculate(
+                atom_index,
+                physical_potential_energy,
+                exchange_potential_energy,
+                position,
+                physical_force,
+                exchange_force,
+            )
+        }
     }
-}
 
-impl<T, V, Adder, E> AtomAdditiveMinimalQuantumEstimatorSender<T, V, Adder>
-    for AdditiveQuantumEstimator<E>
-where
-    Adder: SyncAddSender<E::Output> + ?Sized,
-    E: AtomAdditiveMinimalQuantumEstimatorSender<T, V, Adder> + ?Sized,
-{
-    type Output = E::Output;
-    type ErrorAtom = E::ErrorAtom;
-    type ErrorSystem = E::ErrorSystem;
+    impl<T, V, A, M, E> QuantumEstimator<T, V, A, M, ()> for AdditiveValueQuantumEstimator<E>
+    where
+        T: Clone + Add<Output = T>,
+        A: SyncAddSender<T> + ?Sized,
+        M: ?Sized,
+        E: ?Sized,
+        Self: AtomAdditiveQuantumEstimator<T, V, Output = T>,
+        <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError: From<A::Error>,
+    {
+        type Output = T;
+        type Error = <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError;
 
-    #[inline(always)]
-    fn calculate(
-        &mut self,
-        atom_index: usize,
-        group_physical_potential_energy: T,
-        group_exchange_potential_energy: T,
-        position: &V,
-        physical_force: &V,
-        exchange_force: &V,
-    ) -> Result<Self::Output, Self::ErrorAtom> {
-        self.0.calculate(
-            atom_index,
-            group_physical_potential_energy,
-            group_exchange_potential_energy,
-            position,
-            physical_force,
-            exchange_force,
-        )
-    }
-}
-
-impl<T, V, Adder, Multiplier, E> MinimalQuantumEstimatorSender<T, V, Adder, Multiplier>
-    for AdditiveQuantumEstimator<E>
-where
-    Adder: SyncAddSender<<Self as AtomAdditiveMinimalQuantumEstimatorSender<T, V, Adder>>::Output>
-        + ?Sized,
-    Multiplier: SyncMulSender<<Self as AtomAdditiveMinimalQuantumEstimatorSender<T, V, Adder>>::Output>
-        + ?Sized,
-    E: ?Sized,
-    Self: AtomAdditiveMinimalQuantumEstimatorSender<T, V, Adder>,
-{
-    type Output = <Self as AtomAdditiveMinimalQuantumEstimatorSender<T, V, Adder>>::Output;
-    type Error = <Self as AtomAdditiveMinimalQuantumEstimatorSender<T, V, Adder>>::ErrorSystem;
-
-    fn calculate_distinguishable(
-        &mut self,
-        exchange_potential_is_cyclic: bool,
-        adder: &mut Adder,
-        _multiplier: &mut Multiplier,
-        group_physical_potential_energy: T,
-        group_exchange_potential_energy: T,
-        positions: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-        physical_forces: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-        exchange_forces: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-    ) -> Result<(), Self::Error> {
-        let mut iter = zip_iterators!(
-            positions.read(),
-            physical_forces.read(),
-            exchange_forces.read()
-        )
-        .enumerate()
-        .map(
-            |(index, zip_items!(position, physical_force, exchange_force))| {
-                AtomAdditiveMinimalQuantumEstimatorSender::calculate(
-                    self,
-                    index,
-                    group_physical_potential_energy,
-                    group_exchange_potential_energy,
-                    position,
-                    physical_force,
-                    exchange_force,
-                )
-            },
-        );
-        let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        Ok(adder.send(
-            iter.try_fold(
+        fn calculate(
+            &mut self,
+            _barrier: &std::sync::Barrier,
+            _shared_value: &std::sync::RwLock<T>,
+            adder: &mut A,
+            _multiplier: &mut M,
+            physical_potential_energy: T,
+            exchange_potential_energy: T,
+            positions: &GroupInTypeInImage<V>,
+            physical_forces: &GroupInTypeInImage<V>,
+            exchange_forces: &GroupInTypeInImage<V>,
+        ) -> Result<(), Self::Error> {
+            let mut iter = zip_iterators!(
+                positions.read().iter(),
+                physical_forces.read().iter(),
+                exchange_forces.read().iter()
+            )
+            .enumerate()
+            .map(
+                |(index, zip_items!(position, physical_force, exchange_force))| {
+                    AtomAdditiveQuantumEstimator::calculate(
+                        self,
+                        index,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        position,
+                        physical_force,
+                        exchange_force,
+                    )
+                },
+            );
+            let first_atom_observable = iter.next().ok_or(EmptyError)??;
+            let group_observable = iter.try_fold(
                 first_atom_observable,
                 |accum_observable, atom_observable| {
-                    Ok::<
-                        _,
-                        <Self as AtomAdditiveMinimalQuantumEstimatorSender<T, V, Adder>>::ErrorAtom,
-                    >(accum_observable + atom_observable?)
+                    Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(
+                        accum_observable + atom_observable?,
+                    )
                 },
-            )?,
-        )?)
+            )?;
+            adder.send(group_observable)?;
+            Ok(())
+        }
+    }
+}
+
+mod vector {
+    use super::{super::QuantumEstimator, AtomAdditiveQuantumEstimator};
+    use crate::{
+        core::{GroupInTypeInImage, Vector, error::EmptyError, sync_ops::SyncAddSender},
+        zip_items, zip_iterators,
+    };
+    use std::ops::Add;
+
+    /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<Output = V>`] trait,
+    /// where `V` is a [vector](Vector).
+    pub struct AdditiveVectorQuantumEstimator<E: ?Sized>(pub(crate) E);
+
+    impl<E> AdditiveVectorQuantumEstimator<E> {
+        /// Wraps the provided value with `AdditiveQuantumEstimator`.
+        pub const fn new(value: E) -> Self {
+            Self(value)
+        }
     }
 
-    fn calculate_bosonic(
-        &mut self,
-        exchange_potential_is_cyclic: bool,
-        adder: &mut Adder,
-        _multiplier: &mut Multiplier,
-        group_physical_potential_energy: T,
-        group_exchange_potential_energy: T,
-        positions: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-        physical_forces: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-        exchange_forces: &EstimatorImages<GroupInTypeInImageInSystem<V>>,
-    ) -> Result<(), Self::Error> {
-        let mut iter = zip_iterators!(
-            positions.read(),
-            physical_forces.read(),
-            exchange_forces.read()
-        )
-        .enumerate()
-        .map(
-            |(index, zip_items!(position, physical_force, exchange_force))| {
-                AtomAdditiveMinimalQuantumEstimatorSender::calculate(
-                    self,
-                    index,
-                    group_physical_potential_energy,
-                    group_exchange_potential_energy,
-                    position,
-                    physical_force,
-                    exchange_force,
-                )
-            },
-        );
-        let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        Ok(adder.send(
-            iter.try_fold(
+    impl<const N: usize, T, V, E> AtomAdditiveQuantumEstimator<T, V>
+        for AdditiveVectorQuantumEstimator<E>
+    where
+        T: Clone,
+        V: Vector<N, Element = T>,
+        E: AtomAdditiveQuantumEstimator<T, V, Output = T> + ?Sized,
+    {
+        type Output = T;
+        type AtomError = E::AtomError;
+        type SystemError = E::SystemError;
+
+        #[inline(always)]
+        fn calculate(
+            &mut self,
+            atom_index: usize,
+            physical_potential_energy: T,
+            exchange_potential_energy: T,
+            position: &V,
+            physical_force: &V,
+            exchange_force: &V,
+        ) -> Result<T, Self::AtomError> {
+            self.0.calculate(
+                atom_index,
+                physical_potential_energy,
+                exchange_potential_energy,
+                position,
+                physical_force,
+                exchange_force,
+            )
+        }
+    }
+
+    impl<T, V, A, M, E> QuantumEstimator<T, V, A, M, ()> for AdditiveVectorQuantumEstimator<E>
+    where
+        T: Clone + Add<Output = T>,
+        A: SyncAddSender<T> + ?Sized,
+        M: ?Sized,
+        E: ?Sized,
+        Self: AtomAdditiveQuantumEstimator<T, V, Output = T>,
+        <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError: From<A::Error>,
+    {
+        type Output = T;
+        type Error = <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError;
+
+        fn calculate(
+            &mut self,
+            _barrier: &std::sync::Barrier,
+            _shared_value: &std::sync::RwLock<T>,
+            adder: &mut A,
+            _multiplier: &mut M,
+            physical_potential_energy: T,
+            exchange_potential_energy: T,
+            positions: &GroupInTypeInImage<V>,
+            physical_forces: &GroupInTypeInImage<V>,
+            exchange_forces: &GroupInTypeInImage<V>,
+        ) -> Result<(), Self::Error> {
+            let mut iter = zip_iterators!(
+                positions.read().iter(),
+                physical_forces.read().iter(),
+                exchange_forces.read().iter()
+            )
+            .enumerate()
+            .map(
+                |(index, zip_items!(position, physical_force, exchange_force))| {
+                    AtomAdditiveQuantumEstimator::calculate(
+                        self,
+                        index,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        position,
+                        physical_force,
+                        exchange_force,
+                    )
+                },
+            );
+            let first_atom_observable = iter.next().ok_or(EmptyError)??;
+            let group_observable = iter.try_fold(
                 first_atom_observable,
                 |accum_observable, atom_observable| {
-                    Ok::<
-                        _,
-                        <Self as AtomAdditiveMinimalQuantumEstimatorSender<T, V, Adder>>::ErrorAtom,
-                    >(accum_observable + atom_observable?)
+                    Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(
+                        accum_observable + atom_observable?,
+                    )
                 },
-            )?,
-        )?)
+            )?;
+            adder.send(group_observable)?;
+            Ok(())
+        }
     }
 }
