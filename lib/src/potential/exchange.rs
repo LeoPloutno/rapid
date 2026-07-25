@@ -1,6 +1,6 @@
 //! Traits for updating the forces and calculating the exchange potential energy.
 
-use crate::core::{AtomGroup, GroupInTypeInImage, ValidOutput};
+use crate::core::{GroupInTypeInImage, ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
 use std::sync::{Barrier, RwLock};
 

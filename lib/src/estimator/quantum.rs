@@ -1,11 +1,13 @@
 //! Traits for calculating quantum observables.
 
-use crate::core::{GroupInTypeInImage, GroupInTypeInImageInSystem, ValidOutput};
+use crate::core::{GroupInTypeInImage, ValidOutput};
 use macros::heavy_computation;
 use std::sync::{Barrier, RwLock};
 
 mod atom_additive;
-pub use atom_additive::AtomAdditiveQuantumEstimator;
+pub use atom_additive::{
+    AdditiveValueQuantumEstimator, AdditiveVectorQuantumEstimator, AtomAdditiveQuantumEstimator,
+};
 mod atom_multiplicative;
 
 pub enum Observable<T, V> {
