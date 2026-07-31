@@ -2,7 +2,6 @@
 
 use crate::core::{GroupInTypeInImage, ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
-use std::sync::{Barrier, RwLock};
 
 pub mod quadratic;
 
@@ -16,12 +15,7 @@ pub use monte_carlo::{MonteCarloExchangePotential, NeighboringImage};
 /// The generic parameter `O` is the type of the values returned by the energy calculations.
 /// Setting it to `()` implies that the calculations are sent to another potential
 /// that combines the recieved data and returns the total exchange potential energy.
-pub trait ExchangePotential<T, V, A, M, O>
-where
-    A: ?Sized,
-    M: ?Sized,
-    O: ValidOutput<T>,
-{
+pub trait ExchangePotential<T, V, O: ValidOutput<T>> {
     /// The type associated with an error returned by the implementor.
     type Error;
 
@@ -32,10 +26,6 @@ where
     #[heavy_computation]
     fn calculate_energy_set_forces(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
-        adder: &mut A,
-        multiplier: &mut M,
         prev_image_positions: &GroupInTypeInImage<V>,
         next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,
@@ -49,10 +39,6 @@ where
     #[heavy_computation]
     fn calculate_energy_add_forces(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
-        adder: &mut A,
-        multiplier: &mut M,
         prev_image_positions: &GroupInTypeInImage<V>,
         next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,
@@ -67,10 +53,6 @@ where
     #[efficient_alternatives("calculate_energy_set_forces", "calculate_energy_add_forces")]
     fn calculate_energy(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
-        adder: &mut A,
-        multiplier: &mut M,
         prev_image_positions: &GroupInTypeInImage<V>,
         next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,
@@ -80,10 +62,6 @@ where
     #[efficient_alternatives("calculate_energy_set_forces")]
     fn set_forces(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
-        adder: &mut A,
-        multiplier: &mut M,
         prev_image_positions: &GroupInTypeInImage<V>,
         next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,
@@ -94,10 +72,6 @@ where
     #[efficient_alternatives("calculate_energy_add_forces")]
     fn add_forces(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
-        adder: &mut A,
-        multiplier: &mut M,
         prev_image_positions: &GroupInTypeInImage<V>,
         next_image_positions: &GroupInTypeInImage<V>,
         positions: &GroupInTypeInImage<V>,

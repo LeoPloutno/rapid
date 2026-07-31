@@ -87,8 +87,7 @@ where
     A: ?Sized,
     M: SyncMulSender<T> + ?Sized,
     E: ?Sized,
-    Self: AtomMultiplicativeQuantumEstimator<T, V, Output = T>,
-    <Self as AtomMultiplicativeQuantumEstimator<T, V>>::SystemError: From<M::Error>,
+    Self: AtomMultiplicativeQuantumEstimator<T, V, Output = T, SystemError: From<M::Error>>,
 {
     type Output = T;
     type Error = <Self as AtomMultiplicativeQuantumEstimator<T, V>>::SystemError;
@@ -144,8 +143,7 @@ where
     A: ?Sized,
     M: SyncMulReceiver<T> + ?Sized,
     E: ?Sized,
-    Self: AtomMultiplicativeQuantumEstimator<T, V, Output = T>,
-    <Self as AtomMultiplicativeQuantumEstimator<T, V>>::SystemError: From<M::Error>,
+    Self: AtomMultiplicativeQuantumEstimator<T, V, Output = T, SystemError: From<M::Error>>,
 {
     type Output = T;
     type Error = <Self as AtomMultiplicativeQuantumEstimator<T, V>>::SystemError;

@@ -93,8 +93,7 @@ mod value {
         A: SyncAddSender<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
-        Self: AtomAdditiveQuantumEstimator<T, V, Output = T>,
-        <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError: From<A::Error>,
+        Self: AtomAdditiveQuantumEstimator<T, V, Output = T, SystemError: From<A::Error>>,
     {
         type Output = T;
         type Error = <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError;
@@ -150,8 +149,7 @@ mod value {
         A: SyncAddReceiver<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
-        Self: AtomAdditiveQuantumEstimator<T, V, Output = T>,
-        <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError: From<A::Error>,
+        Self: AtomAdditiveQuantumEstimator<T, V, Output = T, SystemError: From<A::Error>>,
     {
         type Output = T;
         type Error = <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError;
@@ -271,8 +269,7 @@ mod vector {
         A: SyncAddSender<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
-        Self: AtomAdditiveQuantumEstimator<T, V, Output = V>,
-        <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError: From<A::Error>,
+        Self: AtomAdditiveQuantumEstimator<T, V, Output = V, SystemError: From<A::Error>>,
     {
         type Output = V;
         type Error = <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError;
@@ -335,8 +332,7 @@ mod vector {
         A: SyncAddReceiver<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
-        Self: AtomAdditiveQuantumEstimator<T, V, Output = V>,
-        <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError: From<A::Error>,
+        Self: AtomAdditiveQuantumEstimator<T, V, Output = V, SystemError: From<A::Error>>,
     {
         type Output = V;
         type Error = <Self as AtomAdditiveQuantumEstimator<T, V>>::SystemError;

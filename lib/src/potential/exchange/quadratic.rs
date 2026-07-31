@@ -8,19 +8,14 @@ use crate::{
 use std::iter::FusedIterator;
 
 /// A trait for exchange potential that may be expanded to second order.
-pub trait QuadraticExpansionExchangePotential<'a, T, V, A, M, O>
-where
-    A: ?Sized,
-    M: ?Sized,
-    O: ValidOutput<T>,
-{
+pub trait QuadraticExpansionExchangePotential<'a, T, V, O: ValidOutput<T>> {
     /// The transformation that yields the modes such that
     /// the second order term is the sum over all modes squared times their
     /// respective eigenvalues.
     type QuadraticPotential: Transform<T, V>;
     /// The term left after the expansion to second order.
     /// Contains interactions of third order and higher.
-    type ResidualPotential: ExchangePotential<T, V, A, M, O>;
+    type ResidualPotential: ExchangePotential<T, V, O>;
 
     /// Treats `self` as a sum of harmonic oscillators - the modes -
     /// and a residual term of third order and beyond.

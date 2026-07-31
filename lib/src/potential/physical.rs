@@ -2,7 +2,6 @@
 
 use crate::core::{GroupInTypeInImage, ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
-use std::sync::{Barrier, RwLock};
 
 mod atom_additive;
 pub use atom_additive::AtomAdditivePhysicalPotential;
@@ -21,12 +20,7 @@ pub use self::{
 /// The generic parameter `O` is the type of the values returned by the energy calculations.
 /// Setting it to `()` implies that the calculations are sent to another potential
 /// that combines the recieved data and returns the total physical potential energy.
-pub trait PhysicalPotential<T, V, A, M, O>
-where
-    A: ?Sized,
-    M: ?Sized,
-    O: ValidOutput<T>,
-{
+pub trait PhysicalPotential<T, V, O: ValidOutput<T>> {
     /// The type associated with an error returned by the implementor.
     type Error;
 
@@ -37,10 +31,6 @@ where
     #[heavy_computation]
     fn calculate_energy_set_forces(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
-        adder: &mut A,
-        multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error>;
@@ -52,10 +42,6 @@ where
     #[heavy_computation]
     fn calculate_energy_add_forces(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
-        adder: &mut A,
-        multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error>;
@@ -66,23 +52,12 @@ where
     /// Where applicable, returns the potential energy.
     #[heavy_computation]
     #[efficient_alternatives("calculate_energy_set_forces", "calculate_energy_set_forces")]
-    fn calculate_energy(
-        &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
-        adder: &mut A,
-        multiplier: &mut M,
-        positions: &GroupInTypeInImage<V>,
-    ) -> Result<O, Self::Error>;
+    fn calculate_energy(&mut self, positions: &GroupInTypeInImage<V>) -> Result<O, Self::Error>;
 
     /// Sets the forces of a group.
     #[efficient_alternatives("calculate_energy_set_forces")]
     fn set_forces(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
-        adder: &mut A,
-        multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error>;
@@ -91,10 +66,6 @@ where
     #[efficient_alternatives("calculate_energy_add_forces")]
     fn add_forces(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
-        adder: &mut A,
-        multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error>;

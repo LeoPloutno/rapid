@@ -5,13 +5,7 @@ use crate::core::{
     sync_ops::{SyncAddReceiver, SyncAddSender},
 };
 use macros::efficient_alternatives;
-use std::{
-    ops::{Add, AddAssign},
-    sync::{
-        Barrier, RwLock,
-        mpsc::{Receiver, Sender},
-    },
-};
+use std::ops::{Add, AddAssign};
 
 #[cfg(feature = "monte_carlo")]
 mod monte_carlo;
@@ -24,38 +18,15 @@ cfg_select! {
     _ => "A wrapper for implementors of the [`AtomAdditivePhysicalPotential`] trait."
 }
 ]
-pub struct AdditivePhysicalPotential<P: ?Sized, D = ()> {
-    data: D,
+pub struct AdditivePhysicalPotential<A, P: ?Sized> {
+    adder: A,
     potential: P,
 }
 
-impl<P> AdditivePhysicalPotential<P, ()> {
+impl<A, P> AdditivePhysicalPotential<A, P> {
     /// Wraps the provided value with `AdditivePhysicalPotential`.
-    pub const fn new(potential: P) -> Self {
-        Self {
-            data: (),
-            potential,
-        }
-    }
-}
-
-impl<T, P> AdditivePhysicalPotential<P, Sender<T>> {
-    /// Wraps the provided value with `AdditivePhysicalPotential`.
-    pub const fn new(potential: P, channel: Sender<T>) -> Self {
-        Self {
-            data: channel,
-            potential,
-        }
-    }
-}
-
-impl<T, P> AdditivePhysicalPotential<P, Receiver<T>> {
-    /// Wraps the provided value with `AdditivePhysicalPotential`.
-    pub const fn new(potential: P, channel: Receiver<T>) -> Self {
-        Self {
-            data: channel,
-            potential,
-        }
+    pub const fn new(adder: A, potential: P) -> Self {
+        Self { adder, potential }
     }
 }
 
@@ -94,7 +65,7 @@ pub trait AtomAdditivePhysicalPotential<T: Add<Output = T>, V> {
     fn calculate_force(&mut self, atom_index: usize, position: &V) -> Result<V, Self::AtomError>;
 }
 
-impl<T, V, P, D> AtomAdditivePhysicalPotential<T, V> for AdditivePhysicalPotential<P, D>
+impl<T, V, A, P> AtomAdditivePhysicalPotential<T, V> for AdditivePhysicalPotential<A, P>
 where
     T: Add<Output = T>,
     V: AddAssign,
@@ -126,24 +97,18 @@ where
     }
 }
 
-impl<T, V, A, M, P, D> PhysicalPotential<T, V, A, M, ()> for AdditivePhysicalPotential<P, D>
+impl<T, V, A, P> PhysicalPotential<T, V, ()> for AdditivePhysicalPotential<A, P>
 where
     T: Add<Output = T>,
     V: AddAssign,
-    A: SyncAddSender<T> + ?Sized,
-    M: ?Sized,
+    A: SyncAddSender<T>,
     P: ?Sized,
-    Self: AtomAdditivePhysicalPotential<T, V>,
-    <Self as AtomAdditivePhysicalPotential<T, V>>::SystemError: From<A::Error>,
+    Self: AtomAdditivePhysicalPotential<T, V, SystemError: From<A::Error>>,
 {
     type Error = <Self as AtomAdditivePhysicalPotential<T, V>>::SystemError;
 
     fn calculate_energy_set_forces(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        adder: &mut A,
-        _multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
@@ -166,16 +131,12 @@ where
                         accum_energy + atom_energy,
                     )
                 })?;
-        adder.send(group_energy)?;
+        self.adder.send(group_energy)?;
         Ok(())
     }
 
     fn calculate_energy_add_forces(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        adder: &mut A,
-        _multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
@@ -198,18 +159,11 @@ where
                         accum_energy + atom_energy,
                     )
                 })?;
-        adder.send(group_energy)?;
+        self.adder.send(group_energy)?;
         Ok(())
     }
 
-    fn calculate_energy(
-        &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        adder: &mut A,
-        _multiplier: &mut M,
-        positions: &GroupInTypeInImage<V>,
-    ) -> Result<(), Self::Error> {
+    fn calculate_energy(&mut self, positions: &GroupInTypeInImage<V>) -> Result<(), Self::Error> {
         let mut iter = positions
             .read()
             .iter()
@@ -224,16 +178,12 @@ where
                 accum_energy + atom_energy?,
             )
         })?;
-        adder.send(group_energy)?;
+        self.adder.send(group_energy)?;
         Ok(())
     }
 
     fn set_forces(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        _adder: &mut A,
-        _multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
@@ -246,10 +196,6 @@ where
 
     fn add_forces(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        _adder: &mut A,
-        _multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
@@ -261,24 +207,18 @@ where
     }
 }
 
-impl<T, V, A, M, P, D> PhysicalPotential<T, V, A, M, T> for AdditivePhysicalPotential<P, D>
+impl<T, V, A, P> PhysicalPotential<T, V, T> for AdditivePhysicalPotential<A, P>
 where
     T: MeaningfulOutput + Add<Output = T>,
     V: AddAssign,
-    A: SyncAddReceiver<T> + ?Sized,
-    M: ?Sized,
+    A: SyncAddReceiver<T>,
     P: ?Sized,
-    Self: AtomAdditivePhysicalPotential<T, V>,
-    <Self as AtomAdditivePhysicalPotential<T, V>>::SystemError: From<A::Error>,
+    Self: AtomAdditivePhysicalPotential<T, V, SystemError: From<A::Error>>,
 {
     type Error = <Self as AtomAdditivePhysicalPotential<T, V>>::SystemError;
 
     fn calculate_energy_set_forces(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        adder: &mut A,
-        _multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<T, Self::Error> {
@@ -301,16 +241,12 @@ where
                         accum_energy + atom_energy,
                     )
                 })?;
-        let image_energy = group_energy + adder.recv_sum()?.ok_or(EmptyError)?;
+        let image_energy = group_energy + self.adder.recv_sum()?.ok_or(EmptyError)?;
         Ok(image_energy)
     }
 
     fn calculate_energy_add_forces(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        adder: &mut A,
-        _multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<T, Self::Error> {
@@ -333,18 +269,11 @@ where
                         accum_energy + atom_energy,
                     )
                 })?;
-        let image_energy = group_energy + adder.recv_sum()?.ok_or(EmptyError)?;
+        let image_energy = group_energy + self.adder.recv_sum()?.ok_or(EmptyError)?;
         Ok(image_energy)
     }
 
-    fn calculate_energy(
-        &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        adder: &mut A,
-        _multiplier: &mut M,
-        positions: &GroupInTypeInImage<V>,
-    ) -> Result<T, Self::Error> {
+    fn calculate_energy(&mut self, positions: &GroupInTypeInImage<V>) -> Result<T, Self::Error> {
         let mut iter = positions
             .read()
             .iter()
@@ -359,16 +288,12 @@ where
                 accum_energy + atom_energy?,
             )
         })?;
-        let image_energy = group_energy + adder.recv_sum()?.ok_or(EmptyError)?;
+        let image_energy = group_energy + self.adder.recv_sum()?.ok_or(EmptyError)?;
         Ok(image_energy)
     }
 
     fn set_forces(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        _adder: &mut A,
-        _multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
@@ -381,10 +306,6 @@ where
 
     fn add_forces(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
-        _adder: &mut A,
-        _multiplier: &mut M,
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
