@@ -2,7 +2,7 @@
 
 use crate::{
     core::{
-        AtomGroupRwLock, AtomTypeReaderLock, MapInWhole, MapOutsideWhole,
+        AtomGroupRwLock, AtomTypeReaderLock, MapInWhole, MapOutsideWhole, ValidOutput,
         stat::{Bosonic, Distinguishable, Stat},
     },
     potential::{exchange::ExchangePotential, physical::PhysicalPotential},
@@ -21,12 +21,16 @@ pub type GroupRwLockInTypeInImageInSystem<'a, V> = MapOutsideWhole<
 >;
 
 /// A trait for a propagator of a group in an image.
-pub trait Propagator<T, V, Phys, Dist, Boson, Therm>
+pub trait Propagator<T, V, A, M, Phys, Dist, Boson, Therm, OutPhys, OutExch>
 where
-    Phys: PhysicalPotential<T, V> + ?Sized,
-    Dist: ExchangePotential<T, V> + Distinguishable + ?Sized,
-    Boson: ExchangePotential<T, V> + Bosonic + ?Sized,
+    A: ?Sized,
+    M: ?Sized,
+    Phys: PhysicalPotential<T, V, A, M, OutPhys> + ?Sized,
+    Dist: ExchangePotential<T, V, A, M, OutExch> + Distinguishable + ?Sized,
+    Boson: ExchangePotential<T, V, A, M, OutExch> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
+    OutPhys: ValidOutput<T>,
+    OutExch: ValidOutput<T>,
 {
     /// The type associated with an error returned by the implementor.
     type Error;

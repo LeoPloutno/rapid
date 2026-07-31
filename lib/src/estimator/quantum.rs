@@ -10,11 +10,6 @@ pub use atom_additive::{
 };
 mod atom_multiplicative;
 
-pub enum Observable<T, V> {
-    Value(T),
-    Vector(V),
-}
-
 /// A trait for quantum estimators.
 ///
 /// All contributions returned by estimators in all images are averaged-out to produce

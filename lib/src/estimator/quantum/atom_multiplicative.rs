@@ -1,4 +1,4 @@
-//! Traits and types for qunatum estimators that can be expressed as a product of observables
+//! Traits and types for quantum estimators that can be expressed as a product of observables
 //! that depend only on a single atom.
 
 use super::QuantumEstimator;
@@ -21,11 +21,11 @@ use std::{
 /// For any type `E` that implements this trait, [`MultiplicativeValueQuantumEstimator<E>`]
 /// automatically implements [`QuantumEstimator`].
 pub trait AtomMultiplicativeQuantumEstimator<T: Clone, V> {
-    /// The type of output `Self` and [`MultiplicativeQuantumEstimator<Self>`] return.
+    /// The type of output `Self` and [`MultiplicativeValueQuantumEstimator<Self>`] return.
     type Output: Mul<Output = Self::Output>;
     /// The type of error `Self` returns.
     type AtomError;
-    /// The type of error [`MultiplicativeQuantumEstimator<Self>`] returns.
+    /// The type of error [`MultiplicativeValueQuantumEstimator<Self>`] returns.
     type SystemError: From<Self::AtomError> + From<EmptyError>;
 
     /// Calculates the contribution of an atom to the contribution
@@ -41,7 +41,7 @@ pub trait AtomMultiplicativeQuantumEstimator<T: Clone, V> {
     ) -> Result<Self::Output, Self::AtomError>;
 }
 
-/// A wrapper for implementors of the [`AtomMultiplicativeQuantumEstimator<Output = T>`] trait.
+/// A wrapper for implementors of the [`AtomMultiplicativeQuantumEstimator<T, V, Output = T>`] trait.
 pub struct MultiplicativeValueQuantumEstimator<E: ?Sized>(pub(crate) E);
 
 impl<E> MultiplicativeValueQuantumEstimator<E> {
@@ -106,9 +106,9 @@ where
         exchange_forces: &GroupInTypeInImage<V>,
     ) -> Result<(), Self::Error> {
         let mut iter = zip_iterators!(
-            positions.read().iter(),
-            physical_forces.read().iter(),
-            exchange_forces.read().iter()
+            positions.read(),
+            physical_forces.read(),
+            exchange_forces.read()
         )
         .enumerate()
         .map(
@@ -163,9 +163,9 @@ where
         exchange_forces: &GroupInTypeInImage<V>,
     ) -> Result<T, Self::Error> {
         let mut iter = zip_iterators!(
-            positions.read().iter(),
-            physical_forces.read().iter(),
-            exchange_forces.read().iter()
+            positions.read(),
+            physical_forces.read(),
+            exchange_forces.read()
         )
         .enumerate()
         .map(

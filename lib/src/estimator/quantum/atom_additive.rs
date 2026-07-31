@@ -1,4 +1,4 @@
-//! Traits and types for qunatum estimators that can be expressed as a sum of observables
+//! Traits and types for quantum estimators that can be expressed as a sum of observables
 //! that depend only on a single atom.
 
 use crate::core::error::EmptyError;
@@ -12,11 +12,11 @@ use std::ops::Add;
 ///
 /// [`QuantumEstimator`]: super::QuantumEstimator
 pub trait AtomAdditiveQuantumEstimator<T: Clone, V> {
-    /// The type of output `Self` and [`AdditiveQuantumEstimator<Self>`] return.
+    /// The type of output `Self` and [`AdditiveValueQuantumEstimator<Self>`]/[`AdditiveVectorQuantumEstimator<Self>`] return.
     type Output: Add<Output = Self::Output>;
     /// The type of error `Self` returns.
     type AtomError;
-    /// The type of error [`AdditiveQuantumEstimator<Self>`] returns.
+    /// The type of error [`AdditiveValueQuantumEstimator<Self>`]/[`AdditiveVectorQuantumEstimator<Self>`] return.
     type SystemError: From<Self::AtomError> + From<EmptyError>;
 
     /// Calculates the contribution of an atom to the contribution
@@ -47,7 +47,7 @@ mod value {
         sync::{Barrier, RwLock},
     };
 
-    /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<Output = T>`] trait.
+    /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<T, V, Output = T>`] trait.
     pub struct AdditiveValueQuantumEstimator<E: ?Sized>(pub(crate) E);
 
     impl<E> AdditiveValueQuantumEstimator<E> {
@@ -112,9 +112,9 @@ mod value {
             exchange_forces: &GroupInTypeInImage<V>,
         ) -> Result<(), Self::Error> {
             let mut iter = zip_iterators!(
-                positions.read().iter(),
-                physical_forces.read().iter(),
-                exchange_forces.read().iter()
+                positions.read(),
+                physical_forces.read(),
+                exchange_forces.read()
             )
             .enumerate()
             .map(
@@ -169,9 +169,9 @@ mod value {
             exchange_forces: &GroupInTypeInImage<V>,
         ) -> Result<T, Self::Error> {
             let mut iter = zip_iterators!(
-                positions.read().iter(),
-                physical_forces.read().iter(),
-                exchange_forces.read().iter()
+                positions.read(),
+                physical_forces.read(),
+                exchange_forces.read()
             )
             .enumerate()
             .map(
@@ -220,7 +220,7 @@ mod vector {
         sync::{Barrier, RwLock},
     };
 
-    /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<Output = V>`] trait,
+    /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<T, V, Output = V>`] trait,
     /// where `V` is a [vector](Vector).
     pub struct AdditiveVectorQuantumEstimator<const N: usize, E: ?Sized>(pub(crate) E);
 
@@ -290,9 +290,9 @@ mod vector {
             exchange_forces: &GroupInTypeInImage<V>,
         ) -> Result<(), Self::Error> {
             let mut iter = zip_iterators!(
-                positions.read().iter(),
-                physical_forces.read().iter(),
-                exchange_forces.read().iter()
+                positions.read(),
+                physical_forces.read(),
+                exchange_forces.read()
             )
             .enumerate()
             .map(
@@ -354,9 +354,9 @@ mod vector {
             exchange_forces: &GroupInTypeInImage<V>,
         ) -> Result<V, Self::Error> {
             let mut iter = zip_iterators!(
-                positions.read().iter(),
-                physical_forces.read().iter(),
-                exchange_forces.read().iter()
+                positions.read(),
+                physical_forces.read(),
+                exchange_forces.read()
             )
             .enumerate()
             .map(

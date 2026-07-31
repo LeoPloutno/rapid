@@ -15,9 +15,9 @@ pub trait Thermostat<T, V> {
     /// The type associated with an error returned by the implementor.
     type Error;
 
-    /// Performs thermalization of the system.
+    /// Performs thermalization of a group.
     ///
-    /// Returns the contribution of this group in this image to the
+    /// Returns the contribution of the group to the
     /// change in the internal energy of the system due to thermalization.
     #[heavy_computation]
     fn thermalize(
@@ -25,6 +25,6 @@ pub trait Thermostat<T, V> {
         positions: &GroupInTypeInImageInSystem<V>,
         physical_forces: &GroupInTypeInImageInSystem<V>,
         exchange_forces: &GroupInTypeInImageInSystem<V>,
-        group_momenta: &mut [V],
+        momenta: &mut [V],
     ) -> Result<T, Self::Error>;
 }
