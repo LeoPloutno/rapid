@@ -1,7 +1,8 @@
 use super::PhysicalPotential;
 use crate::core::{
-    GroupInTypeInImage, MeaningfulOutput,
+    GroupInTypeInImage,
     error::{EmptyError, InvalidIndexError},
+    marker::MeaningfulOutput,
     sync_ops::{SyncAddReceiver, SyncAddSender},
 };
 use macros::efficient_alternatives;

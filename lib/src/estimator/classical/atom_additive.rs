@@ -38,8 +38,9 @@ mod value {
     use super::{super::ClassicalEstimator, AtomAdditiveClassicalEstimator};
     use crate::{
         core::{
-            GroupInTypeInImageInSystem, MeaningfulOutput,
+            GroupInTypeInImageInSystem,
             error::EmptyError,
+            marker::MeaningfulOutput,
             sync_ops::{SyncAddReceiver, SyncAddSender},
         },
         zip_items, zip_iterators,
@@ -229,8 +230,9 @@ mod vector {
     use super::{super::ClassicalEstimator, AtomAdditiveClassicalEstimator};
     use crate::{
         core::{
-            GroupInTypeInImageInSystem, MeaningfulOutput, Vector,
+            GroupInTypeInImageInSystem, Vector,
             error::EmptyError,
+            marker::MeaningfulOutput,
             sync_ops::{SyncAddReceiver, SyncAddSender},
         },
         zip_items, zip_iterators,

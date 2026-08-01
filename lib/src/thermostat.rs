@@ -4,7 +4,7 @@ use crate::core::GroupInTypeInImageInSystem;
 use macros::heavy_computation;
 
 mod atom_decoupled;
-pub use atom_decoupled::AtomDecoupledThermostat;
+pub use atom_decoupled::{AtomDecoupledThermostat, DecoupledThermostat};
 
 /// A trait for thermostats.
 ///

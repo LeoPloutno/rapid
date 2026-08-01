@@ -5,585 +5,6 @@ use std::ops::{
     Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign,
 };
 
-pub trait MeaningfulOutput {}
-
-impl !MeaningfulOutput for () {}
-
-pub trait ValidOutput<T> {}
-
-impl<T: MeaningfulOutput> ValidOutput<T> for T {}
-
-impl<T> ValidOutput<T> for () {}
-
-mod map_in_whole {
-    use std::{ops::Deref, ptr, range::Range, slice};
-
-    #[derive(Clone, Copy, Debug)]
-    pub struct MapInWhole<T, U> {
-        map: T,
-        whole: U,
-    }
-
-    impl<T, U> MapInWhole<T, U> {
-        pub fn as_map(&self) -> &T::Target
-        where
-            T: Deref,
-        {
-            &*self.map
-        }
-
-        pub fn as_whole(&self) -> &U::Target
-        where
-            U: Deref,
-        {
-            &*&self.whole
-        }
-
-        pub fn as_ref(&self) -> MapInWhole<&T::Target, &U::Target>
-        where
-            T: Deref,
-            U: Deref,
-        {
-            MapInWhole {
-                map: &*self.map,
-                whole: &*self.whole,
-            }
-        }
-    }
-
-    impl<T: Deref, U> Deref for MapInWhole<T, U> {
-        type Target = T::Target;
-
-        /// Equivalent to [`MapInWhole::as_map`].
-        fn deref(&self) -> &T::Target {
-            &*self.map
-        }
-    }
-
-    impl<T: Deref, U> AsRef<T::Target> for MapInWhole<T, U> {
-        /// Equivalent to [`MapInWhole::as_map`].
-        fn as_ref(&self) -> &T::Target {
-            &*self.map
-        }
-    }
-
-    impl<'a, T> MapInWhole<&'a T, &'a [T]> {
-        pub const fn before(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole;
-            }
-            let slice_ptr = self.whole.as_ptr();
-            let element_ptr = ptr::from_ref(self.map);
-            unsafe {
-                // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of an element - `self.map` - from the
-                //           origin - `self.whole` if always less than the length of the slice.
-                slice::from_raw_parts(
-                    slice_ptr,
-                    // SAFETY: By construction, `self.map` points to an element of `self.whole`,
-                    //         so it always exceeds or is the start of the slice.
-                    element_ptr.offset_from_unsigned(slice_ptr),
-                )
-            }
-        }
-
-        pub const fn after(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole;
-            }
-            let slice_end_ptr = self.whole.as_ptr_range().end;
-            let element_ptr = ptr::from_ref(self.map);
-            unsafe {
-                // SAFETY: - By construction, `self.map` points to an element of `self.whole`.
-                //         - `element_ptr + (slice_end_ptr - element_ptr) = slice_end_ptr`.
-                slice::from_raw_parts(
-                    element_ptr,
-                    // SAFETY: By construction, `self.map` points to an element of `self.whole`,
-                    //         so the it does not exceed the end of the slice.
-                    slice_end_ptr.offset_from_unsigned(element_ptr),
-                )
-            }
-        }
-
-        pub const fn element_offset(&self) -> usize {
-            if const { size_of::<T>() == 0 } {
-                panic!("elements are zero-sized");
-            }
-            // SAFETY: By construction, `self.map` points to an element of `self.whole`,
-            //         so the it does not exceed the end of the slice.
-            unsafe { ptr::from_ref(self.map).offset_from_unsigned(self.whole.as_ptr()) }
-        }
-    }
-
-    impl<'a, T, U> MapInWhole<&'a T, MapInWhole<&'a [T], U>> {
-        pub const fn before(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole.map;
-            }
-            let slice_ptr = self.whole.map.as_ptr();
-            let element_ptr = ptr::from_ref(self.map);
-            unsafe {
-                // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of an element - `self.map` - from the
-                //           origin - `self.whole.map` if always less than the length of the slice.
-                slice::from_raw_parts(
-                    slice_ptr,
-                    // SAFETY: By construction, `self.map` points to an element of `self.whole.map`,
-                    //         so it always exceeds or is the start of the slice.
-                    element_ptr.offset_from_unsigned(slice_ptr),
-                )
-            }
-        }
-
-        pub const fn after(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole.map;
-            }
-            let slice_end_ptr = self.whole.map.as_ptr_range().end;
-            let element_ptr = ptr::from_ref(self.map);
-            unsafe {
-                // SAFETY: - By construction, `self.map` points to an element of `self.whole.map`.
-                //         - `element_ptr + (slice_end_ptr - element_ptr) = slice_end_ptr`.
-                slice::from_raw_parts(
-                    element_ptr,
-                    // SAFETY: By construction, `self.map` points to an element of `self.whole.map`,
-                    //         so the it does not exceed the end of the slice.
-                    slice_end_ptr.offset_from_unsigned(element_ptr),
-                )
-            }
-        }
-
-        pub const fn element_offset(&self) -> usize {
-            if const { size_of::<T>() == 0 } {
-                panic!("elements are zero-sized");
-            }
-            // SAFETY: By construction, `self.map` points to an element of `self.whole.map`,
-            //         so the it does not exceed the end of the slice.
-            unsafe { ptr::from_ref(self.map).offset_from_unsigned(self.whole.map.as_ptr()) }
-        }
-    }
-
-    impl<'a, T, U> MapInWhole<MapInWhole<U, &'a T>, &'a [T]> {
-        pub const fn before(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole;
-            }
-            let slice_ptr = self.whole.as_ptr();
-            let element_ptr = ptr::from_ref(self.map.whole);
-            unsafe {
-                // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of an element - `self.map.whole` - from the
-                //           origin - `self.whole` if always less than the length of the slice.
-                slice::from_raw_parts(
-                    slice_ptr,
-                    // SAFETY: By construction, `self.map.whole` points to an element of `self.whole`,
-                    //         so it always exceeds or is the start of the slice.
-                    element_ptr.offset_from_unsigned(slice_ptr),
-                )
-            }
-        }
-
-        pub const fn after(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole;
-            }
-            let slice_end_ptr = self.whole.as_ptr_range().end;
-            let element_ptr = ptr::from_ref(self.map.whole);
-            unsafe {
-                // SAFETY: - By construction, `self.map.whole` points to an element of `self.whole`.
-                //         - `element_ptr + (slice_end_ptr - element_ptr) = slice_end_ptr`.
-                slice::from_raw_parts(
-                    element_ptr,
-                    // SAFETY: By construction, `self.map.whole` points to an element of `self.whole`,
-                    //         so the it does not exceed the end of the slice.
-                    slice_end_ptr.offset_from_unsigned(element_ptr),
-                )
-            }
-        }
-
-        pub const fn element_offset(&self) -> usize {
-            if const { size_of::<T>() == 0 } {
-                panic!("elements are zero-sized");
-            }
-            // SAFETY: By construction, `self.map.whole` points to an element of `self.whole`,
-            //         so the it does not exceed the end of the slice.
-            unsafe { ptr::from_ref(self.map.whole).offset_from_unsigned(self.whole.as_ptr()) }
-        }
-    }
-
-    impl<'a, T> MapInWhole<&'a [T], &'a [T]> {
-        pub const fn before(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole;
-            }
-            let slice_ptr = self.whole.as_ptr();
-            let subslice_ptr = self.map.as_ptr();
-            unsafe {
-                // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of a subslice - `self.map` from the
-                //           origin - `self.whole` - is always less than or equal to the
-                //           length of the slice.
-                slice::from_raw_parts(
-                    slice_ptr,
-                    // SAFETY: By construction, `self.map` points to a subslice entirely within
-                    //         `self.whole`, so its start always exceeds or is the slice's.
-                    subslice_ptr.offset_from_unsigned(slice_ptr),
-                )
-            }
-        }
-
-        pub const fn after(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole;
-            }
-            let slice_end_ptr = self.whole.as_ptr_range().end;
-            let subslice_end_ptr = self.map.as_ptr_range().end;
-            unsafe {
-                // SAFETY: - By construction, `self.map` points to a subslice entirely within
-                //           `self.whole`. Thus, the end of said subslice also points within it.
-                //         - `subslice_end_ptr + (slice_end_ptr - subslice_end_ptr) = slice_end_ptr`.
-                slice::from_raw_parts(
-                    subslice_end_ptr,
-                    // SAFETY: By construction, `self.map` points to a subslice entirely within
-                    //         `self.whole`, so the its end does not exceed the slice's.
-                    slice_end_ptr.offset_from_unsigned(subslice_end_ptr),
-                )
-            }
-        }
-
-        pub const fn subslice_range(&self) -> Range<usize> {
-            if const { size_of::<T>() == 0 } {
-                panic!("elements are zero-sized");
-            }
-            let subslice_len = self.map.len();
-            unsafe {
-                // SAFETY: By construction, `self.map` points to a subslice entirely within `self.whole`,
-                //         so its start does not preceed the slice's.
-                let start = self.map.as_ptr().offset_from_unsigned(self.whole.as_ptr());
-                Range {
-                    start,
-                    // SAFETY: Adding the length of a subslice to its start cannot overflow.
-                    end: start.unchecked_add(subslice_len),
-                }
-            }
-        }
-    }
-
-    impl<'a, T, U> MapInWhole<&'a [T], MapInWhole<&'a [T], U>> {
-        pub const fn before(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole.map;
-            }
-            let slice_ptr = self.whole.map.as_ptr();
-            let subslice_ptr = self.map.as_ptr();
-            unsafe {
-                // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of a subslice - `self.map` from the
-                //           origin - `self.whole.map` - is always less than or equal to the
-                //           length of the slice.
-                slice::from_raw_parts(
-                    slice_ptr,
-                    // SAFETY: By construction, `self.map` points to a subslice entirely within
-                    //         `self.whole.map`, so its start always exceeds or is the slice's.
-                    subslice_ptr.offset_from_unsigned(slice_ptr),
-                )
-            }
-        }
-
-        pub const fn after(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole.map;
-            }
-            let slice_end_ptr = self.whole.map.as_ptr_range().end;
-            let subslice_end_ptr = self.map.as_ptr_range().end;
-            unsafe {
-                // SAFETY: - By construction, `self.map` points to a subslice entirely within
-                //           `self.whole.map`. Thus, the end of said subslice also points within it.
-                //         - `subslice_end_ptr + (slice_end_ptr - subslice_end_ptr) = slice_end_ptr`.
-                slice::from_raw_parts(
-                    subslice_end_ptr,
-                    // SAFETY: By construction, `self.map` points to a subslice entirely within
-                    //         `self.whole.map`, so the its end does not exceed the slice's.
-                    slice_end_ptr.offset_from_unsigned(subslice_end_ptr),
-                )
-            }
-        }
-
-        pub const fn subslice_range(&self) -> Range<usize> {
-            if const { size_of::<T>() == 0 } {
-                panic!("elements are zero-sized");
-            }
-            let subslice_len = self.map.len();
-            unsafe {
-                // SAFETY: By construction, `self.map` points to a subslice entirely within `self.whole.map`,
-                //         so its start does not preceed the slice's.
-                let start = self
-                    .map
-                    .as_ptr()
-                    .offset_from_unsigned(self.whole.map.as_ptr());
-                Range {
-                    start,
-                    // SAFETY: Adding the length of a subslice to its start cannot overflow.
-                    end: start.unchecked_add(subslice_len),
-                }
-            }
-        }
-    }
-
-    impl<'a, T, U> MapInWhole<MapInWhole<U, &'a [T]>, &'a [T]> {
-        pub const fn before(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole;
-            }
-            let slice_ptr = self.whole.as_ptr();
-            let subslice_ptr = self.map.whole.as_ptr();
-            unsafe {
-                // SAFETY: - `slice_ptr` is derived from a reference.
-                //         - The offset of a subslice - `self.map.whole` from the
-                //           origin - `self.whole` - is always less than or equal to the
-                //           length of the slice.
-                slice::from_raw_parts(
-                    slice_ptr,
-                    // SAFETY: By construction, `self.map.whole` points to a subslice entirely within
-                    //         `self.whole`, so its start always exceeds or is the slice's.
-                    subslice_ptr.offset_from_unsigned(slice_ptr),
-                )
-            }
-        }
-
-        pub const fn after(&self) -> &[T] {
-            if const { size_of::<T>() == 0 } {
-                return self.whole;
-            }
-            let slice_end_ptr = self.whole.as_ptr_range().end;
-            let subslice_end_ptr = self.map.whole.as_ptr_range().end;
-            unsafe {
-                // SAFETY: - By construction, `self.map.whole` points to a subslice entirely within
-                //           `self.whole`. Thus, the end of said subslice also points within it.
-                //         - `subslice_end_ptr + (slice_end_ptr - subslice_end_ptr) = slice_end_ptr`.
-                slice::from_raw_parts(
-                    subslice_end_ptr,
-                    // SAFETY: By construction, `self.map.whole` points to a subslice entirely within
-                    //         `self.whole`, so the its end does not exceed the slice's.
-                    slice_end_ptr.offset_from_unsigned(subslice_end_ptr),
-                )
-            }
-        }
-
-        pub const fn subslice_range(&self) -> Range<usize> {
-            if const { size_of::<T>() == 0 } {
-                panic!("elements are zero-sized");
-            }
-            let subslice_len = self.map.whole.len();
-            unsafe {
-                // SAFETY: By construction, `self.map.whole` points to a subslice entirely within `self.whole`,
-                //         so its start does not preceed the slice's.
-                let start = self
-                    .map
-                    .whole
-                    .as_ptr()
-                    .offset_from_unsigned(self.whole.as_ptr());
-                Range {
-                    start,
-                    // SAFETY: Adding the length of a subslice to its start cannot overflow.
-                    end: start.unchecked_add(subslice_len),
-                }
-            }
-        }
-    }
-}
-pub use map_in_whole::MapInWhole;
-
-mod map_outside_whole {
-    use std::ops::{Deref, DerefMut};
-
-    #[derive(Clone, Copy, Debug)]
-    pub struct MapOutsideWhole<T, U> {
-        map: T,
-        whole: U,
-    }
-
-    impl<T, U> MapOutsideWhole<T, U> {
-        pub fn as_map(&self) -> &T::Target
-        where
-            T: Deref,
-        {
-            &*self.map
-        }
-
-        pub fn as_map_mut(&mut self) -> &mut T::Target
-        where
-            T: DerefMut,
-        {
-            &mut *self.map
-        }
-
-        pub fn as_whole(&self) -> &U::Target
-        where
-            U: Deref,
-        {
-            &*self.whole
-        }
-
-        pub fn as_whole_mut(&mut self) -> &mut U::Target
-        where
-            U: DerefMut,
-        {
-            &mut *self.whole
-        }
-
-        pub fn as_ref(&self) -> MapOutsideWhole<&T::Target, &U::Target>
-        where
-            T: Deref,
-            U: Deref,
-        {
-            MapOutsideWhole {
-                map: &*self.map,
-                whole: &*self.whole,
-            }
-        }
-
-        pub fn as_mut(&mut self) -> MapOutsideWhole<&mut T::Target, &mut U::Target>
-        where
-            T: DerefMut,
-            U: DerefMut,
-        {
-            MapOutsideWhole {
-                map: &mut *self.map,
-                whole: &mut *self.whole,
-            }
-        }
-    }
-
-    impl<T: Deref, U> Deref for MapOutsideWhole<T, U> {
-        type Target = T::Target;
-
-        /// Equivalent to [`MapOutsideWhole::as_map`].
-        fn deref(&self) -> &Self::Target {
-            &*self.map
-        }
-    }
-
-    impl<T: DerefMut, U> DerefMut for MapOutsideWhole<T, U> {
-        /// Equivalent to [`MapOutsideWhole::as_map_mut`].
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut *self.map
-        }
-    }
-
-    impl<T: Deref, U> AsRef<T::Target> for MapOutsideWhole<T, U> {
-        /// Equivalent to [`MapOutsideWhole::as_map`].
-        fn as_ref(&self) -> &T::Target {
-            &*self.map
-        }
-    }
-
-    impl<T: DerefMut, U> AsMut<T::Target> for MapOutsideWhole<T, U> {
-        /// Equivalent to [`MapOutsideWhole::as_map_mut`].
-        fn as_mut(&mut self) -> &mut T::Target {
-            &mut *self.map
-        }
-    }
-}
-pub use map_outside_whole::MapOutsideWhole;
-
-pub type AtomGroup<V> = UniqueArcSliceRwLock<V>;
-
-pub type AtomGroupRwLock<V> = UniqueArcSliceRwLock<AtomGroup<V>>;
-
-pub type AtomTypeReaderLock<V> = ArcSliceReaderLock<AtomGroup<V>>;
-
-pub type AtomType<V> = V;
-
-pub type Image<V> = ArcSliceReaderLock<V>;
-
-pub type GroupInTypeInImageInSystem<'a, V> = MapOutsideWhole<
-    &'a AtomGroup<V>,
-    MapInWhole<
-        &'a AtomTypeReaderLock<V>,
-        MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>,
-    >,
->;
-
-// pub struct ImageInSystem<'a, V>(SubsliceInSlice<'a, AtomType<V>>);
-
-// pub struct ImagesIter<'a, V> {
-//     start: *const AtomType<V>,
-//     end: *const AtomType<V>,
-//     image_size: NonZeroUsize,
-//     phantom: PhantomData<&'a [AtomType<V>]>,
-// }
-
-// impl<'a, V> ImageInSystem<'a, V> {
-//     pub const fn this(&self) -> &[AtomType<V>] {
-//         self.0.this()
-//     }
-
-//     pub const fn before(&self) -> ImagesIter<'a, V> {
-//         let before = self.0.before();
-//         let image_size = self.this().len();
-//         assert!(image_size > 0);
-//         // SAFETY: Checked above that `image_size > 0`.
-//         let image_size = unsafe { NonZeroUsize::new_unchecked(image_size) };
-//         assert!(matches!(before.len().checked_rem(image_size.get()), Some(0)));
-//         let before_range = before.as_ptr_range();
-//         ImagesIter {
-//             start: before_range.start,
-//             end: before_range.end,
-//             image_size,
-//             phantom: PhantomData,
-//         }
-//     }
-
-//     pub const fn after(&self) -> ImagesIter<'a, V> {
-//         let after = self.0.after();
-//         let image_size = self.this().len();
-//         assert!(image_size > 0);
-//         // SAFETY: Checked above that `image_size > 0`.
-//         let image_size = unsafe { NonZeroUsize::new_unchecked(image_size) };
-//         assert!(matches!(after.len().checked_rem(image_size.get()), Some(0)));
-//         let after_range = after.as_ptr_range();
-//         ImagesIter {
-//             start: after_range.start,
-//             end: after_range.end,
-//             image_size,
-//             phantom: PhantomData,
-//         }
-//     }
-// }
-
-mod atoms;
-
-pub use atoms::{AtomTypeInfo, GroupSizes, GroupSizesIter};
-
-pub mod error;
-
-pub mod marker {
-    //! Marker traits for allowing default implementations.
-
-    /// A marker trait for types that can implement `Leading[...]`
-    /// traits by reusing their `Inner[...]` implementation.
-    pub trait InnerIsLeading {}
-
-    /// A marker trait for types that can implement `Trailing[...]`
-    /// traits by reusing their `Inner[...]` implementation.
-    pub trait InnerIsTrailing {}
-}
-
-pub mod stat;
-
-pub mod sync_ops;
-
-pub mod factory;
-
-#[cfg(feature = "monte_carlo")]
-pub mod monte_carlo {
-    pub enum ChangedGroup {
-        This,
-        Other(usize),
-    }
-}
-
 /// A macro that allows pattern-matching items of [zipped iterators](zip_iterators).
 #[macro_export]
 macro_rules! zip_items {
@@ -610,6 +31,71 @@ macro_rules! zip_iterators {
     };
 }
 pub use zip_iterators;
+
+mod map_in_whole;
+pub use map_in_whole::MapInWhole;
+
+mod map_outside_whole;
+pub use map_outside_whole::MapOutsideWhole;
+
+pub type AtomGroup<V> = UniqueArcSliceRwLock<V>;
+
+pub type AtomGroupRwLock<V> = UniqueArcSliceRwLock<AtomGroup<V>>;
+
+pub type AtomTypeReaderLock<V> = ArcSliceReaderLock<AtomGroup<V>>;
+
+pub type AtomType<V> = V;
+
+pub type Image<V> = ArcSliceReaderLock<V>;
+
+pub type GroupInTypeInImageInSystem<'a, V> = MapOutsideWhole<
+    &'a AtomGroup<V>,
+    MapInWhole<
+        &'a AtomTypeReaderLock<V>,
+        MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>,
+    >,
+>;
+
+pub type GroupInTypeInImage<'a, V> = MapOutsideWhole<
+    &'a AtomGroup<V>,
+    MapInWhole<&'a AtomTypeReaderLock<V>, &'a [AtomTypeReaderLock<V>]>,
+>;
+
+mod atoms;
+
+pub mod error;
+
+pub use atoms::{AtomTypeInfo, GroupSizes, GroupSizesIter};
+
+pub mod marker {
+    //! Marker traits for allowing default implementations.
+
+    /// A marker trait used to exclude `()`.
+    pub trait MeaningfulOutput {}
+
+    impl !MeaningfulOutput for () {}
+
+    /// A trait for which `T: ValidOutput<T>` and `(): ValidOutput<T>` for every type `T`.
+    pub trait ValidOutput<T> {}
+
+    impl<T: MeaningfulOutput> ValidOutput<T> for T {}
+
+    impl<T> ValidOutput<T> for () {}
+
+    /// A marker trait for types that can implement `Leading[...]`
+    /// traits by reusing their `Inner[...]` implementation.
+    pub trait InnerIsLeading {}
+
+    /// A marker trait for types that can implement `Trailing[...]`
+    /// traits by reusing their `Inner[...]` implementation.
+    pub trait InnerIsTrailing {}
+}
+
+pub mod stat;
+
+pub mod sync_ops;
+
+pub mod factory;
 
 /// A trait for objects that can be used as vectors.
 pub trait Vector<const N: usize>:
@@ -686,38 +172,3 @@ pub struct SchemeDependent<Prop, ExchPot> {
     /// The exchange potential.
     pub exchange_potential: ExchPot,
 }
-
-/// A wrapper for implementors of `Decoupled` traits.
-pub struct Decoupled<T: ?Sized>(pub(crate) T);
-
-impl<T> Decoupled<T> {
-    /// Wraps the provided value with `Decoupled`.
-    pub fn new(inner: T) -> Self {
-        Self(inner)
-    }
-}
-
-/// A wrapper for implementors of `Additive` traits.
-pub struct Additive<T: ?Sized>(pub(crate) T);
-
-impl<T> Additive<T> {
-    /// Wraps the provided value with `Additive`.
-    pub fn new(inner: T) -> Self {
-        Self(inner)
-    }
-}
-
-/// A wrapper for implementors of `Multiplicative` traits.
-pub struct Multiplicative<T: ?Sized>(pub(crate) T);
-
-impl<T> Multiplicative<T> {
-    /// Wraps the provided value with `Multiplicative`.
-    pub fn new(inner: T) -> Self {
-        Self(inner)
-    }
-}
-
-pub type GroupInTypeInImage<'a, V> = MapOutsideWhole<
-    &'a AtomGroup<V>,
-    MapInWhole<&'a AtomTypeReaderLock<V>, &'a [AtomTypeReaderLock<V>]>,
->;

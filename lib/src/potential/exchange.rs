@@ -1,6 +1,6 @@
 //! Traits for updating the forces and calculating the exchange potential energy.
 
-use crate::core::{GroupInTypeInImage, ValidOutput};
+use crate::core::{GroupInTypeInImage, marker::ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
 
 pub mod quadratic;

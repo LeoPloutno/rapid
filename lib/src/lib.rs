@@ -1,4 +1,4 @@
-#![feature(ptr_metadata, substr_range, negative_impls)]
+#![feature(ptr_metadata, negative_impls)]
 #![allow(clippy::too_many_arguments)]
 #![warn(missing_docs)]
 #![allow(clippy::too_many_arguments)]

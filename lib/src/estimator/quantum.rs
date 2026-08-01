@@ -1,6 +1,6 @@
 //! Traits for calculating quantum observables.
 
-use crate::core::{GroupInTypeInImage, ValidOutput};
+use crate::core::{GroupInTypeInImage, marker::ValidOutput};
 use macros::heavy_computation;
 use std::sync::{Barrier, RwLock};
 
@@ -8,7 +8,11 @@ mod atom_additive;
 pub use atom_additive::{
     AdditiveValueQuantumEstimator, AdditiveVectorQuantumEstimator, AtomAdditiveQuantumEstimator,
 };
+
 mod atom_multiplicative;
+pub use atom_multiplicative::{
+    AtomMultiplicativeQuantumEstimator, MultiplicativeValueQuantumEstimator,
+};
 
 /// A trait for quantum estimators.
 ///

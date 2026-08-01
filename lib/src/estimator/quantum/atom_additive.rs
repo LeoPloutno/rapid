@@ -36,8 +36,9 @@ mod value {
     use super::{super::QuantumEstimator, AtomAdditiveQuantumEstimator};
     use crate::{
         core::{
-            GroupInTypeInImage, MeaningfulOutput,
+            GroupInTypeInImage,
             error::EmptyError,
+            marker::MeaningfulOutput,
             sync_ops::{SyncAddReceiver, SyncAddSender},
         },
         zip_items, zip_iterators,
@@ -207,8 +208,9 @@ mod vector {
     use super::{super::QuantumEstimator, AtomAdditiveQuantumEstimator};
     use crate::{
         core::{
-            GroupInTypeInImage, MeaningfulOutput, Vector,
+            GroupInTypeInImage, Vector,
             error::EmptyError,
+            marker::MeaningfulOutput,
             sync_ops::{SyncAddReceiver, SyncAddSender},
         },
         zip_items, zip_iterators,

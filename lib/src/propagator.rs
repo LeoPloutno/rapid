@@ -2,7 +2,8 @@
 
 use crate::{
     core::{
-        AtomGroupRwLock, AtomTypeReaderLock, MapInWhole, MapOutsideWhole, ValidOutput,
+        AtomGroupRwLock, AtomTypeReaderLock, MapInWhole, MapOutsideWhole,
+        marker::ValidOutput,
         stat::{Bosonic, Distinguishable, Stat},
     },
     potential::{exchange::ExchangePotential, physical::PhysicalPotential},
@@ -21,13 +22,11 @@ pub type GroupRwLockInTypeInImageInSystem<'a, V> = MapOutsideWhole<
 >;
 
 /// A trait for a propagator of a group in an image.
-pub trait Propagator<T, V, A, M, Phys, Dist, Boson, Therm, OutPhys, OutExch>
+pub trait Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch>
 where
-    A: ?Sized,
-    M: ?Sized,
-    Phys: PhysicalPotential<T, V, A, M, OutPhys> + ?Sized,
-    Dist: ExchangePotential<T, V, A, M, OutExch> + Distinguishable + ?Sized,
-    Boson: ExchangePotential<T, V, A, M, OutExch> + Bosonic + ?Sized,
+    Phys: PhysicalPotential<T, V, OutPhys> + ?Sized,
+    Dist: ExchangePotential<T, V, OutExch> + Distinguishable + ?Sized,
+    Boson: ExchangePotential<T, V, OutExch> + Bosonic + ?Sized,
     Therm: Thermostat<T, V> + ?Sized,
     OutPhys: ValidOutput<T>,
     OutExch: ValidOutput<T>,
@@ -37,9 +36,9 @@ where
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///
-    /// Returns the contribution of this group in this image
-    /// to the physical and exchange potential energies,
-    /// as well as the heat absorbed by the system from the thermostat.
+    /// Returns the physical and exchange potential energies
+    /// if `OutPhys` or `OutExch` are `T`.
+    /// Also returns the heat absorbed by the group from the thermostat.
     #[heavy_computation]
     fn propagate(
         &mut self,
@@ -51,5 +50,5 @@ where
         momenta: &mut GroupRwLockInTypeInImageInSystem<V>,
         physical_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
         exchange_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
-    ) -> Result<(T, T, T), Self::Error>;
+    ) -> Result<(OutPhys, OutExch, T), Self::Error>;
 }

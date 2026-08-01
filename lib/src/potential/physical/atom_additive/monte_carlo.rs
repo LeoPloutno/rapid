@@ -1,12 +1,12 @@
 use super::{AdditivePhysicalPotential, AtomAdditivePhysicalPotential};
 use crate::{
     core::{
-        GroupInTypeInImage, MeaningfulOutput,
+        GroupInTypeInImage,
         error::InvalidIndexError,
-        monte_carlo::ChangedGroup,
+        marker::MeaningfulOutput,
         sync_ops::{SyncAddReceiver, SyncAddSender},
     },
-    potential::physical::MonteCarloPhysicalPotential,
+    potential::physical::{ChangedGroup, MonteCarloPhysicalPotential},
 };
 use macros::efficient_alternatives;
 use std::{
@@ -57,7 +57,7 @@ where
 }
 
 /// A wrapper for implementors of the [`AtomAdditiveMonteCarloPhysicalPotential`] trait.
-struct MonteCarlo<C, P: ?Sized> {
+pub struct MonteCarlo<C, P: ?Sized> {
     channel: C,
     potential: P,
 }

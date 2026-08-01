@@ -1,6 +1,6 @@
 //! Traits for calculating classical observables.
 
-use crate::core::{GroupInTypeInImageInSystem, ValidOutput};
+use crate::core::{GroupInTypeInImageInSystem, marker::ValidOutput};
 use macros::heavy_computation;
 use std::sync::{Barrier, RwLock};
 
@@ -9,7 +9,11 @@ pub use atom_additive::{
     AdditiveValueClassicalEstimator, AdditiveVectorClassicalEstimator,
     AtomAdditiveClassicalEstimator,
 };
+
 mod atom_multiplicative;
+pub use atom_multiplicative::{
+    AtomMultiplicativeClassicalEstimator, MultiplicativeValueClassicalEstimator,
+};
 
 /// A trait for classical estimators.
 ///

@@ -1,5 +1,5 @@
 use super::ExchangePotential;
-use crate::core::{AtomGroup, ValidOutput};
+use crate::core::{AtomGroup, marker::ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
 
 /// An enum for tracking relations between images.

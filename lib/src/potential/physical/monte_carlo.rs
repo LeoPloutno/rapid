@@ -1,6 +1,15 @@
 use super::PhysicalPotential;
-use crate::core::{GroupInTypeInImage, ValidOutput, monte_carlo::ChangedGroup};
+use crate::core::{GroupInTypeInImage, marker::ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
+
+/// An enum representing the relation of the changed group
+/// to the current one.
+pub enum ChangedGroup {
+    /// This group has changed.
+    This,
+    /// Another group with a particular index has changed.
+    Other(usize),
+}
 
 /// A trait for physical potentials that may be used in a Monte-Carlo algorithm.
 ///

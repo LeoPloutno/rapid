@@ -4,8 +4,9 @@
 use super::ClassicalEstimator;
 use crate::{
     core::{
-        GroupInTypeInImageInSystem, MeaningfulOutput,
+        GroupInTypeInImageInSystem,
         error::EmptyError,
+        marker::MeaningfulOutput,
         sync_ops::{SyncMulReceiver, SyncMulSender},
     },
     zip_items, zip_iterators,

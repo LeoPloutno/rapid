@@ -4,8 +4,9 @@
 use super::QuantumEstimator;
 use crate::{
     core::{
-        GroupInTypeInImage, MeaningfulOutput,
+        GroupInTypeInImage,
         error::EmptyError,
+        marker::MeaningfulOutput,
         sync_ops::{SyncMulReceiver, SyncMulSender},
     },
     zip_items, zip_iterators,

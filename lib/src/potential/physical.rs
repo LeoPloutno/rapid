@@ -1,6 +1,6 @@
 //! Traits for updating the forces and calculating the physical potential energy.
 
-use crate::core::{GroupInTypeInImage, ValidOutput};
+use crate::core::{GroupInTypeInImage, marker::ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
 
 mod atom_additive;
@@ -11,8 +11,8 @@ mod monte_carlo;
 
 #[cfg(feature = "monte_carlo")]
 pub use self::{
-    atom_additive::AtomAdditiveMonteCarloPhysicalPotential,
-    monte_carlo::MonteCarloPhysicalPotential,
+    atom_additive::{AdditivePhysicalPotential, AtomAdditiveMonteCarloPhysicalPotential},
+    monte_carlo::{ChangedGroup, MonteCarloPhysicalPotential},
 };
 
 /// A trait for physical potentials.

@@ -1,10 +1,7 @@
 //! Traits for thermostats that can thermalize atoms separately.
 
 use super::{GroupInTypeInImageInSystem, Thermostat};
-use crate::{
-    core::{Decoupled as DecoupledThermostat, error::EmptyError},
-    zip_items, zip_iterators,
-};
+use crate::{core::error::EmptyError, zip_items, zip_iterators};
 use macros::heavy_computation;
 use std::ops::Add;
 
@@ -35,6 +32,16 @@ where
         exchange_force: &V,
         momentum: &mut V,
     ) -> Result<T, Self::ErrorAtom>;
+}
+
+/// A wrapper for implementors of the [`AtomDecoupledThermostat`] trait.
+pub struct DecoupledThermostat<T: ?Sized>(pub(crate) T);
+
+impl<T> DecoupledThermostat<T> {
+    /// Wraps the provided value with `DecoupledThermostat`.
+    pub const fn new(inner: T) -> Self {
+        Self(inner)
+    }
 }
 
 impl<T, V, U> AtomDecoupledThermostat<T, V> for DecoupledThermostat<U>
@@ -78,20 +85,25 @@ where
         exchange_forces: &GroupInTypeInImageInSystem<V>,
         group_momenta: &mut [V],
     ) -> Result<T, Self::Error> {
-        let mut iter = zip_iterators!(positions, physical_forces, exchange_forces, group_momenta)
-            .enumerate()
-            .map(
-                |(index, zip_items!(position, physical_force, exchange_force, momentum))| {
-                    AtomDecoupledThermostat::thermalize(
-                        self,
-                        index,
-                        position,
-                        physical_force,
-                        exchange_force,
-                        momentum,
-                    )
-                },
-            );
+        let mut iter = zip_iterators!(
+            positions.read(),
+            physical_forces.read(),
+            exchange_forces.read(),
+            group_momenta
+        )
+        .enumerate()
+        .map(
+            |(index, zip_items!(position, physical_force, exchange_force, momentum))| {
+                AtomDecoupledThermostat::thermalize(
+                    self,
+                    index,
+                    position,
+                    physical_force,
+                    exchange_force,
+                    momentum,
+                )
+            },
+        );
         let first_atom_heat = iter.next().ok_or(EmptyError)??;
         Ok(iter.try_fold(first_atom_heat, |accum_heat, atom_heat| {
             Ok::<_, <Self as AtomDecoupledThermostat<T, V>>::ErrorAtom>(accum_heat + atom_heat?)

@@ -2,7 +2,7 @@
 
 use super::ExchangePotential;
 use crate::{
-    core::{AtomTypeReaderLock, ValidOutput},
+    core::{AtomTypeReaderLock, marker::ValidOutput},
     stride::Stride,
 };
 use std::iter::FusedIterator;
@@ -51,6 +51,7 @@ pub trait Transform<T, V> {
     fn eigenvalues(&self, eigenvalues: &mut [T]) -> Result<(), Self::Error>;
 }
 
+/// An iterator over different instantiations of an atom type in all images.
 #[derive(Debug)]
 pub struct TypeAcrossImages<'a, V>(Stride<'a, AtomTypeReaderLock<V>>);
 
