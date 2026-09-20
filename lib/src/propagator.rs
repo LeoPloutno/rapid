@@ -2,7 +2,7 @@
 
 use crate::{
     core::{
-        AtomGroupRwLock, AtomTypeReaderLock, MapInWhole, MapOutsideWhole,
+        GroupRwLockInTypeInImageInSystem,
         marker::ValidOutput,
         stat::{Bosonic, Distinguishable, Stat},
     },
@@ -12,14 +12,6 @@ use crate::{
 use macros::heavy_computation;
 
 pub mod quadratic;
-
-pub type GroupRwLockInTypeInImageInSystem<'a, V> = MapOutsideWhole<
-    &'a mut AtomGroupRwLock<V>,
-    MapInWhole<
-        &'a AtomTypeReaderLock<V>,
-        MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>,
-    >,
->;
 
 /// A trait for a propagator of a group in an image.
 pub trait Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch>

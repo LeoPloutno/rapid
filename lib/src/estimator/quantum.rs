@@ -1,8 +1,8 @@
 //! Traits for calculating quantum observables.
 
-use crate::core::{GroupInTypeInImage, marker::ValidOutput};
+use crate::core::{GroupInTypeInImage, Synchronizer, marker::ValidOutput};
 use macros::heavy_computation;
-use std::sync::{Barrier, RwLock};
+use std::sync::RwLock;
 
 mod atom_additive;
 pub use atom_additive::{
@@ -40,12 +40,11 @@ where
     #[heavy_computation]
     fn calculate(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
+        synchronizer: &Synchronizer<RwLock<T>>,
         adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
+        type_exchange_potential_energy: T,
         positions: &GroupInTypeInImage<V>,
         physical_forces: &GroupInTypeInImage<V>,
         exchange_forces: &GroupInTypeInImage<V>,

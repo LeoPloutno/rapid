@@ -2,3 +2,8 @@
 
 pub mod classical;
 pub mod quantum;
+
+pub enum Estimator<T, U> {
+    Value(T),
+    Vector(U),
+}

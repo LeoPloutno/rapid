@@ -4,17 +4,14 @@
 use super::QuantumEstimator;
 use crate::{
     core::{
-        GroupInTypeInImage,
+        GroupInTypeInImage, Synchronizer,
         error::EmptyError,
         marker::MeaningfulOutput,
         sync_ops::{SyncMulReceiver, SyncMulSender},
     },
     zip_items, zip_iterators,
 };
-use std::{
-    ops::Mul,
-    sync::{Barrier, RwLock},
-};
+use std::{ops::Mul, sync::RwLock};
 
 /// A trait for quantum estimators that can be expressed as a product
 /// of estimators that each depend only on a single atom.
@@ -35,7 +32,7 @@ pub trait AtomMultiplicativeQuantumEstimator<T: Clone, V> {
         &mut self,
         atom_index: usize,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
+        type_exchange_potential_energy: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
@@ -66,7 +63,7 @@ where
         &mut self,
         atom_index: usize,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
+        type_exchange_potential_energy: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
@@ -74,7 +71,7 @@ where
         self.0.calculate(
             atom_index,
             physical_potential_energy,
-            exchange_potential_energy,
+            type_exchange_potential_energy,
             position,
             physical_force,
             exchange_force,
@@ -95,12 +92,11 @@ where
 
     fn calculate(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
+        _synchrinizer: &Synchronizer<RwLock<T>>,
         _adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
+        type_exchange_potential_energy: T,
         positions: &GroupInTypeInImage<V>,
         physical_forces: &GroupInTypeInImage<V>,
         exchange_forces: &GroupInTypeInImage<V>,
@@ -117,7 +113,7 @@ where
                     self,
                     index,
                     physical_potential_energy.clone(),
-                    exchange_potential_energy.clone(),
+                    type_exchange_potential_energy.clone(),
                     position,
                     physical_force,
                     exchange_force,
@@ -151,12 +147,11 @@ where
 
     fn calculate(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
+        _synchronizer: &Synchronizer<RwLock<T>>,
         _adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
+        type_exchange_potential_energy: T,
         positions: &GroupInTypeInImage<V>,
         physical_forces: &GroupInTypeInImage<V>,
         exchange_forces: &GroupInTypeInImage<V>,
@@ -173,7 +168,7 @@ where
                     self,
                     index,
                     physical_potential_energy.clone(),
-                    exchange_potential_energy.clone(),
+                    type_exchange_potential_energy.clone(),
                     position,
                     physical_force,
                     exchange_force,

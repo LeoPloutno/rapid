@@ -1,8 +1,8 @@
 //! Traits for calculating classical observables.
 
-use crate::core::{GroupInTypeInImageInSystem, marker::ValidOutput};
+use crate::core::{GroupInTypeInImageInSystem, Synchronizer, marker::ValidOutput};
 use macros::heavy_computation;
-use std::sync::{Barrier, RwLock};
+use std::sync::RwLock;
 
 mod atom_additive;
 pub use atom_additive::{
@@ -37,13 +37,12 @@ where
     #[heavy_computation]
     fn calculate(
         &mut self,
-        barrier: &Barrier,
-        shared_value: &RwLock<T>,
+        system_synchronizer: &Synchronizer<RwLock<T>>,
+        image_synchronizer: &Synchronizer<RwLock<T>>,
         adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
-        group_kinetic_energy: T,
+        type_exchange_potential_energy: T,
         group_heat: T,
         positions: &GroupInTypeInImageInSystem<V>,
         momenta: &GroupInTypeInImageInSystem<V>,

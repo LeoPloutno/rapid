@@ -25,7 +25,7 @@ pub trait AtomAdditiveQuantumEstimator<T: Clone, V> {
         &mut self,
         atom_index: usize,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
+        type_exchange_potential_energy: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
@@ -36,17 +36,14 @@ mod value {
     use super::{super::QuantumEstimator, AtomAdditiveQuantumEstimator};
     use crate::{
         core::{
-            GroupInTypeInImage,
+            GroupInTypeInImage, Synchronizer,
             error::EmptyError,
             marker::MeaningfulOutput,
             sync_ops::{SyncAddReceiver, SyncAddSender},
         },
         zip_items, zip_iterators,
     };
-    use std::{
-        ops::Add,
-        sync::{Barrier, RwLock},
-    };
+    use std::{ops::Add, sync::RwLock};
 
     /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<T, V, Output = T>`] trait.
     pub struct AdditiveValueQuantumEstimator<E: ?Sized>(pub(crate) E);
@@ -72,7 +69,7 @@ mod value {
             &mut self,
             atom_index: usize,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
+            type_exchange_potential_energy: T,
             position: &V,
             physical_force: &V,
             exchange_force: &V,
@@ -80,7 +77,7 @@ mod value {
             self.0.calculate(
                 atom_index,
                 physical_potential_energy,
-                exchange_potential_energy,
+                type_exchange_potential_energy,
                 position,
                 physical_force,
                 exchange_force,
@@ -101,12 +98,11 @@ mod value {
 
         fn calculate(
             &mut self,
-            _barrier: &Barrier,
-            _shared_value: &RwLock<T>,
+            _synchronizer: &Synchronizer<RwLock<T>>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
+            type_exchange_potential_energy: T,
             positions: &GroupInTypeInImage<V>,
             physical_forces: &GroupInTypeInImage<V>,
             exchange_forces: &GroupInTypeInImage<V>,
@@ -123,7 +119,7 @@ mod value {
                         self,
                         index,
                         physical_potential_energy.clone(),
-                        exchange_potential_energy.clone(),
+                        type_exchange_potential_energy.clone(),
                         position,
                         physical_force,
                         exchange_force,
@@ -157,12 +153,11 @@ mod value {
 
         fn calculate(
             &mut self,
-            _barrier: &Barrier,
-            _shared_value: &RwLock<T>,
+            _synchronizer: &Synchronizer<RwLock<T>>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
+            type_exchange_potential_energy: T,
             positions: &GroupInTypeInImage<V>,
             physical_forces: &GroupInTypeInImage<V>,
             exchange_forces: &GroupInTypeInImage<V>,
@@ -179,7 +174,7 @@ mod value {
                         self,
                         index,
                         physical_potential_energy.clone(),
-                        exchange_potential_energy.clone(),
+                        type_exchange_potential_energy.clone(),
                         position,
                         physical_force,
                         exchange_force,
@@ -208,17 +203,14 @@ mod vector {
     use super::{super::QuantumEstimator, AtomAdditiveQuantumEstimator};
     use crate::{
         core::{
-            GroupInTypeInImage, Vector,
+            GroupInTypeInImage, Synchronizer, Vector,
             error::EmptyError,
             marker::MeaningfulOutput,
             sync_ops::{SyncAddReceiver, SyncAddSender},
         },
         zip_items, zip_iterators,
     };
-    use std::{
-        ops::Add,
-        sync::{Barrier, RwLock},
-    };
+    use std::{ops::Add, sync::RwLock};
 
     /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<T, V, Output = V>`] trait,
     /// where `V` is a [vector](Vector).
@@ -247,7 +239,7 @@ mod vector {
             &mut self,
             atom_index: usize,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
+            type_exchange_potential_energy: T,
             position: &V,
             physical_force: &V,
             exchange_force: &V,
@@ -255,7 +247,7 @@ mod vector {
             self.0.calculate(
                 atom_index,
                 physical_potential_energy,
-                exchange_potential_energy,
+                type_exchange_potential_energy,
                 position,
                 physical_force,
                 exchange_force,
@@ -278,12 +270,11 @@ mod vector {
 
         fn calculate(
             &mut self,
-            barrier: &Barrier,
-            _shared_value: &RwLock<T>,
+            Synchronizer { barrier, .. }: &Synchronizer<RwLock<T>>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
+            type_exchange_potential_energy: T,
             positions: &GroupInTypeInImage<V>,
             physical_forces: &GroupInTypeInImage<V>,
             exchange_forces: &GroupInTypeInImage<V>,
@@ -300,7 +291,7 @@ mod vector {
                         self,
                         index,
                         physical_potential_energy.clone(),
-                        exchange_potential_energy.clone(),
+                        type_exchange_potential_energy.clone(),
                         position,
                         physical_force,
                         exchange_force,
@@ -341,12 +332,11 @@ mod vector {
 
         fn calculate(
             &mut self,
-            barrier: &Barrier,
-            _shared_value: &RwLock<T>,
+            Synchronizer { barrier, .. }: &Synchronizer<RwLock<T>>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
+            type_exchange_potential_energy: T,
             positions: &GroupInTypeInImage<V>,
             physical_forces: &GroupInTypeInImage<V>,
             exchange_forces: &GroupInTypeInImage<V>,
@@ -363,7 +353,7 @@ mod vector {
                         self,
                         index,
                         physical_potential_energy.clone(),
-                        exchange_potential_energy.clone(),
+                        type_exchange_potential_energy.clone(),
                         position,
                         physical_force,
                         exchange_force,

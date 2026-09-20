@@ -6,6 +6,8 @@ use std::{
     range::Range,
 };
 
+use crate::core::GroupImageInfo;
+
 /// An error that represents invalid indexing with indices.
 #[derive(Clone, Copy, Debug)]
 pub struct InvalidIndexError {
@@ -152,26 +154,12 @@ impl Error for AccessError {
 ///
 /// [`run`]: crate::run
 #[derive(Clone, Debug)]
-pub enum CommError {
-    /// The error arose in the main thread.
-    Main,
-    /// The error arose in a leading thread.
-    Leading {
-        /// The index of the group the thread is assigned to.
-        group: usize,
-    },
-    /// The error arose in an inner thread.
-    Inner {
-        /// The image the thread is assigned to.
-        image: usize,
-        /// The index of the group the thread is assigned to.
-        group: usize,
-    },
-    /// The error arose in a trailing thread.
-    Trailing {
-        /// The index of the group the thread is assigmed to.
-        group: usize,
-    },
+pub struct CommError(GroupImageInfo);
+
+impl From<GroupImageInfo> for CommError {
+    fn from(value: GroupImageInfo) -> Self {
+        Self(value)
+    }
 }
 
 impl From<Infallible> for CommError {
@@ -182,19 +170,19 @@ impl From<Infallible> for CommError {
 
 impl Display for CommError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self {
-            Self::Main => write!(f, "something happened in the main thread"),
-            Self::Leading { group } => write!(
+        match self.0 {
+            GroupImageInfo::Main => write!(f, "something happened in the main thread"),
+            GroupImageInfo::Leading(group) => write!(
                 f,
                 "something happened in a thread dedicated to group #{} in the first image",
                 group
             ),
-            Self::Inner { image, group } => write!(
+            GroupImageInfo::Inner { image, group } => write!(
                 f,
                 "something happened in a thread dedicated to group #{} in image #{}",
                 group, image
             ),
-            Self::Trailing { group } => write!(
+            GroupImageInfo::Trailing(group) => write!(
                 f,
                 "something happened in a thread dedicated to group #{} in the last image",
                 group

@@ -8,14 +8,593 @@
 //! potentials, thermostats, etc.
 //! To run a simulation, simply call `[run]` with the right arguments.
 
+use std::{
+    num::NonZeroUsize,
+    sync::{Barrier, RwLock},
+};
+
+use crate::{
+    core::{
+        GroupRwLockInTypeInImageInSystem, Vector,
+        error::CommError,
+        marker::{MeaningfulOutput, ValidOutput},
+        stat::{Bosonic, Distinguishable, Stat},
+        sync_ops::{SyncAddSender, SyncMulSender},
+    },
+    estimator::{Estimator, classical::ClassicalEstimator, quantum::QuantumEstimator},
+    output::VectorsStream,
+    potential::{exchange::ExchangePotential, physical::PhysicalPotential},
+    propagator::Propagator,
+    thermostat::Thermostat,
+};
+
 pub mod core;
 pub mod estimator;
 pub mod output;
 pub mod potential;
 pub mod propagator;
+mod simulation;
 mod stride;
 mod stride_mut;
 pub mod thermostat;
+
+pub trait PropagationOutput<T> {
+    fn get_value(
+        self,
+        image: Image,
+        group: usize,
+        synchronizer: &Synchronizer<T>,
+    ) -> Result<T, CommError>;
+}
+
+impl<T: Clone> PropagationOutput<T> for () {
+    #[inline]
+    fn get_value(
+        self,
+        image: Image,
+        group: usize,
+        synchronizer: &Synchronizer<T>,
+    ) -> Result<T, CommError> {
+        synchronizer.barrier.wait();
+        Ok(synchronizer
+            .shared_value
+            .read()
+            .map_err(|_| match image {
+                Image::Leading => CommError::Leading { group },
+                Image::Inner(image) => CommError::Inner { image, group },
+                Image::Trailing => CommError::Trailing { group },
+            })?
+            .clone())
+    }
+}
+
+impl<T: Clone + MeaningfulOutput> PropagationOutput<T> for T {
+    #[inline]
+    fn get_value(
+        self,
+        image: Image,
+        group: usize,
+        synchronizer: &Synchronizer<T>,
+    ) -> Result<T, CommError> {
+        synchronizer.shared_value.write().map_err(|_| match image {
+            Image::Leading => CommError::Leading { group },
+            Image::Inner(image) => CommError::Inner { image, group },
+            Image::Trailing => CommError::Trailing { group },
+        })?;
+        synchronizer.barrier.wait();
+        Ok(self)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Image {
+    Leading,
+    Inner(NonZeroUsize),
+    Trailing,
+}
+
+pub fn run_step_general<
+    const N: usize,
+    T: Clone,
+    V: Vector<N, Element = T>,
+    A: ?Sized,
+    M: ?Sized,
+    Phys: PhysicalPotential<T, V, OutPhys> + ?Sized,
+    Dist: ExchangePotential<T, V, OutExch> + Distinguishable + ?Sized,
+    Boson: ExchangePotential<T, V, OutExch> + Bosonic + ?Sized,
+    Therm: Thermostat<T, V> + ?Sized,
+    Prop: Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch> + ?Sized,
+    OutPhys: ValidOutput<T>, // + PropagationOutput<T>,
+    OutExch: ValidOutput<T> + PropagationOutput<T>,
+    OE,
+    E: From<Prop::Error> + From<CommError> + From<OE>,
+>(
+    step: usize,
+    image: Image,
+    group: usize,
+    system_synchronizer: &Synchronizer<T>,
+    image_synchronizer: &Synchronizer<T>,
+    type_synchronizer: &Synchronizer<T>,
+    system_adder: &mut A,
+    image_adder: &mut A,
+    system_multiplier: &mut M,
+    image_multiplier: &mut M,
+    quantum_observables: Option<
+        &mut [Estimator<
+            &mut (impl QuantumEstimator<T, V, A, M, (), Output = T, Error = OE> + ?Sized),
+            &mut (impl QuantumEstimator<T, V, A, M, (), Output = V, Error = OE> + ?Sized),
+        >],
+    >,
+    classical_observables: Option<
+        &mut [Estimator<
+            &mut (impl ClassicalEstimator<T, V, A, M, (), Output = T, Error = OE> + ?Sized),
+            &mut (impl ClassicalEstimator<T, V, A, M, (), Output = V, Error = OE> + ?Sized),
+        >],
+    >,
+    // observables: ObservablesOutputOption<
+    //     &mut [Estimator<
+    //         &mut (impl QuantumEstimator<T, V, A, M, (), Output = T, Error = OE> + ?Sized),
+    //         &mut (impl QuantumEstimator<T, V, A, M, (), Output = V, Error = OE> + ?Sized),
+    //     >],
+    //     &mut [Estimator<
+    //         &mut (impl ClassicalEstimator<T, V, A, M, (), Output = T, Error = OE> + ?Sized),
+    //         &mut (impl ClassicalEstimator<T, V, A, M, (), Output = V, Error = OE> + ?Sized),
+    //     >],
+    //     &mut (impl ValuesStream<T, Error = SE> + ValuesStream<V, Error = SE> + ?Sized),
+    // >,
+    // positions_stream: Option<&mut (impl VectorsStream<N, T, V> + ?Sized)>,
+    // momenta_stream: Option<&mut (impl VectorsStream<N, T, V> + ?Sized)>,
+    // physical_forces_stream: Option<&mut (impl VectorsStream<N, T, V> + ?Sized)>,
+    // exchange_forces_stream: Option<&mut (impl VectorsStream<N, T, V> + ?Sized)>,
+    physical_potential: &mut Phys,
+    exchange_potential: Stat<&mut Dist, &mut Boson>,
+    thermostat: &mut Therm,
+    propagator: &mut Prop,
+    positions: &mut GroupRwLockInTypeInImageInSystem<V>,
+    momenta: &mut GroupRwLockInTypeInImageInSystem<V>,
+    physical_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+    exchange_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+) -> Result<(), E> {
+    let (physical_potential_energy, exchange_potential_energy, heat) = propagator.propagate(
+        step,
+        physical_potential,
+        exchange_potential,
+        thermostat,
+        positions,
+        momenta,
+        physical_forces,
+        exchange_forces,
+    )?;
+
+    if quantum_observables.is_some() || classical_observables.is_some() {
+        let physical_potential_energy = <OutPhys as PropagationOutput<T>>::get_value(
+            physical_potential_energy,
+            image,
+            group,
+            image_synchronizer,
+        )?;
+        image_synchronizer.barrier.wait();
+
+        let exchange_potential_energy =
+            exchange_potential_energy.get_value(image, group, type_synchronizer)?;
+        image_synchronizer.barrier.wait();
+
+        if let Some(estimators) = quantum_observables {
+            for estimator in estimators {
+                match estimator {
+                    Estimator::Value(estimator) => estimator.calculate(
+                        image_synchronizer,
+                        image_adder,
+                        image_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        &positions
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &physical_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &exchange_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                    )?,
+                    Estimator::Vector(estimator) => estimator.calculate(
+                        image_synchronizer,
+                        image_adder,
+                        image_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        &positions
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &physical_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &exchange_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                    )?,
+                }
+                image_synchronizer.barrier.wait();
+            }
+        }
+
+        if let Some(estimators) = classical_observables {
+            for estimator in estimators {
+                match estimator {
+                    Estimator::Value(estimator) => estimator.calculate(
+                        system_synchronizer,
+                        image_synchronizer,
+                        system_adder,
+                        system_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        heat.clone(),
+                        &positions.as_map_ref().map_map(|map| map.read()),
+                        &momenta.as_map_ref().map_map(|map| map.read()),
+                        &physical_forces.as_map_ref().map_map(|map| map.read()),
+                        &exchange_forces.as_map_ref().map_map(|map| map.read()),
+                    )?,
+                    Estimator::Vector(estimator) => estimator.calculate(
+                        system_synchronizer,
+                        image_synchronizer,
+                        system_adder,
+                        system_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        heat.clone(),
+                        &positions.as_map_ref().map_map(|map| map.read()),
+                        &momenta.as_map_ref().map_map(|map| map.read()),
+                        &physical_forces.as_map_ref().map_map(|map| map.read()),
+                        &exchange_forces.as_map_ref().map_map(|map| map.read()),
+                    )?,
+                }
+                system_synchronizer.barrier.wait();
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn run_step<
+    const N: usize,
+    T: Clone,
+    V: Vector<N, Element = T>,
+    A: SyncAddSender<T> + ?Sized,
+    M: SyncMulSender<T> + ?Sized,
+    Phys: PhysicalPotential<T, V, ()> + ?Sized,
+    Dist: ExchangePotential<T, V, ()> + Distinguishable + ?Sized,
+    Boson: ExchangePotential<T, V, ()> + Bosonic + ?Sized,
+    Therm: Thermostat<T, V> + ?Sized,
+    Prop: Propagator<T, V, Phys, Dist, Boson, Therm, (), ()> + ?Sized,
+    OE,
+    E: From<Prop::Error> + From<CommError> + From<OE>,
+>(
+    step: usize,
+    image: Image,
+    group: usize,
+    system_synchronizer: &Synchronizer<T>,
+    image_synchronizer: &Synchronizer<T>,
+    type_synchronizer: &Synchronizer<T>,
+    system_adder: &mut A,
+    image_adder: &mut A,
+    system_multiplier: &mut M,
+    image_multiplier: &mut M,
+    quantum_observables: Option<
+        &mut [Estimator<
+            &mut (impl QuantumEstimator<T, V, A, M, (), Output = T, Error = OE> + ?Sized),
+            &mut (impl QuantumEstimator<T, V, A, M, (), Output = V, Error = OE> + ?Sized),
+        >],
+    >,
+    classical_observables: Option<
+        &mut [Estimator<
+            &mut (impl ClassicalEstimator<T, V, A, M, (), Output = T, Error = OE> + ?Sized),
+            &mut (impl ClassicalEstimator<T, V, A, M, (), Output = V, Error = OE> + ?Sized),
+        >],
+    >,
+    // observables: ObservablesOutputOption<
+    //     &mut [Estimator<
+    //         &mut (impl QuantumEstimator<T, V, A, M, (), Output = T, Error = OE> + ?Sized),
+    //         &mut (impl QuantumEstimator<T, V, A, M, (), Output = V, Error = OE> + ?Sized),
+    //     >],
+    //     &mut [Estimator<
+    //         &mut (impl ClassicalEstimator<T, V, A, M, (), Output = T, Error = OE> + ?Sized),
+    //         &mut (impl ClassicalEstimator<T, V, A, M, (), Output = V, Error = OE> + ?Sized),
+    //     >],
+    //     &mut (impl ValuesStream<T, Error = SE> + ValuesStream<V, Error = SE> + ?Sized),
+    // >,
+    // positions_stream: Option<&mut (impl VectorsStream<N, T, V> + ?Sized)>,
+    // momenta_stream: Option<&mut (impl VectorsStream<N, T, V> + ?Sized)>,
+    // physical_forces_stream: Option<&mut (impl VectorsStream<N, T, V> + ?Sized)>,
+    // exchange_forces_stream: Option<&mut (impl VectorsStream<N, T, V> + ?Sized)>,
+    physical_potential: &mut Phys,
+    exchange_potential: Stat<&mut Dist, &mut Boson>,
+    thermostat: &mut Therm,
+    propagator: &mut Prop,
+    positions: &mut GroupRwLockInTypeInImageInSystem<V>,
+    momenta: &mut GroupRwLockInTypeInImageInSystem<V>,
+    physical_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+    exchange_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+) -> Result<(), E> {
+    let (_, _, heat) = propagator.propagate(
+        step,
+        physical_potential,
+        exchange_potential,
+        thermostat,
+        positions,
+        momenta,
+        physical_forces,
+        exchange_forces,
+    )?;
+
+    if quantum_observables.is_some() || classical_observables.is_some() {
+        image_synchronizer.barrier.wait();
+        let physical_potential_energy = image_synchronizer
+            .shared_value
+            .read()
+            .map_err(|_| match image {
+                Image::Leading => CommError::Leading { group },
+                Image::Inner(image) => CommError::Inner { image, group },
+                Image::Trailing => CommError::Trailing { group },
+            })?
+            .clone();
+        image_synchronizer.barrier.wait();
+
+        type_synchronizer.barrier.wait();
+        let exchange_potential_energy = type_synchronizer
+            .shared_value
+            .read()
+            .map_err(|_| match image {
+                Image::Leading => CommError::Leading { group },
+                Image::Inner(image) => CommError::Inner { image, group },
+                Image::Trailing => CommError::Trailing { group },
+            })?
+            .clone();
+        type_synchronizer.barrier.wait();
+
+        if let Some(estimators) = quantum_observables {
+            for estimator in estimators {
+                match estimator {
+                    Estimator::Value(estimator) => estimator.calculate(
+                        image_synchronizer,
+                        image_adder,
+                        image_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        &positions
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &physical_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &exchange_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                    )?,
+                    Estimator::Vector(estimator) => estimator.calculate(
+                        image_synchronizer,
+                        image_adder,
+                        image_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        &positions
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &physical_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &exchange_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                    )?,
+                }
+                image_synchronizer.barrier.wait();
+            }
+        }
+
+        if let Some(estimators) = classical_observables {
+            for estimator in estimators {
+                match estimator {
+                    Estimator::Value(estimator) => estimator.calculate(
+                        system_synchronizer,
+                        image_synchronizer,
+                        system_adder,
+                        system_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        heat.clone(),
+                        &positions.as_map_ref().map_map(|map| map.read()),
+                        &momenta.as_map_ref().map_map(|map| map.read()),
+                        &physical_forces.as_map_ref().map_map(|map| map.read()),
+                        &exchange_forces.as_map_ref().map_map(|map| map.read()),
+                    )?,
+                    Estimator::Vector(estimator) => estimator.calculate(
+                        system_synchronizer,
+                        image_synchronizer,
+                        system_adder,
+                        system_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        heat.clone(),
+                        &positions.as_map_ref().map_map(|map| map.read()),
+                        &momenta.as_map_ref().map_map(|map| map.read()),
+                        &physical_forces.as_map_ref().map_map(|map| map.read()),
+                        &exchange_forces.as_map_ref().map_map(|map| map.read()),
+                    )?,
+                }
+                system_synchronizer.barrier.wait();
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn run_step_meaningfull_exchange_potential<
+    const N: usize,
+    T: Clone + MeaningfulOutput,
+    V: Vector<N, Element = T>,
+    A: SyncAddSender<T> + ?Sized,
+    M: SyncMulSender<T> + ?Sized,
+    Phys: PhysicalPotential<T, V, ()> + ?Sized,
+    Dist: ExchangePotential<T, V, T> + Distinguishable + ?Sized,
+    Boson: ExchangePotential<T, V, T> + Bosonic + ?Sized,
+    Therm: Thermostat<T, V> + ?Sized,
+    Prop: Propagator<T, V, Phys, Dist, Boson, Therm, (), T> + ?Sized,
+    OE,
+    E: From<Prop::Error> + From<CommError> + From<OE>,
+>(
+    step: usize,
+    group: usize,
+    system_synchronizer: &Synchronizer<T>,
+    image_synchronizer: &Synchronizer<T>,
+    type_synchronizer: &Synchronizer<T>,
+    system_adder: &mut A,
+    image_adder: &mut A,
+    system_multiplier: &mut M,
+    image_multiplier: &mut M,
+    quantum_observables: Option<
+        &mut [Estimator<
+            &mut (impl QuantumEstimator<T, V, A, M, (), Output = T, Error = OE> + ?Sized),
+            &mut (impl QuantumEstimator<T, V, A, M, (), Output = V, Error = OE> + ?Sized),
+        >],
+    >,
+    classical_observables: Option<
+        &mut [Estimator<
+            &mut (impl ClassicalEstimator<T, V, A, M, (), Output = T, Error = OE> + ?Sized),
+            &mut (impl ClassicalEstimator<T, V, A, M, (), Output = V, Error = OE> + ?Sized),
+        >],
+    >,
+    physical_potential: &mut Phys,
+    exchange_potential: Stat<&mut Dist, &mut Boson>,
+    thermostat: &mut Therm,
+    propagator: &mut Prop,
+    positions: &mut GroupRwLockInTypeInImageInSystem<V>,
+    momenta: &mut GroupRwLockInTypeInImageInSystem<V>,
+    physical_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+    exchange_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+) -> Result<(), E> {
+    let (_, exchange_potential_energy, heat) = propagator.propagate(
+        step,
+        physical_potential,
+        exchange_potential,
+        thermostat,
+        positions,
+        momenta,
+        physical_forces,
+        exchange_forces,
+    )?;
+
+    if quantum_observables.is_some() || classical_observables.is_some() {
+        image_synchronizer.barrier.wait();
+        let physical_potential_energy = image_synchronizer
+            .shared_value
+            .read()
+            .map_err(|_| CommError::Leading { group })?
+            .clone();
+        image_synchronizer.barrier.wait();
+
+        *type_synchronizer
+            .shared_value
+            .write()
+            .map_err(|_| CommError::Leading { group })? = exchange_potential_energy.clone();
+        type_synchronizer.barrier.wait();
+        type_synchronizer.barrier.wait();
+
+        if let Some(estimators) = quantum_observables {
+            for estimator in estimators {
+                match estimator {
+                    Estimator::Value(estimator) => estimator.calculate(
+                        image_synchronizer,
+                        image_adder,
+                        image_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        &positions
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &physical_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &exchange_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                    )?,
+                    Estimator::Vector(estimator) => estimator.calculate(
+                        image_synchronizer,
+                        image_adder,
+                        image_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        &positions
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &physical_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                        &exchange_forces
+                            .as_map_mut()
+                            .map_map(|map| map.read())
+                            .map_whole(|whole| whole.into()),
+                    )?,
+                }
+                image_synchronizer.barrier.wait();
+            }
+        }
+
+        if let Some(estimators) = classical_observables {
+            for estimator in estimators {
+                match estimator {
+                    Estimator::Value(estimator) => estimator.calculate(
+                        system_synchronizer,
+                        image_synchronizer,
+                        system_adder,
+                        system_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        heat.clone(),
+                        &positions.as_map_ref().map_map(|map| map.read()),
+                        &momenta.as_map_ref().map_map(|map| map.read()),
+                        &physical_forces.as_map_ref().map_map(|map| map.read()),
+                        &exchange_forces.as_map_ref().map_map(|map| map.read()),
+                    )?,
+                    Estimator::Vector(estimator) => estimator.calculate(
+                        system_synchronizer,
+                        image_synchronizer,
+                        system_adder,
+                        system_multiplier,
+                        physical_potential_energy.clone(),
+                        exchange_potential_energy.clone(),
+                        heat.clone(),
+                        &positions.as_map_ref().map_map(|map| map.read()),
+                        &momenta.as_map_ref().map_map(|map| map.read()),
+                        &physical_forces.as_map_ref().map_map(|map| map.read()),
+                        &exchange_forces.as_map_ref().map_map(|map| map.read()),
+                    )?,
+                }
+                system_synchronizer.barrier.wait();
+            }
+        }
+    }
+
+    Ok(())
+}
 
 /*
 /// Alias for a handle to a handle.

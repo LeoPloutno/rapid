@@ -4,17 +4,14 @@
 use super::ClassicalEstimator;
 use crate::{
     core::{
-        GroupInTypeInImageInSystem,
+        GroupInTypeInImageInSystem, Synchronizer,
         error::EmptyError,
         marker::MeaningfulOutput,
         sync_ops::{SyncMulReceiver, SyncMulSender},
     },
     zip_items, zip_iterators,
 };
-use std::{
-    ops::Mul,
-    sync::{Barrier, RwLock},
-};
+use std::{ops::Mul, sync::RwLock};
 
 /// A trait for classical estimators that can be expressed as a product
 /// of estimators that each depend only on a single atom.
@@ -35,8 +32,7 @@ pub trait AtomMultiplicativeClassicalEstimator<T: Clone, V> {
         &mut self,
         atom_index: usize,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
-        group_kinetic_energy: T,
+        type_exchange_potential_energy: T,
         group_heat: T,
         position: &V,
         momentum: &V,
@@ -70,8 +66,7 @@ where
         &mut self,
         atom_index: usize,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
-        group_kinetic_energy: T,
+        type_exchange_potential_energy: T,
         group_heat: T,
         position: &V,
         momentum: &V,
@@ -81,8 +76,7 @@ where
         self.0.calculate(
             atom_index,
             physical_potential_energy,
-            exchange_potential_energy,
-            group_kinetic_energy,
+            type_exchange_potential_energy,
             group_heat,
             position,
             momentum,
@@ -105,13 +99,12 @@ where
 
     fn calculate(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
+        _system_synchronizer: &Synchronizer<RwLock<T>>,
+        _image_synchronizer: &Synchronizer<RwLock<T>>,
         _adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
-        group_kinetic_energy: T,
+        type_exchange_potential_energy: T,
         group_heat: T,
         positions: &GroupInTypeInImageInSystem<V>,
         momenta: &GroupInTypeInImageInSystem<V>,
@@ -131,8 +124,7 @@ where
                     self,
                     index,
                     physical_potential_energy.clone(),
-                    exchange_potential_energy.clone(),
-                    group_kinetic_energy.clone(),
+                    type_exchange_potential_energy.clone(),
                     group_heat.clone(),
                     position,
                     momentum,
@@ -168,13 +160,12 @@ where
 
     fn calculate(
         &mut self,
-        _barrier: &Barrier,
-        _shared_value: &RwLock<T>,
+        _system_synchronizer: &Synchronizer<RwLock<T>>,
+        _image_synchronizer: &Synchronizer<RwLock<T>>,
         _adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
-        group_kinetic_energy: T,
+        type_exchange_potential_energy: T,
         group_heat: T,
         positions: &GroupInTypeInImageInSystem<V>,
         momenta: &GroupInTypeInImageInSystem<V>,
@@ -194,8 +185,7 @@ where
                     self,
                     index,
                     physical_potential_energy.clone(),
-                    exchange_potential_energy.clone(),
-                    group_kinetic_energy.clone(),
+                    type_exchange_potential_energy.clone(),
                     group_heat.clone(),
                     position,
                     momentum,

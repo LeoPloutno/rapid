@@ -1,9 +1,30 @@
 //! Core functionalities used throughout the whole project.
 
-use arc_rw_lock::{ArcSliceReaderLock, UniqueArcSliceRwLock};
-use std::ops::{
-    Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign,
+use arc_rw_lock::{ArcSliceReaderLock, UniqueArcElementRwLock, UniqueArcSliceRwLock};
+use std::{
+    num::NonZeroUsize,
+    ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    sync::{Barrier, RwLock},
 };
+
+mod map_in_whole;
+pub use map_in_whole::MapInWhole;
+
+mod map_outside_whole;
+pub use map_outside_whole::MapOutsideWhole;
+
+mod atoms;
+pub use atoms::{AtomTypeInfo, GroupSizes, GroupSizesIter};
+
+pub mod stat;
+
+pub mod sync_ops;
+
+pub mod factory;
+
+pub mod error;
+
+pub mod marker;
 
 /// A macro that allows pattern-matching items of [zipped iterators](zip_iterators).
 #[macro_export]
@@ -31,71 +52,6 @@ macro_rules! zip_iterators {
     };
 }
 pub use zip_iterators;
-
-mod map_in_whole;
-pub use map_in_whole::MapInWhole;
-
-mod map_outside_whole;
-pub use map_outside_whole::MapOutsideWhole;
-
-pub type AtomGroup<V> = UniqueArcSliceRwLock<V>;
-
-pub type AtomGroupRwLock<V> = UniqueArcSliceRwLock<AtomGroup<V>>;
-
-pub type AtomTypeReaderLock<V> = ArcSliceReaderLock<AtomGroup<V>>;
-
-pub type AtomType<V> = V;
-
-pub type Image<V> = ArcSliceReaderLock<V>;
-
-pub type GroupInTypeInImageInSystem<'a, V> = MapOutsideWhole<
-    &'a AtomGroup<V>,
-    MapInWhole<
-        &'a AtomTypeReaderLock<V>,
-        MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>,
-    >,
->;
-
-pub type GroupInTypeInImage<'a, V> = MapOutsideWhole<
-    &'a AtomGroup<V>,
-    MapInWhole<&'a AtomTypeReaderLock<V>, &'a [AtomTypeReaderLock<V>]>,
->;
-
-mod atoms;
-
-pub mod error;
-
-pub use atoms::{AtomTypeInfo, GroupSizes, GroupSizesIter};
-
-pub mod marker {
-    //! Marker traits for allowing default implementations.
-
-    /// A marker trait used to exclude `()`.
-    pub trait MeaningfulOutput {}
-
-    impl !MeaningfulOutput for () {}
-
-    /// A trait for which `T: ValidOutput<T>` and `(): ValidOutput<T>` for every type `T`.
-    pub trait ValidOutput<T> {}
-
-    impl<T: MeaningfulOutput> ValidOutput<T> for T {}
-
-    impl<T> ValidOutput<T> for () {}
-
-    /// A marker trait for types that can implement `Leading[...]`
-    /// traits by reusing their `Inner[...]` implementation.
-    pub trait InnerIsLeading {}
-
-    /// A marker trait for types that can implement `Trailing[...]`
-    /// traits by reusing their `Inner[...]` implementation.
-    pub trait InnerIsTrailing {}
-}
-
-pub mod stat;
-
-pub mod sync_ops;
-
-pub mod factory;
 
 /// A trait for objects that can be used as vectors.
 pub trait Vector<const N: usize>:
@@ -126,6 +82,37 @@ pub trait Vector<const N: usize>:
     /// Calculates the dot product of `self` with `rhs`.
     fn dot(self, rhs: Self) -> Self::Element;
 }
+
+pub type AtomGroup<V> = UniqueArcSliceRwLock<V>;
+
+pub type AtomGroupRwLock<V> = UniqueArcElementRwLock<AtomGroup<V>>;
+
+pub type AtomTypeReaderLock<V> = ArcSliceReaderLock<AtomGroup<V>>;
+
+pub type AtomType<V> = V;
+
+pub type Image<V> = ArcSliceReaderLock<V>;
+
+pub type GroupInTypeInImageInSystem<'a, V> = MapOutsideWhole<
+    &'a AtomGroup<V>,
+    MapInWhole<
+        &'a AtomTypeReaderLock<V>,
+        MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>,
+    >,
+>;
+
+pub type GroupInTypeInImage<'a, V> = MapOutsideWhole<
+    &'a AtomGroup<V>,
+    MapInWhole<&'a AtomTypeReaderLock<V>, &'a [AtomTypeReaderLock<V>]>,
+>;
+
+pub type GroupRwLockInTypeInImageInSystem<'a, V> = MapOutsideWhole<
+    &'a mut AtomGroupRwLock<V>,
+    MapInWhole<
+        &'a AtomTypeReaderLock<V>,
+        MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>,
+    >,
+>;
 
 /// Exchange potential expansion scheme.
 #[derive(Clone, Copy, Debug)]
@@ -171,4 +158,21 @@ pub struct SchemeDependent<Prop, ExchPot> {
     pub propagator: Prop,
     /// The exchange potential.
     pub exchange_potential: ExchPot,
+}
+
+pub struct Synchronizer<T> {
+    pub(crate) sync: T,
+    pub(crate) barrier: Barrier,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum GroupImageInfo {
+    /// The first group in the first image.
+    Main,
+    /// Some group in the first image.
+    Leading(NonZeroUsize),
+    /// Some group in an inner image.
+    Inner { image: NonZeroUsize, group: usize },
+    /// Some group in the trailing image.
+    Trailing(usize),
 }

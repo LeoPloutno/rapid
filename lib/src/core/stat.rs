@@ -14,6 +14,22 @@ pub enum Stat<D, B> {
 }
 
 impl<D, B> Stat<D, B> {
+    /// Converts from '&Stat<D, B>' to 'Stat<&D, &B>'.
+    pub const fn as_ref(&self) -> Stat<&D, &B> {
+        match self {
+            Self::Distinguishable(dist) => Stat::Distinguishable(dist),
+            Self::Bosonic(boson) => Stat::Bosonic(boson),
+        }
+    }
+
+    /// Converts from '&mut Stat<D, B>' to 'Stat<&mut D, &mut B>'.
+    pub const fn as_mut(&mut self) -> Stat<&mut D, &mut B> {
+        match self {
+            Self::Distinguishable(dist) => Stat::Distinguishable(dist),
+            Self::Bosonic(boson) => Stat::Bosonic(boson),
+        }
+    }
+
     /// Converts from `Stat<D, B>` to
     /// `Stat<&D::Target, &B::Target>`.
     ///

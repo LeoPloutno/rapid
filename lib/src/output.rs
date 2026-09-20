@@ -22,11 +22,8 @@ where
     V: Vector<N, Element = T>,
 {
     /// Writes the vectors.
-    fn write_vectors(
-        &mut self,
-        step: usize,
-        vectors: &GroupInTypeInImageInSystem<V>,
-    ) -> Result<(), Self::Error>;
+    fn write_vectors(&mut self, vectors: &GroupInTypeInImageInSystem<V>)
+    -> Result<(), Self::Error>;
 }
 
 /// A trait for streams that write values into the output file.
@@ -36,21 +33,21 @@ pub trait ValuesStream<T>: StepStream {
 }
 
 /// A struct which contains the estimators and the output stream.
-pub struct ObservablesOutput<E, O> {
+pub struct EstimatorsOutput<E, S> {
     /// The estimators.
     pub estimators: E,
     /// The stream.
-    pub stream: O,
+    pub stream: S,
 }
 
 /// An enum which contains the estimators and output stream for the two kinds of observables.
-pub enum ObservablesOutputOption<Q, C, S> {
+pub enum EstimatorsOutputOption<Q, C, S> {
     /// No observales.
     None,
     /// Only quantum estimators.
-    Quantum(ObservablesOutput<Q, S>),
+    Quantum(EstimatorsOutput<Q, S>),
     /// Onnly classical estimators.
-    Classical(ObservablesOutput<C, S>),
+    Classical(EstimatorsOutput<C, S>),
     /// Both kinds of estimators and a single stream dedicated to both.
     Shared {
         /// The quantum estimators.
@@ -63,13 +60,13 @@ pub enum ObservablesOutputOption<Q, C, S> {
     /// Both kinds of estimators, each with its own dedicated stream.
     Separate {
         /// The quantum estimators and the stream dedicated to them.
-        quantum: ObservablesOutput<Q, S>,
+        quantum: EstimatorsOutput<Q, S>,
         /// The classical estimators and the stream dedicated to them.
-        debug: ObservablesOutput<C, S>,
+        classical: EstimatorsOutput<C, S>,
     },
 }
 
-impl<Q: DerefMut, C: DerefMut, S: DerefMut> ObservablesOutputOption<Q, C, S> {
+impl<Q: DerefMut, C: DerefMut, S: DerefMut> EstimatorsOutputOption<Q, C, S> {
     /// Converts from `ObservablesOutputOption<Q, C, S>` to
     /// `ObservablesOption<&mut Q::Target, &mut C::Target, &mut S::Target>`.
     ///
@@ -77,55 +74,55 @@ impl<Q: DerefMut, C: DerefMut, S: DerefMut> ObservablesOutputOption<Q, C, S> {
     /// creating a new one containing mutable references to the inner types' `Deref::Target` types.
     pub fn as_deref_mut(
         &mut self,
-    ) -> ObservablesOutputOption<
+    ) -> EstimatorsOutputOption<
         &mut <Q as Deref>::Target,
         &mut <C as Deref>::Target,
         &mut <S as Deref>::Target,
     > {
         match self {
-            Self::None => ObservablesOutputOption::None,
-            Self::Quantum(ObservablesOutput {
+            Self::None => EstimatorsOutputOption::None,
+            Self::Quantum(EstimatorsOutput {
                 estimators: observables,
                 stream,
-            }) => ObservablesOutputOption::Quantum(ObservablesOutput {
+            }) => EstimatorsOutputOption::Quantum(EstimatorsOutput {
                 estimators: observables,
                 stream,
             }),
-            Self::Classical(ObservablesOutput {
+            Self::Classical(EstimatorsOutput {
                 estimators: observables,
                 stream,
-            }) => ObservablesOutputOption::Classical(ObservablesOutput {
+            }) => EstimatorsOutputOption::Classical(EstimatorsOutput {
                 estimators: observables,
                 stream,
             }),
             Self::Shared {
                 quantum_estimators: quantum,
-                classical_estimators: debug,
+                classical_estimators: classical,
                 stream,
-            } => ObservablesOutputOption::Shared {
+            } => EstimatorsOutputOption::Shared {
                 quantum_estimators: quantum,
-                classical_estimators: debug,
+                classical_estimators: classical,
                 stream,
             },
             Self::Separate {
                 quantum:
-                    ObservablesOutput {
+                    EstimatorsOutput {
                         estimators: quantum_observables,
                         stream: quantum_stream,
                     },
-                debug:
-                    ObservablesOutput {
-                        estimators: debug_observables,
-                        stream: debug_stream,
+                classical:
+                    EstimatorsOutput {
+                        estimators: classical_observables,
+                        stream: classical_stream,
                     },
-            } => ObservablesOutputOption::Separate {
-                quantum: ObservablesOutput {
+            } => EstimatorsOutputOption::Separate {
+                quantum: EstimatorsOutput {
                     estimators: quantum_observables,
                     stream: quantum_stream,
                 },
-                debug: ObservablesOutput {
-                    estimators: debug_observables,
-                    stream: debug_stream,
+                classical: EstimatorsOutput {
+                    estimators: classical_observables,
+                    stream: classical_stream,
                 },
             },
         }

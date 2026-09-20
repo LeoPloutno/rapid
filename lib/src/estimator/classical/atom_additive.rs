@@ -24,8 +24,7 @@ pub trait AtomAdditiveClassicalEstimator<T: Clone, V> {
         &mut self,
         atom_index: usize,
         physical_potential_energy: T,
-        exchange_potential_energy: T,
-        group_kinetic_energy: T,
+        type_exchange_potential_energy: T,
         group_heat: T,
         position: &V,
         momentum: &V,
@@ -38,17 +37,14 @@ mod value {
     use super::{super::ClassicalEstimator, AtomAdditiveClassicalEstimator};
     use crate::{
         core::{
-            GroupInTypeInImageInSystem,
+            GroupInTypeInImageInSystem, Synchronizer,
             error::EmptyError,
             marker::MeaningfulOutput,
             sync_ops::{SyncAddReceiver, SyncAddSender},
         },
         zip_items, zip_iterators,
     };
-    use std::{
-        ops::Add,
-        sync::{Barrier, RwLock},
-    };
+    use std::{ops::Add, sync::RwLock};
 
     /// A wrapper for implementors of the [`AtomAdditiveClassicalEstimator<T, V, Output = T>`] trait.
     pub struct AdditiveValueClassicalEstimator<E: ?Sized>(pub(crate) E);
@@ -74,8 +70,7 @@ mod value {
             &mut self,
             atom_index: usize,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
-            group_kinetic_energy: T,
+            type_exchange_potential_energy: T,
             group_heat: T,
             position: &V,
             momentum: &V,
@@ -85,8 +80,7 @@ mod value {
             self.0.calculate(
                 atom_index,
                 physical_potential_energy,
-                exchange_potential_energy,
-                group_kinetic_energy,
+                type_exchange_potential_energy,
                 group_heat,
                 position,
                 momentum,
@@ -109,13 +103,12 @@ mod value {
 
         fn calculate(
             &mut self,
-            _barrier: &Barrier,
-            _shared_value: &RwLock<T>,
+            _system_synchronizer: &Synchronizer<RwLock<T>>,
+            _image_synchronizer: &Synchronizer<RwLock<T>>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
-            group_kinetic_energy: T,
+            type_exchange_potential_energy: T,
             group_heat: T,
             positions: &GroupInTypeInImageInSystem<V>,
             momenta: &GroupInTypeInImageInSystem<V>,
@@ -135,8 +128,7 @@ mod value {
                         self,
                         index,
                         physical_potential_energy.clone(),
-                        exchange_potential_energy.clone(),
-                        group_kinetic_energy.clone(),
+                        type_exchange_potential_energy.clone(),
                         group_heat.clone(),
                         position,
                         momentum,
@@ -172,13 +164,12 @@ mod value {
 
         fn calculate(
             &mut self,
-            _barrier: &Barrier,
-            _shared_value: &RwLock<T>,
+            _system_synchronizer: &Synchronizer<RwLock<T>>,
+            _image_synchronizer: &Synchronizer<RwLock<T>>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
-            group_kinetic_energy: T,
+            type_exchange_potential_energy: T,
             group_heat: T,
             positions: &GroupInTypeInImageInSystem<V>,
             momenta: &GroupInTypeInImageInSystem<V>,
@@ -198,8 +189,7 @@ mod value {
                         self,
                         index,
                         physical_potential_energy.clone(),
-                        exchange_potential_energy.clone(),
-                        group_kinetic_energy.clone(),
+                        type_exchange_potential_energy.clone(),
                         group_heat.clone(),
                         position,
                         momentum,
@@ -230,17 +220,14 @@ mod vector {
     use super::{super::ClassicalEstimator, AtomAdditiveClassicalEstimator};
     use crate::{
         core::{
-            GroupInTypeInImageInSystem, Vector,
+            GroupInTypeInImageInSystem, Synchronizer, Vector,
             error::EmptyError,
             marker::MeaningfulOutput,
             sync_ops::{SyncAddReceiver, SyncAddSender},
         },
         zip_items, zip_iterators,
     };
-    use std::{
-        ops::Add,
-        sync::{Barrier, RwLock},
-    };
+    use std::{ops::Add, sync::RwLock};
 
     /// A wrapper for implementors of the [`AtomAdditiveClassicalEstimator<T, V, Output = V>`] trait,
     /// where `V` is a [vector](Vector).
@@ -269,8 +256,7 @@ mod vector {
             &mut self,
             atom_index: usize,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
-            group_kinetic_energy: T,
+            type_exchange_potential_energy: T,
             group_heat: T,
             position: &V,
             momentum: &V,
@@ -280,8 +266,7 @@ mod vector {
             self.0.calculate(
                 atom_index,
                 physical_potential_energy,
-                exchange_potential_energy,
-                group_kinetic_energy,
+                type_exchange_potential_energy,
                 group_heat,
                 position,
                 momentum,
@@ -306,13 +291,12 @@ mod vector {
 
         fn calculate(
             &mut self,
-            barrier: &Barrier,
-            _shared_value: &RwLock<T>,
+            Synchronizer { barrier, .. }: &Synchronizer<RwLock<T>>,
+            _image_synchronizer: &Synchronizer<RwLock<T>>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
-            group_kinetic_energy: T,
+            type_exchange_potential_energy: T,
             group_heat: T,
             positions: &GroupInTypeInImageInSystem<V>,
             momenta: &GroupInTypeInImageInSystem<V>,
@@ -332,8 +316,7 @@ mod vector {
                         self,
                         index,
                         physical_potential_energy.clone(),
-                        exchange_potential_energy.clone(),
-                        group_kinetic_energy.clone(),
+                        type_exchange_potential_energy.clone(),
                         group_heat.clone(),
                         position,
                         momentum,
@@ -376,13 +359,12 @@ mod vector {
 
         fn calculate(
             &mut self,
-            barrier: &Barrier,
-            _shared_value: &RwLock<T>,
+            Synchronizer { barrier, .. }: &Synchronizer<RwLock<T>>,
+            _image_synchronizer: &Synchronizer<RwLock<T>>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
-            exchange_potential_energy: T,
-            group_kinetic_energy: T,
+            type_exchange_potential_energy: T,
             group_heat: T,
             positions: &GroupInTypeInImageInSystem<V>,
             momenta: &GroupInTypeInImageInSystem<V>,
@@ -402,8 +384,7 @@ mod vector {
                         self,
                         index,
                         physical_potential_energy.clone(),
-                        exchange_potential_energy.clone(),
-                        group_kinetic_energy.clone(),
+                        type_exchange_potential_energy.clone(),
                         group_heat.clone(),
                         position,
                         momentum,
