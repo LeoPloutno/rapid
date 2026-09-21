@@ -44,7 +44,7 @@ mod value {
         },
         zip_items, zip_iterators,
     };
-    use std::{ops::Add, sync::RwLock};
+    use std::ops::Add;
 
     /// A wrapper for implementors of the [`AtomAdditiveClassicalEstimator<T, V, Output = T>`] trait.
     pub struct AdditiveValueClassicalEstimator<E: ?Sized>(pub(crate) E);
@@ -103,8 +103,8 @@ mod value {
 
         fn calculate(
             &mut self,
-            _system_synchronizer: &Synchronizer<RwLock<T>>,
-            _image_synchronizer: &Synchronizer<RwLock<T>>,
+            _system_synchronizer: &Synchronizer<T>,
+            _image_synchronizer: &Synchronizer<T>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
@@ -164,8 +164,8 @@ mod value {
 
         fn calculate(
             &mut self,
-            _system_synchronizer: &Synchronizer<RwLock<T>>,
-            _image_synchronizer: &Synchronizer<RwLock<T>>,
+            _system_synchronizer: &Synchronizer<T>,
+            _image_synchronizer: &Synchronizer<T>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
@@ -227,7 +227,7 @@ mod vector {
         },
         zip_items, zip_iterators,
     };
-    use std::{ops::Add, sync::RwLock};
+    use std::ops::Add;
 
     /// A wrapper for implementors of the [`AtomAdditiveClassicalEstimator<T, V, Output = V>`] trait,
     /// where `V` is a [vector](Vector).
@@ -291,8 +291,8 @@ mod vector {
 
         fn calculate(
             &mut self,
-            Synchronizer { barrier, .. }: &Synchronizer<RwLock<T>>,
-            _image_synchronizer: &Synchronizer<RwLock<T>>,
+            Synchronizer { barrier, .. }: &Synchronizer<T>,
+            _image_synchronizer: &Synchronizer<T>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
@@ -359,8 +359,8 @@ mod vector {
 
         fn calculate(
             &mut self,
-            Synchronizer { barrier, .. }: &Synchronizer<RwLock<T>>,
-            _image_synchronizer: &Synchronizer<RwLock<T>>,
+            Synchronizer { barrier, .. }: &Synchronizer<T>,
+            _image_synchronizer: &Synchronizer<T>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,

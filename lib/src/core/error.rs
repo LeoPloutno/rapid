@@ -6,7 +6,7 @@ use std::{
     range::Range,
 };
 
-use crate::core::GroupImageInfo;
+use crate::core::ImageType;
 
 /// An error that represents invalid indexing with indices.
 #[derive(Clone, Copy, Debug)]
@@ -154,11 +154,15 @@ impl Error for AccessError {
 ///
 /// [`run`]: crate::run
 #[derive(Clone, Debug)]
-pub struct CommError(GroupImageInfo);
+pub struct CommError {
+    image: ImageType,
+    group: usize,
+}
 
-impl From<GroupImageInfo> for CommError {
-    fn from(value: GroupImageInfo) -> Self {
-        Self(value)
+impl CommError {
+    /// Constructs a new communication error.
+    pub const fn new(image: ImageType, group: usize) -> Self {
+        Self { image, group }
     }
 }
 
@@ -170,22 +174,21 @@ impl From<Infallible> for CommError {
 
 impl Display for CommError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self.0 {
-            GroupImageInfo::Main => write!(f, "something happened in the main thread"),
-            GroupImageInfo::Leading(group) => write!(
+        match self.image {
+            ImageType::Leading => write!(
                 f,
-                "something happened in a thread dedicated to group #{} in the first image",
-                group
+                "something happened in thread #{} of the first image",
+                self.group
             ),
-            GroupImageInfo::Inner { image, group } => write!(
+            ImageType::Inner(image) => write!(
                 f,
-                "something happened in a thread dedicated to group #{} in image #{}",
-                group, image
+                "something happened in image #{}, thread #{}",
+                image, self.group
             ),
-            GroupImageInfo::Trailing(group) => write!(
+            ImageType::Trailing => write!(
                 f,
-                "something happened in a thread dedicated to group #{} in the last image",
-                group
+                "something happened in thread #{} of the last image",
+                self.group
             ),
         }
     }

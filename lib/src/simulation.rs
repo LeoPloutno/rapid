@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        GroupImageInfo, GroupRwLockInTypeInImageInSystem, Synchronizer, Vector,
+        GroupRwLockInTypeInImageInSystem, ImageType, Synchronizer, Vector,
         error::CommError,
         marker::{MeaningfulOutput, ValidOutput},
         stat::{Bosonic, Distinguishable, Stat},
@@ -14,23 +14,27 @@ use crate::{
 };
 use std::{
     ops::{Add, Div},
-    sync::RwLock,
+    sync::Barrier,
 };
 
+/// A trait for objects that can yield meaningful results after propagation.
+/// It is an implementation detail and is implemented for '()' and any type that implements 'Clone + MeaningfulOutput'.
 pub trait PropagationOutput<T> {
-    fn get<F, E>(self, synchronizer: &Synchronizer<RwLock<T>>, f: F) -> Result<T, E>
+    /// Processes the supplied value ('self') and falliably returns a value of type 'T'.
+    fn get<F, E>(self, synchronizer: &Synchronizer<T>, f: F) -> Result<T, E>
     where
         F: FnOnce() -> E;
 }
 
 impl<T: Clone> PropagationOutput<T> for () {
-    fn get<F, E>(self, synchronizer: &Synchronizer<RwLock<T>>, f: F) -> Result<T, E>
+    /// Fetches the returned value from another thread.
+    fn get<F, E>(self, synchronizer: &Synchronizer<T>, f: F) -> Result<T, E>
     where
         F: FnOnce() -> E,
     {
         synchronizer.barrier.wait();
         synchronizer
-            .sync
+            .lock
             .read()
             .map(|guard| guard.clone())
             .map_err(|_| f())
@@ -38,12 +42,13 @@ impl<T: Clone> PropagationOutput<T> for () {
 }
 
 impl<T: Clone + MeaningfulOutput> PropagationOutput<T> for T {
-    fn get<F, E>(self, synchronizer: &Synchronizer<RwLock<T>>, f: F) -> Result<T, E>
+    /// Sends the provided value to other threads and returns it.
+    fn get<F, E>(self, synchronizer: &Synchronizer<T>, f: F) -> Result<T, E>
     where
         F: FnOnce() -> E,
     {
         synchronizer
-            .sync
+            .lock
             .write()
             .map(|mut guard| *guard = self.clone())
             .map_err(|_| f())?;
@@ -52,25 +57,44 @@ impl<T: Clone + MeaningfulOutput> PropagationOutput<T> for T {
     }
 }
 
-pub struct SimTrailing<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop> {
-    images: usize,
-    group_and_image: GroupImageInfo,
-    system_synchronizer: Synchronizer<RwLock<T>>,
-    image_synchronizer: Synchronizer<RwLock<T>>,
-    type_synchronizer: Synchronizer<RwLock<T>>,
-    system_adder: SysAdd,
-    image_adder: ImAdd,
-    estimators_adder: Synchronizer<EstAdd>,
-    system_multiplier: SysMul,
-    image_multiplier: ImMul,
-    physical_potential: Phys,
-    exchange_potential: Stat<Dist, Boson>,
-    thermostat: Therm,
-    propagator: Prop,
+/// An object that holds everything needed for advancing the simulation by one step.
+pub struct Simulation<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop> {
+    /// The number of images in the simulation. Often denoted in literature as 'P'.
+    pub images: usize,
+    /// The kind of this image.
+    pub image: ImageType,
+    /// The index of this group.
+    pub group: usize,
+    /// A synchronizer that is shared amongst all groups in all images.
+    pub system_synchronizer: &'a Synchronizer<T>,
+    /// A synchronizer that is shared amongst all groups in this image.
+    pub image_synchronizer: &'a Synchronizer<T>,
+    /// A synchronizer that is shared amongst all groups of this atom type.
+    pub type_synchronizer: &'a Synchronizer<T>,
+    /// A synchronizer that is shared amongst all leading groups in all images.
+    pub estimators_barrier: &'a Barrier,
+    /// An adder for classical estimator calculations.
+    pub system_adder: SysAdd,
+    /// An adder for quantum estimator calculations.
+    pub image_adder: ImAdd,
+    /// An adder for averaging-out quantum estimator calculations.
+    pub estimators_adder: EstAdd,
+    /// A multiplier for classical estimator calculations.
+    pub system_multiplier: SysMul,
+    /// A multiplier for quantum estimator calculations.
+    pub image_multiplier: ImMul,
+    /// The physical potential.
+    pub physical_potential: Phys,
+    /// The exchange potential.
+    pub exchange_potential: Stat<Dist, Boson>,
+    /// The thermostat.
+    pub thermostat: Therm,
+    /// The time propagator.
+    pub propagator: Prop,
 }
 
-impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
-    SimTrailing<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
+impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
+    Simulation<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
 {
     pub fn step_trailing_group<V, OutPhys, OutExch, EstErr, Err>(
         &mut self,
@@ -117,13 +141,13 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
 
         if quantum_estimators.is_some() || classical_estimators.is_some() {
             let physical_potential_energy = physical_potential_energy
-                .get(&self.image_synchronizer, || {
-                    CommError::from(self.group_and_image)
+                .get(self.image_synchronizer, || {
+                    CommError::new(self.image, self.group)
                 })?;
 
             let type_exchange_potential_energy = type_exchange_potential_energy
-                .get(&self.type_synchronizer, || {
-                    CommError::from(self.group_and_image)
+                .get(self.type_synchronizer, || {
+                    CommError::new(self.image, self.group)
                 })?;
 
             if let Some(estimators) = quantum_estimators {
@@ -272,7 +296,7 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
         V: Vector<N, Element = T> + MeaningfulOutput,
         OutPhys: ValidOutput<T> + PropagationOutput<T>,
         OutExch: ValidOutput<T> + PropagationOutput<T>,
-        Err: From<CommError> + From<Prop::Error> + From<EstErr> + From<EstAdd::Error>,
+        Err: From<CommError> + From<EstAdd::Error> + From<Prop::Error> + From<EstErr>,
     {
         let (physical_potential_energy, type_exchange_potential_energy, group_heat) =
             self.propagator.propagate(
@@ -288,20 +312,20 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
 
         if quantum_estimators.is_some() || classical_estimators.is_some() {
             let physical_potential_energy = physical_potential_energy
-                .get(&self.image_synchronizer, || {
-                    CommError::from(self.group_and_image)
+                .get(self.image_synchronizer, || {
+                    CommError::new(self.image, self.group)
                 })?;
 
             let type_exchange_potential_energy = type_exchange_potential_energy
-                .get(&self.type_synchronizer, || {
-                    CommError::from(self.group_and_image)
+                .get(self.type_synchronizer, || {
+                    CommError::new(self.image, self.group)
                 })?;
 
             if let Some(estimators) = quantum_estimators {
                 for estimator in estimators {
                     match estimator {
                         Estimator::Value(estimator) => {
-                            self.estimators_adder.sync.send(
+                            self.estimators_adder.send(
                                 estimator.calculate(
                                     &mut self.image_synchronizer,
                                     &mut self.image_adder,
@@ -322,7 +346,7 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
                                         .map_whole(|whole| whole.into()),
                                 )?,
                             )?;
-                            self.estimators_adder.barrier.wait();
+                            self.estimators_barrier.wait();
                         }
                         Estimator::Vector(estimator) => {
                             let vector = estimator.calculate(
@@ -345,8 +369,8 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
                                     .map_whole(|whole| whole.into()),
                             )?;
                             for element in vector.as_array() {
-                                self.estimators_adder.sync.send(element.clone())?;
-                                self.estimators_adder.barrier.wait();
+                                self.estimators_adder.send(element.clone())?;
+                                self.estimators_barrier.wait();
                             }
                         }
                     }
@@ -422,7 +446,6 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
     pub fn step_output<const N: usize, V, ValS, VecS, OutPhys, OutExch, EstErr, Err>(
         &mut self,
         step: usize,
-
         estimators_output: EstimatorsOutputOption<
             &mut [Estimator<
                 impl QuantumEstimator<T, V, ImAdd, ImMul, T, Output = T, Error = EstErr>,
@@ -457,11 +480,11 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
         OutPhys: ValidOutput<T> + PropagationOutput<T>,
         OutExch: ValidOutput<T> + PropagationOutput<T>,
         Err: From<CommError>
-            + From<Prop::Error>
-            + From<EstErr>
-            + From<ValS::Error>
             + From<EstAdd::Error>
-            + From<VecS::Error>,
+            + From<Prop::Error>
+            + From<ValS::Error>
+            + From<VecS::Error>
+            + From<EstErr>,
     {
         let (physical_potential_energy, type_exchange_potential_energy, group_heat) =
             self.propagator.propagate(
@@ -479,13 +502,13 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
             EstimatorsOutputOption::None => {}
             estimators_output @ _ => {
                 let physical_potential_energy = physical_potential_energy
-                    .get(&self.image_synchronizer, || {
-                        CommError::from(self.group_and_image)
+                    .get(self.image_synchronizer, || {
+                        CommError::new(self.image, self.group)
                     })?;
 
                 let type_exchange_potential_energy = type_exchange_potential_energy
-                    .get(&self.type_synchronizer, || {
-                        CommError::from(self.group_and_image)
+                    .get(self.type_synchronizer, || {
+                        CommError::new(self.image, self.group)
                     })?;
 
                 macro_rules! write_observables {
@@ -512,9 +535,9 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
                                             .map_map(|map| map.read())
                                             .map_whole(|whole| whole.into()),
                                     )?;
-                                    self.estimators_adder.barrier.wait();
+                                    self.estimators_barrier.wait();
                                     $stream.write_value(
-                                        match self.estimators_adder.sync.recv_sum()? {
+                                        match self.estimators_adder.recv_sum()? {
                                             Some(other) => value + other,
                                             None => value,
                                         } / self.images.into(),
@@ -541,10 +564,8 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
                                             .map_whole(|whole| whole.into()),
                                     )?;
                                     for element in vector.as_mut_array() {
-                                        self.estimators_adder.barrier.wait();
-                                        if let Some(other) =
-                                            self.estimators_adder.sync.recv_sum()?
-                                        {
+                                        self.estimators_barrier.wait();
+                                        if let Some(other) = self.estimators_adder.recv_sum()? {
                                             *element =
                                                 (element.clone() + other) / self.images.into();
                                         }
@@ -665,7 +686,7 @@ impl<T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop>
                         .as_map_mut()
                         .map_map(|map| map.read())
                         .map_whole(|whole| whole.into()),
-                );
+                )?;
                 $stream.new_line()?;
             };
         }

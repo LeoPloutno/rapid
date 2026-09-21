@@ -11,7 +11,7 @@ use crate::{
     },
     zip_items, zip_iterators,
 };
-use std::{ops::Mul, sync::RwLock};
+use std::ops::Mul;
 
 /// A trait for classical estimators that can be expressed as a product
 /// of estimators that each depend only on a single atom.
@@ -99,8 +99,8 @@ where
 
     fn calculate(
         &mut self,
-        _system_synchronizer: &Synchronizer<RwLock<T>>,
-        _image_synchronizer: &Synchronizer<RwLock<T>>,
+        _system_synchronizer: &Synchronizer<T>,
+        _image_synchronizer: &Synchronizer<T>,
         _adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,
@@ -160,8 +160,8 @@ where
 
     fn calculate(
         &mut self,
-        _system_synchronizer: &Synchronizer<RwLock<T>>,
-        _image_synchronizer: &Synchronizer<RwLock<T>>,
+        _system_synchronizer: &Synchronizer<T>,
+        _image_synchronizer: &Synchronizer<T>,
         _adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,

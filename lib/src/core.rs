@@ -13,14 +13,9 @@ pub use map_in_whole::MapInWhole;
 mod map_outside_whole;
 pub use map_outside_whole::MapOutsideWhole;
 
-mod atoms;
-pub use atoms::{AtomTypeInfo, GroupSizes, GroupSizesIter};
-
 pub mod stat;
 
 pub mod sync_ops;
-
-pub mod factory;
 
 pub mod error;
 
@@ -160,19 +155,26 @@ pub struct SchemeDependent<Prop, ExchPot> {
     pub exchange_potential: ExchPot,
 }
 
+/// An entity that allows synchronized sharing of data between threads.
 pub struct Synchronizer<T> {
-    pub(crate) sync: T,
+    pub(crate) lock: RwLock<T>,
     pub(crate) barrier: Barrier,
 }
 
+impl<T> Synchronizer<T> {
+    /// Constructs a new synchronizer
+    pub const fn new(lock: RwLock<T>, barrier: Barrier) -> Self {
+        Self { lock, barrier }
+    }
+}
+
+/// The type of and image.
 #[derive(Clone, Copy, Debug)]
-pub enum GroupImageInfo {
-    /// The first group in the first image.
-    Main,
-    /// Some group in the first image.
-    Leading(NonZeroUsize),
-    /// Some group in an inner image.
-    Inner { image: NonZeroUsize, group: usize },
-    /// Some group in the trailing image.
-    Trailing(usize),
+pub enum ImageType {
+    /// The first image.
+    Leading,
+    /// Some image that is neither the first nor last.
+    Inner(NonZeroUsize),
+    /// The last image.
+    Trailing,
 }

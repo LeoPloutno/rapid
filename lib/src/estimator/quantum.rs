@@ -2,7 +2,6 @@
 
 use crate::core::{GroupInTypeInImage, Synchronizer, marker::ValidOutput};
 use macros::heavy_computation;
-use std::sync::RwLock;
 
 mod atom_additive;
 pub use atom_additive::{
@@ -40,7 +39,7 @@ where
     #[heavy_computation]
     fn calculate(
         &mut self,
-        synchronizer: &Synchronizer<RwLock<T>>,
+        synchronizer: &Synchronizer<T>,
         adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,

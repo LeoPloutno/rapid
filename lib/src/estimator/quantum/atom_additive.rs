@@ -43,7 +43,7 @@ mod value {
         },
         zip_items, zip_iterators,
     };
-    use std::{ops::Add, sync::RwLock};
+    use std::ops::Add;
 
     /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<T, V, Output = T>`] trait.
     pub struct AdditiveValueQuantumEstimator<E: ?Sized>(pub(crate) E);
@@ -98,7 +98,7 @@ mod value {
 
         fn calculate(
             &mut self,
-            _synchronizer: &Synchronizer<RwLock<T>>,
+            _synchronizer: &Synchronizer<T>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
@@ -153,7 +153,7 @@ mod value {
 
         fn calculate(
             &mut self,
-            _synchronizer: &Synchronizer<RwLock<T>>,
+            _synchronizer: &Synchronizer<T>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
@@ -210,7 +210,7 @@ mod vector {
         },
         zip_items, zip_iterators,
     };
-    use std::{ops::Add, sync::RwLock};
+    use std::ops::Add;
 
     /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<T, V, Output = V>`] trait,
     /// where `V` is a [vector](Vector).
@@ -270,7 +270,7 @@ mod vector {
 
         fn calculate(
             &mut self,
-            Synchronizer { barrier, .. }: &Synchronizer<RwLock<T>>,
+            Synchronizer { barrier, .. }: &Synchronizer<T>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,
@@ -332,7 +332,7 @@ mod vector {
 
         fn calculate(
             &mut self,
-            Synchronizer { barrier, .. }: &Synchronizer<RwLock<T>>,
+            Synchronizer { barrier, .. }: &Synchronizer<T>,
             adder: &mut A,
             _multiplier: &mut M,
             physical_potential_energy: T,

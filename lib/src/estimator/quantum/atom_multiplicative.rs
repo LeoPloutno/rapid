@@ -11,7 +11,7 @@ use crate::{
     },
     zip_items, zip_iterators,
 };
-use std::{ops::Mul, sync::RwLock};
+use std::ops::Mul;
 
 /// A trait for quantum estimators that can be expressed as a product
 /// of estimators that each depend only on a single atom.
@@ -92,7 +92,7 @@ where
 
     fn calculate(
         &mut self,
-        _synchrinizer: &Synchronizer<RwLock<T>>,
+        _synchrinizer: &Synchronizer<T>,
         _adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,
@@ -147,7 +147,7 @@ where
 
     fn calculate(
         &mut self,
-        _synchronizer: &Synchronizer<RwLock<T>>,
+        _synchronizer: &Synchronizer<T>,
         _adder: &mut A,
         multiplier: &mut M,
         physical_potential_energy: T,
