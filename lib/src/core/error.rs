@@ -8,6 +8,24 @@ use std::{
 
 use crate::core::ImageType;
 
+/// An error representing an attempt to access an empty container.
+#[derive(Clone, Copy, Debug)]
+pub struct EmptyError;
+
+impl From<Infallible> for EmptyError {
+    fn from(value: Infallible) -> Self {
+        match value {}
+    }
+}
+
+impl Display for EmptyError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "attempted to access an empty container")
+    }
+}
+
+impl Error for EmptyError {}
+
 /// An error that represents invalid indexing with indices.
 #[derive(Clone, Copy, Debug)]
 pub struct InvalidIndexError {
@@ -77,24 +95,6 @@ impl Display for InvalidRangeError {
 
 impl Error for InvalidRangeError {}
 
-/// An error representing an attempt to access an empty container.
-#[derive(Clone, Copy, Debug)]
-pub struct EmptyError;
-
-impl From<Infallible> for EmptyError {
-    fn from(value: Infallible) -> Self {
-        match value {}
-    }
-}
-
-impl Display for EmptyError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "attempted to access an empty container")
-    }
-}
-
-impl Error for EmptyError {}
-
 /// An error that represents invalid access.
 #[derive(Clone, Debug)]
 pub enum AccessError {
@@ -112,6 +112,12 @@ impl From<Infallible> for AccessError {
     }
 }
 
+impl From<EmptyError> for AccessError {
+    fn from(value: EmptyError) -> Self {
+        Self::Empty(value)
+    }
+}
+
 impl From<InvalidIndexError> for AccessError {
     fn from(value: InvalidIndexError) -> Self {
         Self::Index(value)
@@ -121,12 +127,6 @@ impl From<InvalidIndexError> for AccessError {
 impl From<InvalidRangeError> for AccessError {
     fn from(value: InvalidRangeError) -> Self {
         Self::Range(value)
-    }
-}
-
-impl From<EmptyError> for AccessError {
-    fn from(value: EmptyError) -> Self {
-        Self::Empty(value)
     }
 }
 

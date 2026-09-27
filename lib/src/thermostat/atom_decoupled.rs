@@ -46,7 +46,7 @@ impl<T> DecoupledThermostat<T> {
 
 impl<T, V, U> AtomDecoupledThermostat<T, V> for DecoupledThermostat<U>
 where
-    T: Clone + Add<Output = T>,
+    T: Add<Output = T> + Clone,
     U: AtomDecoupledThermostat<T, V> + ?Sized,
 {
     type ErrorAtom = U::ErrorAtom;
@@ -60,13 +60,8 @@ where
         exchange_force: &V,
         momentum: &mut V,
     ) -> Result<T, Self::ErrorAtom> {
-        self.0.thermalize(
-            atom_index,
-            position,
-            physical_force,
-            exchange_force,
-            momentum,
-        )
+        self.0
+            .thermalize(atom_index, position, physical_force, exchange_force, momentum)
     }
 }
 
@@ -94,14 +89,7 @@ where
         .enumerate()
         .map(
             |(index, zip_items!(position, physical_force, exchange_force, momentum))| {
-                AtomDecoupledThermostat::thermalize(
-                    self,
-                    index,
-                    position,
-                    physical_force,
-                    exchange_force,
-                    momentum,
-                )
+                AtomDecoupledThermostat::thermalize(self, index, position, physical_force, exchange_force, momentum)
             },
         );
         let first_atom_heat = iter.next().ok_or(EmptyError)??;

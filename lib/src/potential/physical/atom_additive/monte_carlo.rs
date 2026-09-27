@@ -18,8 +18,7 @@ use std::{
 ///
 /// For any type `P` that implements this trait, [`AdditivePhysicalPotential<_, MonteCarlo<_, P>>`]
 /// atomatically implements [`MonteCarloPhysicalPotential`].
-pub trait AtomAdditiveMonteCarloPhysicalPotential<T, V>:
-    AtomAdditivePhysicalPotential<T, V>
+pub trait AtomAdditiveMonteCarloPhysicalPotential<T, V>: AtomAdditivePhysicalPotential<T, V>
 where
     T: Add<Output = T>,
 {
@@ -46,7 +45,7 @@ where
     /// of the image after a change in the atom's position.
     ///
     /// Returns the contribution to the potential energy.
-    #[efficient_alternatives("update_energy_and_force")]
+    #[efficient_alternatives("calculate_new_energy_and_force")]
     fn calculate_new_energy(
         &mut self,
         atom_index: usize,
@@ -57,12 +56,12 @@ where
 }
 
 /// A wrapper for implementors of the [`AtomAdditiveMonteCarloPhysicalPotential`] trait.
-pub struct MonteCarlo<C, P: ?Sized> {
+pub struct MonteCarlo<P: ?Sized, C> {
     channel: C,
     potential: P,
 }
 
-impl<T, V, C, P> AtomAdditivePhysicalPotential<T, V> for MonteCarlo<C, P>
+impl<T, V, C, P> AtomAdditivePhysicalPotential<T, V> for MonteCarlo<P, C>
 where
     T: Add<Output = T>,
     P: AtomAdditivePhysicalPotential<T, V> + ?Sized,
@@ -71,14 +70,9 @@ where
     type SystemError = P::SystemError;
 
     #[inline(always)]
-    fn calculate_energy_and_force(
-        &mut self,
-        atom_index: usize,
-        position: &V,
-    ) -> Result<(T, V), Self::AtomError> {
+    fn calculate_energy_and_force(&mut self, atom_index: usize, position: &V) -> Result<(T, V), Self::AtomError> {
         #[allow(deprecated)]
-        self.potential
-            .calculate_energy_and_force(atom_index, position)
+        self.potential.calculate_energy_and_force(atom_index, position)
     }
 
     #[inline(always)]
@@ -94,8 +88,7 @@ where
     }
 }
 
-impl<T, V, A, C, P> AtomAdditiveMonteCarloPhysicalPotential<T, V>
-    for AdditivePhysicalPotential<A, MonteCarlo<C, P>>
+impl<T, V, A, C, P> AtomAdditiveMonteCarloPhysicalPotential<T, V> for AdditivePhysicalPotential<MonteCarlo<P, C>, A>
 where
     T: Add<Output = T>,
     V: AddAssign,
@@ -112,12 +105,9 @@ where
         old_position: V,
         position: &V,
     ) -> Result<(T, V), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError> {
-        self.potential.potential.calculate_new_energy_and_force(
-            atom_index,
-            old_energy,
-            old_position,
-            position,
-        )
+        self.potential
+            .potential
+            .calculate_new_energy_and_force(atom_index, old_energy, old_position, position)
     }
 
     #[inline(always)]
@@ -129,28 +119,20 @@ where
         position: &V,
     ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError> {
         #[allow(deprecated)]
-        self.potential.potential.calculate_new_energy(
-            atom_index,
-            old_energy,
-            old_position,
-            position,
-        )
+        self.potential
+            .potential
+            .calculate_new_energy(atom_index, old_energy, old_position, position)
     }
 }
 
-impl<T, V, A, P> MonteCarloPhysicalPotential<T, V, ()>
-    for AdditivePhysicalPotential<A, MonteCarlo<Sender<T>, P>>
+impl<T, V, A, P> MonteCarloPhysicalPotential<T, V, ()> for AdditivePhysicalPotential<MonteCarlo<P, Sender<T>>, A>
 where
     T: Add<Output = T>,
     V: AddAssign,
     A: SyncAddSender<T>,
     P: ?Sized,
     Self: AtomAdditivePhysicalPotential<T, V, SystemError: From<A::Error>>
-        + AtomAdditiveMonteCarloPhysicalPotential<
-            T,
-            V,
-            SystemError: From<A::Error> + From<SendError<T>>,
-        >,
+        + AtomAdditiveMonteCarloPhysicalPotential<T, V, SystemError: From<A::Error> + From<SendError<T>>>,
 {
     type Error = <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::SystemError;
 
@@ -165,16 +147,15 @@ where
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
             let positions = positions.read();
-            let (new_energy, new_force) =
-                AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
-                    self,
-                    changed_atom_index,
-                    old_energy,
-                    old_position,
-                    positions.get(changed_atom_index).ok_or_else(|| {
-                        InvalidIndexError::new(changed_atom_index, positions.len())
-                    })?,
-                )?;
+            let (new_energy, new_force) = AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
+                self,
+                changed_atom_index,
+                old_energy,
+                old_position,
+                positions
+                    .get(changed_atom_index)
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
+            )?;
             let forces_len = forces.len();
             *forces
                 .get_mut(changed_atom_index)
@@ -195,21 +176,19 @@ where
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
             let positions = positions.read();
-            let (new_energy, new_force) =
-                AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
-                    self,
-                    changed_atom_index,
-                    old_energy,
-                    old_position,
-                    positions.get(changed_atom_index).ok_or_else(|| {
-                        InvalidIndexError::new(changed_atom_index, positions.len())
-                    })?,
-                )?;
+            let (new_energy, new_force) = AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
+                self,
+                changed_atom_index,
+                old_energy,
+                old_position,
+                positions
+                    .get(changed_atom_index)
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
+            )?;
             let forces_len = forces.len();
             *forces
                 .get_mut(changed_atom_index)
-                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? +=
-                new_force;
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? += new_force;
             self.potential.channel.send(new_energy)?;
         }
         Ok(())
@@ -287,15 +266,13 @@ where
             let forces_len = forces.len();
             *forces
                 .get_mut(changed_atom_index)
-                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? +=
-                new_force;
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? += new_force;
         }
         Ok(())
     }
 }
 
-impl<T, V, A, P> MonteCarloPhysicalPotential<T, V, T>
-    for AdditivePhysicalPotential<A, MonteCarlo<Receiver<T>, P>>
+impl<T, V, A, P> MonteCarloPhysicalPotential<T, V, T> for AdditivePhysicalPotential<MonteCarlo<P, Receiver<T>>, A>
 where
     T: Add<Output = T> + MeaningfulOutput,
     V: AddAssign,
@@ -317,16 +294,15 @@ where
     ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, T>>::Error> {
         if let ChangedGroup::This = changed_group {
             let positions = positions.read();
-            let (new_energy, new_force) =
-                AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
-                    self,
-                    changed_atom_index,
-                    old_energy,
-                    old_position,
-                    positions.get(changed_atom_index).ok_or_else(|| {
-                        InvalidIndexError::new(changed_atom_index, positions.len())
-                    })?,
-                )?;
+            let (new_energy, new_force) = AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
+                self,
+                changed_atom_index,
+                old_energy,
+                old_position,
+                positions
+                    .get(changed_atom_index)
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
+            )?;
             let forces_len = forces.len();
             *forces
                 .get_mut(changed_atom_index)
@@ -348,21 +324,19 @@ where
     ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, T>>::Error> {
         if let ChangedGroup::This = changed_group {
             let positions = positions.read();
-            let (new_energy, new_force) =
-                AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
-                    self,
-                    changed_atom_index,
-                    old_energy,
-                    old_position,
-                    positions.get(changed_atom_index).ok_or_else(|| {
-                        InvalidIndexError::new(changed_atom_index, positions.len())
-                    })?,
-                )?;
+            let (new_energy, new_force) = AtomAdditiveMonteCarloPhysicalPotential::calculate_new_energy_and_force(
+                self,
+                changed_atom_index,
+                old_energy,
+                old_position,
+                positions
+                    .get(changed_atom_index)
+                    .ok_or_else(|| InvalidIndexError::new(changed_atom_index, positions.len()))?,
+            )?;
             let forces_len = forces.len();
             *forces
                 .get_mut(changed_atom_index)
-                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? +=
-                new_force;
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? += new_force;
             Ok(new_energy)
         } else {
             Ok(self.potential.channel.recv()?)
@@ -442,8 +416,7 @@ where
             let forces_len = forces.len();
             *forces
                 .get_mut(changed_atom_index)
-                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? +=
-                new_force;
+                .ok_or_else(|| InvalidIndexError::new(changed_atom_index, forces_len))? += new_force;
         }
         Ok(())
     }

@@ -51,7 +51,7 @@ impl<E> MultiplicativeValueQuantumEstimator<E> {
 
 impl<T, V, E> AtomMultiplicativeQuantumEstimator<T, V> for MultiplicativeValueQuantumEstimator<E>
 where
-    T: Clone + Mul<Output = T>,
+    T: Mul<Output = T> + Clone,
     E: AtomMultiplicativeQuantumEstimator<T, V, Output = T> + ?Sized,
 {
     type Output = T;
@@ -81,7 +81,7 @@ where
 
 impl<T, V, A, M, E> QuantumEstimator<T, V, A, M, ()> for MultiplicativeValueQuantumEstimator<E>
 where
-    T: Clone + Mul<Output = T>,
+    T: Mul<Output = T> + Clone,
     A: ?Sized,
     M: SyncMulSender<T> + ?Sized,
     E: ?Sized,
@@ -101,14 +101,9 @@ where
         physical_forces: &GroupInTypeInImage<V>,
         exchange_forces: &GroupInTypeInImage<V>,
     ) -> Result<(), Self::Error> {
-        let mut iter = zip_iterators!(
-            positions.read(),
-            physical_forces.read(),
-            exchange_forces.read()
-        )
-        .enumerate()
-        .map(
-            |(index, zip_items!(position, physical_force, exchange_force))| {
+        let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
+            .enumerate()
+            .map(|(index, zip_items!(position, physical_force, exchange_force))| {
                 AtomMultiplicativeQuantumEstimator::calculate(
                     self,
                     index,
@@ -118,17 +113,11 @@ where
                     physical_force,
                     exchange_force,
                 )
-            },
-        );
+            });
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        let group_observable = iter.try_fold(
-            first_atom_observable,
-            |accum_observable, atom_observable| {
-                Ok::<_, <Self as AtomMultiplicativeQuantumEstimator<T, V>>::AtomError>(
-                    accum_observable * atom_observable?,
-                )
-            },
-        )?;
+        let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+            Ok::<_, <Self as AtomMultiplicativeQuantumEstimator<T, V>>::AtomError>(accum_observable * atom_observable?)
+        })?;
         multiplier.send(group_observable)?;
         Ok(())
     }
@@ -136,7 +125,7 @@ where
 
 impl<T, V, A, M, E> QuantumEstimator<T, V, A, M, T> for MultiplicativeValueQuantumEstimator<E>
 where
-    T: Clone + Mul<Output = T> + MeaningfulOutput,
+    T: Mul<Output = T> + Clone + MeaningfulOutput,
     A: ?Sized,
     M: SyncMulReceiver<T> + ?Sized,
     E: ?Sized,
@@ -156,14 +145,9 @@ where
         physical_forces: &GroupInTypeInImage<V>,
         exchange_forces: &GroupInTypeInImage<V>,
     ) -> Result<T, Self::Error> {
-        let mut iter = zip_iterators!(
-            positions.read(),
-            physical_forces.read(),
-            exchange_forces.read()
-        )
-        .enumerate()
-        .map(
-            |(index, zip_items!(position, physical_force, exchange_force))| {
+        let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
+            .enumerate()
+            .map(|(index, zip_items!(position, physical_force, exchange_force))| {
                 AtomMultiplicativeQuantumEstimator::calculate(
                     self,
                     index,
@@ -173,17 +157,11 @@ where
                     physical_force,
                     exchange_force,
                 )
-            },
-        );
+            });
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        let group_observable = iter.try_fold(
-            first_atom_observable,
-            |accum_observable, atom_observable| {
-                Ok::<_, <Self as AtomMultiplicativeQuantumEstimator<T, V>>::AtomError>(
-                    accum_observable * atom_observable?,
-                )
-            },
-        )?;
+        let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+            Ok::<_, <Self as AtomMultiplicativeQuantumEstimator<T, V>>::AtomError>(accum_observable * atom_observable?)
+        })?;
         match multiplier.recv_prod()? {
             Some(other_groups_observable) => Ok(group_observable * other_groups_observable),
             None => Ok(group_observable),

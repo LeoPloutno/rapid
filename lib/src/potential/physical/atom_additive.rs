@@ -19,12 +19,12 @@ cfg_select! {
     _ => "A wrapper for implementors of the [`AtomAdditivePhysicalPotential`] trait."
 }
 ]
-pub struct AdditivePhysicalPotential<A, P: ?Sized> {
+pub struct AdditivePhysicalPotential<P: ?Sized, A> {
     adder: A,
     potential: P,
 }
 
-impl<A, P> AdditivePhysicalPotential<A, P> {
+impl<A, P> AdditivePhysicalPotential<P, A> {
     /// Wraps the provided value with `AdditivePhysicalPotential`.
     pub const fn new(adder: A, potential: P) -> Self {
         Self { adder, potential }
@@ -66,7 +66,7 @@ pub trait AtomAdditivePhysicalPotential<T: Add<Output = T>, V> {
     fn calculate_force(&mut self, atom_index: usize, position: &V) -> Result<V, Self::AtomError>;
 }
 
-impl<T, V, A, P> AtomAdditivePhysicalPotential<T, V> for AdditivePhysicalPotential<A, P>
+impl<T, V, A, P> AtomAdditivePhysicalPotential<T, V> for AdditivePhysicalPotential<P, A>
 where
     T: Add<Output = T>,
     V: AddAssign,
@@ -98,7 +98,7 @@ where
     }
 }
 
-impl<T, V, A, P> PhysicalPotential<T, V, ()> for AdditivePhysicalPotential<A, P>
+impl<T, V, A, P> PhysicalPotential<T, V, ()> for AdditivePhysicalPotential<P, A>
 where
     T: Add<Output = T>,
     V: AddAssign,
@@ -208,7 +208,7 @@ where
     }
 }
 
-impl<T, V, A, P> PhysicalPotential<T, V, T> for AdditivePhysicalPotential<A, P>
+impl<T, V, A, P> PhysicalPotential<T, V, T> for AdditivePhysicalPotential<P, A>
 where
     T: MeaningfulOutput + Add<Output = T>,
     V: AddAssign,

@@ -1,4 +1,4 @@
-#![feature(portable_simd)]
+#![feature(portable_simd, negative_impls, with_negative_coherence)]
 
 pub mod core;
 pub mod estimator;

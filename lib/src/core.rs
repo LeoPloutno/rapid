@@ -49,27 +49,23 @@ macro_rules! zip_iterators {
 pub use zip_iterators;
 
 /// A trait for objects that can be used as vectors.
-pub trait Vector<const N: usize>:
-    Sized
-    + From<[Self::Element; N]>
-    + Add<Output = Self>
-    + AddAssign
-    + Sub<Output = Self>
-    + SubAssign
-    + Mul<Self::Element, Output = Self>
-    + MulAssign<Self::Element>
-    + Div<Self::Element, Output = Self>
-    + DivAssign<Self::Element>
-    + Neg<Output = Self>
+pub trait Vector
+where
+    Self: Sized
+        + Add<Output = Self>
+        + AddAssign
+        + Sub<Output = Self>
+        + SubAssign
+        + Mul<Self::Element, Output = Self>
+        + MulAssign<Self::Element>
+        + Div<Self::Element, Output = Self>
+        + DivAssign<Self::Element>
+        + Neg<Output = Self>,
 {
     /// The type of the element of the vector.
     type Element;
-
-    /// Converts to a reference to an array.
-    fn as_array(&self) -> &[Self::Element; N];
-
-    /// Converts to a mutable reference to an array.
-    fn as_mut_array(&mut self) -> &mut [Self::Element; N];
+    /// The dimension of the vector.
+    const DIM: usize;
 
     /// Calculates the square of the magnitude (length) of the vector.
     fn magnitude_squared(self) -> Self::Element;
@@ -90,23 +86,15 @@ pub type Image<V> = ArcSliceReaderLock<V>;
 
 pub type GroupInTypeInImageInSystem<'a, V> = MapOutsideWhole<
     &'a AtomGroup<V>,
-    MapInWhole<
-        &'a AtomTypeReaderLock<V>,
-        MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>,
-    >,
+    MapInWhole<&'a AtomTypeReaderLock<V>, MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>>,
 >;
 
-pub type GroupInTypeInImage<'a, V> = MapOutsideWhole<
-    &'a AtomGroup<V>,
-    MapInWhole<&'a AtomTypeReaderLock<V>, &'a [AtomTypeReaderLock<V>]>,
->;
+pub type GroupInTypeInImage<'a, V> =
+    MapOutsideWhole<&'a AtomGroup<V>, MapInWhole<&'a AtomTypeReaderLock<V>, &'a [AtomTypeReaderLock<V>]>>;
 
 pub type GroupRwLockInTypeInImageInSystem<'a, V> = MapOutsideWhole<
     &'a mut AtomGroupRwLock<V>,
-    MapInWhole<
-        &'a AtomTypeReaderLock<V>,
-        MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>,
-    >,
+    MapInWhole<&'a AtomTypeReaderLock<V>, MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>>,
 >;
 
 /// Exchange potential expansion scheme.

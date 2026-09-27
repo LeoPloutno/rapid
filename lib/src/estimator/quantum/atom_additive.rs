@@ -57,7 +57,7 @@ mod value {
 
     impl<T, V, E> AtomAdditiveQuantumEstimator<T, V> for AdditiveValueQuantumEstimator<E>
     where
-        T: Clone + Add<Output = T>,
+        T: Add<Output = T> + Clone,
         E: AtomAdditiveQuantumEstimator<T, V, Output = T> + ?Sized,
     {
         type Output = T;
@@ -87,7 +87,7 @@ mod value {
 
     impl<T, V, A, M, E> QuantumEstimator<T, V, A, M, ()> for AdditiveValueQuantumEstimator<E>
     where
-        T: Clone + Add<Output = T>,
+        T: Add<Output = T> + Clone,
         A: SyncAddSender<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
@@ -107,14 +107,9 @@ mod value {
             physical_forces: &GroupInTypeInImage<V>,
             exchange_forces: &GroupInTypeInImage<V>,
         ) -> Result<(), Self::Error> {
-            let mut iter = zip_iterators!(
-                positions.read(),
-                physical_forces.read(),
-                exchange_forces.read()
-            )
-            .enumerate()
-            .map(
-                |(index, zip_items!(position, physical_force, exchange_force))| {
+            let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
+                .enumerate()
+                .map(|(index, zip_items!(position, physical_force, exchange_force))| {
                     AtomAdditiveQuantumEstimator::calculate(
                         self,
                         index,
@@ -124,17 +119,11 @@ mod value {
                         physical_force,
                         exchange_force,
                     )
-                },
-            );
+                });
             let first_atom_observable = iter.next().ok_or(EmptyError)??;
-            let group_observable = iter.try_fold(
-                first_atom_observable,
-                |accum_observable, atom_observable| {
-                    Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(
-                        accum_observable + atom_observable?,
-                    )
-                },
-            )?;
+            let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+                Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(accum_observable + atom_observable?)
+            })?;
             adder.send(group_observable)?;
             Ok(())
         }
@@ -142,7 +131,7 @@ mod value {
 
     impl<T, V, A, M, E> QuantumEstimator<T, V, A, M, T> for AdditiveValueQuantumEstimator<E>
     where
-        T: Clone + Add<Output = T> + MeaningfulOutput,
+        T: Add<Output = T> + Clone + MeaningfulOutput,
         A: SyncAddReceiver<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
@@ -162,14 +151,9 @@ mod value {
             physical_forces: &GroupInTypeInImage<V>,
             exchange_forces: &GroupInTypeInImage<V>,
         ) -> Result<T, Self::Error> {
-            let mut iter = zip_iterators!(
-                positions.read(),
-                physical_forces.read(),
-                exchange_forces.read()
-            )
-            .enumerate()
-            .map(
-                |(index, zip_items!(position, physical_force, exchange_force))| {
+            let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
+                .enumerate()
+                .map(|(index, zip_items!(position, physical_force, exchange_force))| {
                     AtomAdditiveQuantumEstimator::calculate(
                         self,
                         index,
@@ -179,21 +163,15 @@ mod value {
                         physical_force,
                         exchange_force,
                     )
-                },
-            );
+                });
             let first_atom_observable = iter.next().ok_or(EmptyError)??;
-            let group_observable = iter.try_fold(
-                first_atom_observable,
-                |accum_observable, atom_observable| {
-                    Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(
-                        accum_observable + atom_observable?,
-                    )
-                },
-            )?;
-            match adder.recv_sum()? {
-                Some(other_groups_observable) => Ok(group_observable + other_groups_observable),
-                None => Ok(group_observable),
-            }
+            let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+                Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(accum_observable + atom_observable?)
+            })?;
+            Ok(match adder.recv_sum()? {
+                Some(other_groups_observable) => group_observable + other_groups_observable,
+                None => group_observable,
+            })
         }
     }
 }
@@ -214,20 +192,19 @@ mod vector {
 
     /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<T, V, Output = V>`] trait,
     /// where `V` is a [vector](Vector).
-    pub struct AdditiveVectorQuantumEstimator<const N: usize, E: ?Sized>(pub(crate) E);
+    pub struct AdditiveVectorQuantumEstimator<E: ?Sized>(pub(crate) E);
 
-    impl<const N: usize, E> AdditiveVectorQuantumEstimator<N, E> {
+    impl<E> AdditiveVectorQuantumEstimator<E> {
         /// Wraps the provided value with `AdditiveVectorQuantumEstimator`.
         pub const fn new(value: E) -> Self {
             Self(value)
         }
     }
 
-    impl<const N: usize, T, V, E> AtomAdditiveQuantumEstimator<T, V>
-        for AdditiveVectorQuantumEstimator<N, E>
+    impl<T, V, E> AtomAdditiveQuantumEstimator<T, V> for AdditiveVectorQuantumEstimator<E>
     where
-        T: Clone + Add<Output = T>,
-        V: Vector<N, Element = T>,
+        T: Add<Output = T> + Clone,
+        V: Vector<Element = T>,
         E: AtomAdditiveQuantumEstimator<T, V, Output = V> + ?Sized,
     {
         type Output = V;
@@ -255,11 +232,11 @@ mod vector {
         }
     }
 
-    impl<const N: usize, T, V, A, M, E> QuantumEstimator<T, V, A, M, ()>
-        for AdditiveVectorQuantumEstimator<N, E>
+    impl<T, V, A, M, E> QuantumEstimator<T, V, A, M, ()> for AdditiveVectorQuantumEstimator<E>
     where
-        T: Clone + Add<Output = T>,
-        V: Vector<N, Element = T>,
+        T: Add<Output = T> + Clone,
+        V: Vector<Element = T>,
+        for<'a> &'a V: IntoIterator<Item = &'a T>,
         A: SyncAddSender<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
@@ -279,14 +256,9 @@ mod vector {
             physical_forces: &GroupInTypeInImage<V>,
             exchange_forces: &GroupInTypeInImage<V>,
         ) -> Result<(), Self::Error> {
-            let mut iter = zip_iterators!(
-                positions.read(),
-                physical_forces.read(),
-                exchange_forces.read()
-            )
-            .enumerate()
-            .map(
-                |(index, zip_items!(position, physical_force, exchange_force))| {
+            let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
+                .enumerate()
+                .map(|(index, zip_items!(position, physical_force, exchange_force))| {
                     AtomAdditiveQuantumEstimator::calculate(
                         self,
                         index,
@@ -296,18 +268,12 @@ mod vector {
                         physical_force,
                         exchange_force,
                     )
-                },
-            );
+                });
             let first_atom_observable = iter.next().ok_or(EmptyError)??;
-            let group_observable = iter.try_fold(
-                first_atom_observable,
-                |accum_observable, atom_observable| {
-                    Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(
-                        accum_observable + atom_observable?,
-                    )
-                },
-            )?;
-            for element in group_observable.as_array() {
+            let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+                Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(accum_observable + atom_observable?)
+            })?;
+            for element in &group_observable {
                 adder.send(element.clone())?;
                 barrier.wait();
                 // The receiver receives the sum of all sent values.
@@ -317,11 +283,11 @@ mod vector {
         }
     }
 
-    impl<const N: usize, T, V, A, M, E> QuantumEstimator<T, V, A, M, V>
-        for AdditiveVectorQuantumEstimator<N, E>
+    impl<T, V, A, M, E> QuantumEstimator<T, V, A, M, V> for AdditiveVectorQuantumEstimator<E>
     where
-        T: Clone + Add<Output = T>,
-        V: Vector<N, Element = T> + MeaningfulOutput,
+        T: Add<Output = T> + Clone,
+        V: Vector<Element = T> + MeaningfulOutput,
+        for<'a> &'a mut V: IntoIterator<Item = &'a mut T>,
         A: SyncAddReceiver<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
@@ -341,14 +307,9 @@ mod vector {
             physical_forces: &GroupInTypeInImage<V>,
             exchange_forces: &GroupInTypeInImage<V>,
         ) -> Result<V, Self::Error> {
-            let mut iter = zip_iterators!(
-                positions.read(),
-                physical_forces.read(),
-                exchange_forces.read()
-            )
-            .enumerate()
-            .map(
-                |(index, zip_items!(position, physical_force, exchange_force))| {
+            let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
+                .enumerate()
+                .map(|(index, zip_items!(position, physical_force, exchange_force))| {
                     AtomAdditiveQuantumEstimator::calculate(
                         self,
                         index,
@@ -358,18 +319,12 @@ mod vector {
                         physical_force,
                         exchange_force,
                     )
-                },
-            );
+                });
             let first_atom_observable = iter.next().ok_or(EmptyError)??;
-            let mut group_observable = iter.try_fold(
-                first_atom_observable,
-                |accum_observable, atom_observable| {
-                    Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(
-                        accum_observable + atom_observable?,
-                    )
-                },
-            )?;
-            for element in group_observable.as_mut_array() {
+            let mut group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+                Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(accum_observable + atom_observable?)
+            })?;
+            for element in &mut group_observable {
                 // The senders send their values.
                 barrier.wait();
                 let other_groups_element = adder.recv_sum()?;

@@ -51,10 +51,9 @@ impl<E> MultiplicativeValueClassicalEstimator<E> {
     }
 }
 
-impl<T, V, E> AtomMultiplicativeClassicalEstimator<T, V>
-    for MultiplicativeValueClassicalEstimator<E>
+impl<T, V, E> AtomMultiplicativeClassicalEstimator<T, V> for MultiplicativeValueClassicalEstimator<E>
 where
-    T: Clone + Mul<Output = T>,
+    T: Mul<Output = T> + Clone,
     E: AtomMultiplicativeClassicalEstimator<T, V, Output = T> + ?Sized,
 {
     type Output = T;
@@ -88,7 +87,7 @@ where
 
 impl<T, V, A, M, E> ClassicalEstimator<T, V, A, M, ()> for MultiplicativeValueClassicalEstimator<E>
 where
-    T: Clone + Mul<Output = T>,
+    T: Mul<Output = T> + Clone,
     A: ?Sized,
     M: SyncMulSender<T> + ?Sized,
     E: ?Sized,
@@ -134,14 +133,11 @@ where
             },
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        let group_observable = iter.try_fold(
-            first_atom_observable,
-            |accum_observable, atom_observable| {
-                Ok::<_, <Self as AtomMultiplicativeClassicalEstimator<T, V>>::AtomError>(
-                    accum_observable * atom_observable?,
-                )
-            },
-        )?;
+        let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+            Ok::<_, <Self as AtomMultiplicativeClassicalEstimator<T, V>>::AtomError>(
+                accum_observable * atom_observable?,
+            )
+        })?;
         multiplier.send(group_observable)?;
         Ok(())
     }
@@ -149,7 +145,7 @@ where
 
 impl<T, V, A, M, E> ClassicalEstimator<T, V, A, M, T> for MultiplicativeValueClassicalEstimator<E>
 where
-    T: Clone + Mul<Output = T> + MeaningfulOutput,
+    T: Mul<Output = T> + Clone + MeaningfulOutput,
     A: ?Sized,
     M: SyncMulReceiver<T> + ?Sized,
     E: ?Sized,
@@ -195,14 +191,11 @@ where
             },
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
-        let group_observable = iter.try_fold(
-            first_atom_observable,
-            |accum_observable, atom_observable| {
-                Ok::<_, <Self as AtomMultiplicativeClassicalEstimator<T, V>>::AtomError>(
-                    accum_observable * atom_observable?,
-                )
-            },
-        )?;
+        let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
+            Ok::<_, <Self as AtomMultiplicativeClassicalEstimator<T, V>>::AtomError>(
+                accum_observable * atom_observable?,
+            )
+        })?;
         match multiplier.recv_prod()? {
             Some(other_groups_observable) => Ok(group_observable * other_groups_observable),
             None => Ok(group_observable),

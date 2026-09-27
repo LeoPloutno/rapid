@@ -4,15 +4,18 @@ pub mod constants {
 }
 
 mod unimplemented {
+    use lib::{
+        core::{
+            GroupInTypeInImage, GroupInTypeInImageInSystem,
+            marker::ValidOutput,
+            stat::{Bosonic, Distinguishable},
+        },
+        potential::{exchange::ExchangePotential, physical::PhysicalPotential},
+        thermostat::Thermostat,
+    };
     use std::{
         error::Error,
         fmt::{Display, Formatter, Result as FmtResult},
-    };
-
-    use arc_rw_lock::ElementRwLock;
-    use lib::{
-        core::stat::{Bosonic, Distinguishable},
-        thermostat::Thermostat,
     };
 
     #[derive(Clone, Copy, Debug)]
@@ -32,6 +35,121 @@ mod unimplemented {
     }
 
     impl Error for UnimplementedError {}
+
+    impl<T, V, O: ValidOutput<T>> PhysicalPotential<T, V, O> for Unimplemented {
+        type Error = UnimplementedError;
+
+        #[inline]
+        fn calculate_energy_set_forces(
+            &mut self,
+            _positions: &GroupInTypeInImage<V>,
+            _forces: &mut [V],
+        ) -> Result<O, Self::Error> {
+            Err(UnimplementedError)
+        }
+
+        #[inline]
+        fn calculate_energy_add_forces(
+            &mut self,
+            _positions: &GroupInTypeInImage<V>,
+            _forces: &mut [V],
+        ) -> Result<O, Self::Error> {
+            Err(UnimplementedError)
+        }
+
+        #[inline]
+        fn calculate_energy(
+            &mut self,
+            _positions: &GroupInTypeInImage<V>,
+        ) -> Result<O, Self::Error> {
+            Err(UnimplementedError)
+        }
+
+        #[inline]
+        fn set_forces(
+            &mut self,
+            _positions: &GroupInTypeInImage<V>,
+            _forces: &mut [V],
+        ) -> Result<(), Self::Error> {
+            Err(UnimplementedError)
+        }
+
+        #[inline]
+        fn add_forces(
+            &mut self,
+            _positions: &GroupInTypeInImage<V>,
+            _forces: &mut [V],
+        ) -> Result<(), Self::Error> {
+            Err(UnimplementedError)
+        }
+    }
+
+    impl<T, V, O: ValidOutput<T>> ExchangePotential<T, V, O> for Unimplemented {
+        type Error = UnimplementedError;
+
+        fn calculate_energy_set_forces(
+            &mut self,
+            _prev_image_positions: &GroupInTypeInImage<V>,
+            _next_image_positions: &GroupInTypeInImage<V>,
+            _positions: &GroupInTypeInImage<V>,
+            _forces: &mut [V],
+        ) -> Result<O, Self::Error> {
+            Err(UnimplementedError)
+        }
+
+        fn calculate_energy_add_forces(
+            &mut self,
+            _prev_image_positions: &GroupInTypeInImage<V>,
+            _next_image_positions: &GroupInTypeInImage<V>,
+            _positions: &GroupInTypeInImage<V>,
+            _forces: &mut [V],
+        ) -> Result<O, Self::Error> {
+            Err(UnimplementedError)
+        }
+
+        fn calculate_energy(
+            &mut self,
+            _prev_image_positions: &GroupInTypeInImage<V>,
+            _next_image_positions: &GroupInTypeInImage<V>,
+            _positions: &GroupInTypeInImage<V>,
+        ) -> Result<O, Self::Error> {
+            Err(UnimplementedError)
+        }
+
+        fn set_forces(
+            &mut self,
+            _prev_image_positions: &GroupInTypeInImage<V>,
+            _next_image_positions: &GroupInTypeInImage<V>,
+            _positions: &GroupInTypeInImage<V>,
+            _forces: &mut [V],
+        ) -> Result<(), Self::Error> {
+            Err(UnimplementedError)
+        }
+
+        fn add_forces(
+            &mut self,
+            _prev_image_positions: &GroupInTypeInImage<V>,
+            _next_image_positions: &GroupInTypeInImage<V>,
+            _positions: &GroupInTypeInImage<V>,
+            _forces: &mut [V],
+        ) -> Result<(), Self::Error> {
+            Err(UnimplementedError)
+        }
+    }
+
+    impl<T, V> Thermostat<T, V> for Unimplemented {
+        type Error = UnimplementedError;
+
+        fn thermalize(
+            &mut self,
+            _positions: &GroupInTypeInImageInSystem<V>,
+            _physical_forces: &GroupInTypeInImageInSystem<V>,
+            _exchange_forces: &GroupInTypeInImageInSystem<V>,
+            _momenta: &mut [V],
+        ) -> Result<T, Self::Error> {
+            Err(UnimplementedError)
+        }
+    }
 }
 
 pub use unimplemented::{Unimplemented, UnimplementedError};

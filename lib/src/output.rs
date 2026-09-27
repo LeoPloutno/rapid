@@ -17,13 +17,12 @@ pub trait StepStream {
 }
 
 /// A trait for streams that write to coordinate files, such as '.xyz' files.
-pub trait VectorsStream<const N: usize, T, V>: StepStream
+pub trait VectorsStream<T, V>: StepStream
 where
-    V: Vector<N, Element = T>,
+    V: Vector<Element = T>,
 {
     /// Writes the vectors.
-    fn write_vectors(&mut self, vectors: &GroupInTypeInImageInSystem<V>)
-    -> Result<(), Self::Error>;
+    fn write_vectors(&mut self, vectors: &GroupInTypeInImageInSystem<V>) -> Result<(), Self::Error>;
 }
 
 /// A trait for streams that write values into the output file.
@@ -74,11 +73,7 @@ impl<Q: DerefMut, C: DerefMut, S: DerefMut> EstimatorsOutputOption<Q, C, S> {
     /// creating a new one containing mutable references to the inner types' `Deref::Target` types.
     pub fn as_deref_mut(
         &mut self,
-    ) -> EstimatorsOutputOption<
-        &mut <Q as Deref>::Target,
-        &mut <C as Deref>::Target,
-        &mut <S as Deref>::Target,
-    > {
+    ) -> EstimatorsOutputOption<&mut <Q as Deref>::Target, &mut <C as Deref>::Target, &mut <S as Deref>::Target> {
         match self {
             Self::None => EstimatorsOutputOption::None,
             Self::Quantum(EstimatorsOutput {

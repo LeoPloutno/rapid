@@ -33,11 +33,7 @@ impl<T: Clone> PropagationOutput<T> for () {
         F: FnOnce() -> E,
     {
         synchronizer.barrier.wait();
-        synchronizer
-            .lock
-            .read()
-            .map(|guard| guard.clone())
-            .map_err(|_| f())
+        synchronizer.lock.read().map(|guard| guard.clone()).map_err(|_| f())
     }
 }
 
@@ -127,28 +123,23 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         OutExch: ValidOutput<T> + PropagationOutput<T>,
         Err: From<CommError> + From<Prop::Error> + From<EstErr>,
     {
-        let (physical_potential_energy, type_exchange_potential_energy, group_heat) =
-            self.propagator.propagate(
-                step,
-                &mut self.physical_potential,
-                self.exchange_potential.as_mut(),
-                &mut self.thermostat,
-                positions,
-                momenta,
-                physical_forces,
-                exchange_forces,
-            )?;
+        let (physical_potential_energy, type_exchange_potential_energy, group_heat) = self.propagator.propagate(
+            step,
+            &mut self.physical_potential,
+            self.exchange_potential.as_mut(),
+            &mut self.thermostat,
+            positions,
+            momenta,
+            physical_forces,
+            exchange_forces,
+        )?;
 
         if quantum_estimators.is_some() || classical_estimators.is_some() {
-            let physical_potential_energy = physical_potential_energy
-                .get(self.image_synchronizer, || {
-                    CommError::new(self.image, self.group)
-                })?;
+            let physical_potential_energy =
+                physical_potential_energy.get(self.image_synchronizer, || CommError::new(self.image, self.group))?;
 
             let type_exchange_potential_energy = type_exchange_potential_energy
-                .get(self.type_synchronizer, || {
-                    CommError::new(self.image, self.group)
-                })?;
+                .get(self.type_synchronizer, || CommError::new(self.image, self.group))?;
 
             if let Some(estimators) = quantum_estimators {
                 for estimator in estimators {
@@ -161,15 +152,15 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                 physical_potential_energy.clone(),
                                 type_exchange_potential_energy.clone(),
                                 &positions
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &physical_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &exchange_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                             )?;
@@ -182,15 +173,15 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                 physical_potential_energy.clone(),
                                 type_exchange_potential_energy.clone(),
                                 &positions
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &physical_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &exchange_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                             )?;
@@ -213,19 +204,19 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                 type_exchange_potential_energy.clone(),
                                 group_heat.clone(),
                                 &positions
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &momenta
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &physical_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &exchange_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                             )?;
@@ -240,19 +231,19 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                 type_exchange_potential_energy.clone(),
                                 group_heat.clone(),
                                 &positions
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &momenta
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &physical_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &exchange_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                             )?;
@@ -265,7 +256,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Ok(())
     }
 
-    pub fn step_leading_group<const N: usize, V, OutPhys, OutExch, EstErr, Err>(
+    pub fn step_leading_group<V, OutPhys, OutExch, EstErr, Err>(
         &mut self,
         step: usize,
         quantum_estimators: Option<
@@ -293,33 +284,29 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Therm: Thermostat<T, V>,
         Prop: Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch>,
         T: Clone + MeaningfulOutput,
-        V: Vector<N, Element = T> + MeaningfulOutput,
+        V: Vector<Element = T> + MeaningfulOutput,
+        for<'b> &'b V: IntoIterator<Item = &'b T>,
         OutPhys: ValidOutput<T> + PropagationOutput<T>,
         OutExch: ValidOutput<T> + PropagationOutput<T>,
         Err: From<CommError> + From<EstAdd::Error> + From<Prop::Error> + From<EstErr>,
     {
-        let (physical_potential_energy, type_exchange_potential_energy, group_heat) =
-            self.propagator.propagate(
-                step,
-                &mut self.physical_potential,
-                self.exchange_potential.as_mut(),
-                &mut self.thermostat,
-                positions,
-                momenta,
-                physical_forces,
-                exchange_forces,
-            )?;
+        let (physical_potential_energy, type_exchange_potential_energy, group_heat) = self.propagator.propagate(
+            step,
+            &mut self.physical_potential,
+            self.exchange_potential.as_mut(),
+            &mut self.thermostat,
+            positions,
+            momenta,
+            physical_forces,
+            exchange_forces,
+        )?;
 
         if quantum_estimators.is_some() || classical_estimators.is_some() {
-            let physical_potential_energy = physical_potential_energy
-                .get(self.image_synchronizer, || {
-                    CommError::new(self.image, self.group)
-                })?;
+            let physical_potential_energy =
+                physical_potential_energy.get(self.image_synchronizer, || CommError::new(self.image, self.group))?;
 
             let type_exchange_potential_energy = type_exchange_potential_energy
-                .get(self.type_synchronizer, || {
-                    CommError::new(self.image, self.group)
-                })?;
+                .get(self.type_synchronizer, || CommError::new(self.image, self.group))?;
 
             if let Some(estimators) = quantum_estimators {
                 for estimator in estimators {
@@ -333,15 +320,15 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                     physical_potential_energy.clone(),
                                     type_exchange_potential_energy.clone(),
                                     &positions
-                                        .as_map_mut()
+                                        .as_map_ref()
                                         .map_map(|map| map.read())
                                         .map_whole(|whole| whole.into()),
                                     &physical_forces
-                                        .as_map_mut()
+                                        .as_map_ref()
                                         .map_map(|map| map.read())
                                         .map_whole(|whole| whole.into()),
                                     &exchange_forces
-                                        .as_map_mut()
+                                        .as_map_ref()
                                         .map_map(|map| map.read())
                                         .map_whole(|whole| whole.into()),
                                 )?,
@@ -356,19 +343,19 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                 physical_potential_energy.clone(),
                                 type_exchange_potential_energy.clone(),
                                 &positions
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &physical_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &exchange_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                             )?;
-                            for element in vector.as_array() {
+                            for element in &vector {
                                 self.estimators_adder.send(element.clone())?;
                                 self.estimators_barrier.wait();
                             }
@@ -391,19 +378,19 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                 type_exchange_potential_energy.clone(),
                                 group_heat.clone(),
                                 &positions
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &momenta
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &physical_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &exchange_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                             )?;
@@ -418,19 +405,19 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                 type_exchange_potential_energy.clone(),
                                 group_heat.clone(),
                                 &positions
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &momenta
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &physical_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                                 &exchange_forces
-                                    .as_map_mut()
+                                    .as_map_ref()
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                             )?;
@@ -443,7 +430,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Ok(())
     }
 
-    pub fn step_output<const N: usize, V, ValS, VecS, OutPhys, OutExch, EstErr, Err>(
+    pub fn step_output<V, ValS, VecS, OutPhys, OutExch, EstErr, Err>(
         &mut self,
         step: usize,
         estimators_output: EstimatorsOutputOption<
@@ -473,10 +460,11 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Boson: ExchangePotential<T, V, OutExch> + Bosonic,
         Therm: Thermostat<T, V>,
         Prop: Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch>,
-        T: Clone + Add<Output = T> + Div<Output = T> + From<usize> + MeaningfulOutput,
-        V: Vector<N, Element = T> + MeaningfulOutput,
+        T: Add<Output = T> + Div<Output = T> + Clone + From<usize> + MeaningfulOutput,
+        V: Vector<Element = T> + MeaningfulOutput,
+        for<'b> &'b mut V: IntoIterator<Item = &'b mut T>,
         ValS: ValuesStream<T> + ValuesStream<V>,
-        VecS: VectorsStream<N, T, V>,
+        VecS: VectorsStream<T, V>,
         OutPhys: ValidOutput<T> + PropagationOutput<T>,
         OutExch: ValidOutput<T> + PropagationOutput<T>,
         Err: From<CommError>
@@ -486,91 +474,88 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
             + From<VecS::Error>
             + From<EstErr>,
     {
-        let (physical_potential_energy, type_exchange_potential_energy, group_heat) =
-            self.propagator.propagate(
-                step,
-                &mut self.physical_potential,
-                self.exchange_potential.as_mut(),
-                &mut self.thermostat,
-                positions,
-                momenta,
-                physical_forces,
-                exchange_forces,
-            )?;
+        let (physical_potential_energy, type_exchange_potential_energy, group_heat) = self.propagator.propagate(
+            step,
+            &mut self.physical_potential,
+            self.exchange_potential.as_mut(),
+            &mut self.thermostat,
+            positions,
+            momenta,
+            physical_forces,
+            exchange_forces,
+        )?;
 
         match estimators_output {
             EstimatorsOutputOption::None => {}
             estimators_output @ _ => {
                 let physical_potential_energy = physical_potential_energy
-                    .get(self.image_synchronizer, || {
-                        CommError::new(self.image, self.group)
-                    })?;
+                    .get(self.image_synchronizer, || CommError::new(self.image, self.group))?;
 
                 let type_exchange_potential_energy = type_exchange_potential_energy
-                    .get(self.type_synchronizer, || {
-                        CommError::new(self.image, self.group)
-                    })?;
+                    .get(self.type_synchronizer, || CommError::new(self.image, self.group))?;
 
                 macro_rules! write_observables {
                     (@quantum $estimators:expr, $stream:expr) => {
                         for estimator in $estimators {
                             match estimator {
                                 Estimator::Value(estimator) => {
-                                    let value = estimator.calculate(
+                                    let image_observable = estimator.calculate(
                                         &self.image_synchronizer,
                                         &mut self.image_adder,
                                         &mut self.image_multiplier,
                                         physical_potential_energy.clone(),
                                         type_exchange_potential_energy.clone(),
                                         &positions
-                                            .as_map_mut()
+                                            .as_map_ref()
                                             .map_map(|map| map.read())
                                             .map_whole(|whole| whole.into()),
                                         &physical_forces
-                                            .as_map_mut()
+                                            .as_map_ref()
                                             .map_map(|map| map.read())
                                             .map_whole(|whole| whole.into()),
                                         &exchange_forces
-                                            .as_map_mut()
+                                            .as_map_ref()
                                             .map_map(|map| map.read())
                                             .map_whole(|whole| whole.into()),
                                     )?;
                                     self.estimators_barrier.wait();
                                     $stream.write_value(
                                         match self.estimators_adder.recv_sum()? {
-                                            Some(other) => value + other,
-                                            None => value,
+                                            Some(other_images_observable) => image_observable + other_images_observable,
+                                            None => image_observable,
                                         } / self.images.into(),
                                     )?;
                                 }
                                 Estimator::Vector(estimator) => {
-                                    let mut vector = estimator.calculate(
+                                    let mut image_observable = estimator.calculate(
                                         &self.image_synchronizer,
                                         &mut self.image_adder,
                                         &mut self.image_multiplier,
                                         physical_potential_energy.clone(),
                                         type_exchange_potential_energy.clone(),
                                         &positions
-                                            .as_map_mut()
+                                            .as_map_ref()
                                             .map_map(|map| map.read())
                                             .map_whole(|whole| whole.into()),
                                         &physical_forces
-                                            .as_map_mut()
+                                            .as_map_ref()
                                             .map_map(|map| map.read())
                                             .map_whole(|whole| whole.into()),
                                         &exchange_forces
-                                            .as_map_mut()
+                                            .as_map_ref()
                                             .map_map(|map| map.read())
                                             .map_whole(|whole| whole.into()),
                                     )?;
-                                    for element in vector.as_mut_array() {
+                                    for image_element in &mut image_observable {
                                         self.estimators_barrier.wait();
-                                        if let Some(other) = self.estimators_adder.recv_sum()? {
-                                            *element =
-                                                (element.clone() + other) / self.images.into();
-                                        }
+                                        *image_element =
+                                            if let Some(other_images_element) = self.estimators_adder.recv_sum()? {
+                                                image_element.clone() + other_images_element
+                                            } else {
+                                                image_element.clone()
+                                            } / self.images.into();
                                     }
-                                    $stream.write_value(vector)?;
+                                    $stream.write_value(image_observable)?;
                                 }
                             }
                             self.system_synchronizer.barrier.wait();
@@ -590,19 +575,19 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                             type_exchange_potential_energy.clone(),
                                             group_heat.clone(),
                                             &positions
-                                                .as_map_mut()
+                                                .as_map_ref()
                                                 .map_map(|map| map.read())
                                                 .map_whole(|whole| whole.into()),
                                             &momenta
-                                                .as_map_mut()
+                                                .as_map_ref()
                                                 .map_map(|map| map.read())
                                                 .map_whole(|whole| whole.into()),
                                             &physical_forces
-                                                .as_map_mut()
+                                                .as_map_ref()
                                                 .map_map(|map| map.read())
                                                 .map_whole(|whole| whole.into()),
                                             &exchange_forces
-                                                .as_map_mut()
+                                                .as_map_ref()
                                                 .map_map(|map| map.read())
                                                 .map_whole(|whole| whole.into()),
                                         )?,
@@ -619,19 +604,19 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                             type_exchange_potential_energy.clone(),
                                             group_heat.clone(),
                                             &positions
-                                                .as_map_mut()
+                                                .as_map_ref()
                                                 .map_map(|map| map.read())
                                                 .map_whole(|whole| whole.into()),
                                             &momenta
-                                                .as_map_mut()
+                                                .as_map_ref()
                                                 .map_map(|map| map.read())
                                                 .map_whole(|whole| whole.into()),
                                             &physical_forces
-                                                .as_map_mut()
+                                                .as_map_ref()
                                                 .map_map(|map| map.read())
                                                 .map_whole(|whole| whole.into()),
                                             &exchange_forces
-                                                .as_map_mut()
+                                                .as_map_ref()
                                                 .map_map(|map| map.read())
                                                 .map_whole(|whole| whole.into()),
                                         )?,
@@ -683,7 +668,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                 $stream.write_prelude(step)?;
                 $stream.write_vectors(
                     &$vectors
-                        .as_map_mut()
+                        .as_map_ref()
                         .map_map(|map| map.read())
                         .map_whole(|whole| whole.into()),
                 )?;
