@@ -2,10 +2,8 @@ use lib::{
     core::{Vector, error::AccessError},
     potential::physical::{AdditivePhysicalPotential, AtomAdditivePhysicalPotential},
 };
-use std::{
-    convert::Infallible,
-    ops::{Add, Div, Mul},
-};
+use num::Float;
+use std::convert::Infallible;
 
 pub struct Harmonic<T> {
     potential_prefactor: T,
@@ -13,13 +11,11 @@ pub struct Harmonic<T> {
 
 impl<T> Harmonic<T>
 where
-    T: Clone + From<f32> + PartialOrd + Div<Output = T>,
+    T: From<f32> + Float,
 {
-    pub fn new<A>(spring_constant: T, images: usize, adder: A) -> AdditivePhysicalPotential<Self, A> {
-        assert!(
-            spring_constant.clone() >= 0.0.into(),
-            "spring constant must be non-negative"
-        );
+    pub fn new<A>(images: usize, spring_constant: T, adder: A) -> AdditivePhysicalPotential<Self, A> {
+        assert!(spring_constant >= T::zero(), "spring constant must be non-negative");
+
         AdditivePhysicalPotential::new(
             adder,
             Self {
@@ -31,8 +27,8 @@ where
 
 impl<T, V> AtomAdditivePhysicalPotential<T, V> for Harmonic<T>
 where
-    T: Add<Output = T> + Mul<Output = T> + Clone + From<f32>,
-    V: Clone + Vector<Element = T>,
+    T: From<f32> + Float,
+    V: Vector<Element = T>,
 {
     type AtomError = Infallible;
     type SystemError = AccessError;
@@ -48,11 +44,11 @@ where
 
     #[inline]
     fn calculate_energy(&mut self, _atom_index: usize, position: &V) -> Result<T, Self::AtomError> {
-        Ok(self.potential_prefactor.clone() * position.clone().magnitude_squared())
+        Ok(self.potential_prefactor * position.magnitude_squared())
     }
 
     #[inline]
     fn calculate_force(&mut self, _atom_index: usize, position: &V) -> Result<V, Self::AtomError> {
-        Ok(-position.clone() * 2.0.into() * self.potential_prefactor.clone())
+        Ok(-*position * self.potential_prefactor * 2.0.into())
     }
 }

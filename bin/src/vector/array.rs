@@ -6,9 +6,10 @@ use std::{
     slice::{Iter, IterMut},
 };
 
-pub struct ArrayVector<const N: usize, T>([T; N]);
+#[derive(Clone, Copy)]
+pub struct ArrayVector<T, const N: usize>([T; N]);
 
-impl<const N: usize, T> Add<Self> for ArrayVector<N, T>
+impl<T, const N: usize> Add<Self> for ArrayVector<T, N>
 where
     T: Add<Output = T>,
 {
@@ -25,7 +26,7 @@ where
     }
 }
 
-impl<const N: usize, T> AddAssign<Self> for ArrayVector<N, T>
+impl<T, const N: usize> AddAssign<Self> for ArrayVector<T, N>
 where
     T: AddAssign,
 {
@@ -36,7 +37,7 @@ where
     }
 }
 
-impl<const N: usize, T> Sub<Self> for ArrayVector<N, T>
+impl<T, const N: usize> Sub<Self> for ArrayVector<T, N>
 where
     T: Sub<Output = T>,
 {
@@ -53,7 +54,7 @@ where
     }
 }
 
-impl<const N: usize, T> SubAssign<Self> for ArrayVector<N, T>
+impl<T, const N: usize> SubAssign<Self> for ArrayVector<T, N>
 where
     T: SubAssign,
 {
@@ -64,16 +65,16 @@ where
     }
 }
 
-impl<const N: usize, T> Mul<T> for ArrayVector<N, T>
+impl<T, const N: usize> Mul<T> for ArrayVector<T, N>
 where
-    T: Clone + Mul<Output = T>,
+    T: Copy + Mul<Output = T>,
 {
     type Output = Self;
 
     fn mul(self, rhs: T) -> Self::Output {
         let mut uninit = [const { MaybeUninit::uninit() }; N];
         for (elem_uninit, elem_self) in uninit.iter_mut().zip(self.0.into_iter()) {
-            elem_uninit.write(elem_self * rhs.clone());
+            elem_uninit.write(elem_self * rhs);
         }
         // SAFETY: - Initialized the contents above.
         //         - `Src` and `Dst` have the same layout.
@@ -81,27 +82,27 @@ where
     }
 }
 
-impl<const N: usize, T> MulAssign<T> for ArrayVector<N, T>
+impl<T, const N: usize> MulAssign<T> for ArrayVector<T, N>
 where
-    T: Clone + MulAssign,
+    T: Copy + MulAssign,
 {
     fn mul_assign(&mut self, rhs: T) {
         for elem in self.0.iter_mut() {
-            *elem *= rhs.clone()
+            *elem *= rhs
         }
     }
 }
 
-impl<const N: usize, T> Div<T> for ArrayVector<N, T>
+impl<T, const N: usize> Div<T> for ArrayVector<T, N>
 where
-    T: Clone + Div<Output = T>,
+    T: Copy + Div<Output = T>,
 {
     type Output = Self;
 
     fn div(self, rhs: T) -> Self::Output {
         let mut uninit = [const { MaybeUninit::uninit() }; N];
         for (elem_uninit, elem_self) in uninit.iter_mut().zip(self.0.into_iter()) {
-            elem_uninit.write(elem_self / rhs.clone());
+            elem_uninit.write(elem_self / rhs);
         }
         // SAFETY: - Initialized the contents above.
         //         - `Src` and `Dst` have the same layout.
@@ -109,18 +110,18 @@ where
     }
 }
 
-impl<const N: usize, T> DivAssign<T> for ArrayVector<N, T>
+impl<T, const N: usize> DivAssign<T> for ArrayVector<T, N>
 where
-    T: Clone + DivAssign,
+    T: Copy + DivAssign,
 {
     fn div_assign(&mut self, rhs: T) {
         for elem in self.0.iter_mut() {
-            *elem /= rhs.clone()
+            *elem /= rhs
         }
     }
 }
 
-impl<const N: usize, T> Neg for ArrayVector<N, T>
+impl<T, const N: usize> Neg for ArrayVector<T, N>
 where
     T: Neg<Output = T>,
 {
@@ -137,7 +138,13 @@ where
     }
 }
 
-impl<'a, const N: usize, T> IntoIterator for &'a ArrayVector<N, T> {
+impl<T, const N: usize> From<[T; N]> for ArrayVector<T, N> {
+    fn from(value: [T; N]) -> Self {
+        Self(value)
+    }
+}
+
+impl<'a, T, const N: usize> IntoIterator for &'a ArrayVector<T, N> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
 
@@ -146,7 +153,7 @@ impl<'a, const N: usize, T> IntoIterator for &'a ArrayVector<N, T> {
     }
 }
 
-impl<'a, const N: usize, T> IntoIterator for &'a mut ArrayVector<N, T> {
+impl<'a, T, const N: usize> IntoIterator for &'a mut ArrayVector<T, N> {
     type Item = &'a mut T;
     type IntoIter = IterMut<'a, T>;
 
@@ -155,9 +162,9 @@ impl<'a, const N: usize, T> IntoIterator for &'a mut ArrayVector<N, T> {
     }
 }
 
-impl<const N: usize, T> Vector for ArrayVector<N, T>
+impl<T, const N: usize> Vector for ArrayVector<T, N>
 where
-    T: Clone
+    T: Copy
         + Add<Output = T>
         + AddAssign
         + Sub<Output = T>
@@ -173,7 +180,7 @@ where
     const DIM: usize = N;
 
     fn magnitude_squared(self) -> Self::Element {
-        self.0.into_iter().map(|elem| elem.clone() * elem).sum()
+        self.0.into_iter().map(|elem| elem * elem).sum()
     }
 
     fn dot(self, rhs: Self) -> Self::Element {

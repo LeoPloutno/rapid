@@ -175,21 +175,9 @@ impl From<Infallible> for CommError {
 impl Display for CommError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.image {
-            ImageType::Leading => write!(
-                f,
-                "something happened in thread #{} of the first image",
-                self.group
-            ),
-            ImageType::Inner(image) => write!(
-                f,
-                "something happened in image #{}, thread #{}",
-                image, self.group
-            ),
-            ImageType::Trailing => write!(
-                f,
-                "something happened in thread #{} of the last image",
-                self.group
-            ),
+            ImageType::Leading => write!(f, "something happened in thread #{} of the first image", self.group),
+            ImageType::Inner(image) => write!(f, "something happened in image #{}, thread #{}", image, self.group),
+            ImageType::Trailing(_) => write!(f, "something happened in thread #{} of the last image", self.group),
         }
     }
 }

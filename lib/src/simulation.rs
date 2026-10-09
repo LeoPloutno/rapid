@@ -256,7 +256,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Ok(())
     }
 
-    pub fn step_leading_group<V, OutPhys, OutExch, EstErr, Err>(
+    pub fn step__image_leader_group<V, OutPhys, OutExch, EstErr, Err>(
         &mut self,
         step: usize,
         quantum_estimators: Option<

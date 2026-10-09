@@ -3,7 +3,7 @@
 use arc_rw_lock::{ArcSliceReaderLock, UniqueArcElementRwLock, UniqueArcSliceRwLock};
 use std::{
     num::NonZeroUsize,
-    ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub},
     sync::{Barrier, RwLock},
 };
 
@@ -52,14 +52,11 @@ pub use zip_iterators;
 pub trait Vector
 where
     Self: Sized
+        + Copy
         + Add<Output = Self>
-        + AddAssign
         + Sub<Output = Self>
-        + SubAssign
         + Mul<Self::Element, Output = Self>
-        + MulAssign<Self::Element>
         + Div<Self::Element, Output = Self>
-        + DivAssign<Self::Element>
         + Neg<Output = Self>,
 {
     /// The type of the element of the vector.
@@ -68,7 +65,9 @@ where
     const DIM: usize;
 
     /// Calculates the square of the magnitude (length) of the vector.
-    fn magnitude_squared(self) -> Self::Element;
+    fn magnitude_squared(self) -> Self::Element {
+        self.dot(self)
+    }
 
     /// Calculates the dot product of `self` with `rhs`.
     fn dot(self, rhs: Self) -> Self::Element;
@@ -164,5 +163,5 @@ pub enum ImageType {
     /// Some image that is neither the first nor last.
     Inner(NonZeroUsize),
     /// The last image.
-    Trailing,
+    Trailing(NonZeroUsize),
 }

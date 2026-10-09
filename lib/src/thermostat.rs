@@ -22,6 +22,7 @@ pub trait Thermostat<T, V> {
     #[heavy_computation]
     fn thermalize(
         &mut self,
+        step_size: T,
         positions: &GroupInTypeInImageInSystem<V>,
         physical_forces: &GroupInTypeInImageInSystem<V>,
         exchange_forces: &GroupInTypeInImageInSystem<V>,

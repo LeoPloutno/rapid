@@ -1,3 +1,6 @@
+mod potential_energy;
+pub use potential_energy::PotentialEnergy;
+
 mod virial_kinetic_energy;
 pub use virial_kinetic_energy::VirialKineticEnergy;
 

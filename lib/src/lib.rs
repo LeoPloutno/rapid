@@ -1,4 +1,4 @@
-#![feature(ptr_metadata, negative_impls, with_negative_coherence)]
+#![feature(ptr_metadata, negative_impls, with_negative_coherence, const_trait_impl)]
 #![allow(clippy::too_many_arguments)]
 #![warn(missing_docs)]
 #![allow(clippy::too_many_arguments)]

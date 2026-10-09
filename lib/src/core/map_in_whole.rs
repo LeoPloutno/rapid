@@ -7,6 +7,14 @@ pub struct MapInWhole<T, U> {
 }
 
 impl<T, U> MapInWhole<T, U> {
+    pub const fn get_map(&self) -> &T {
+        &self.map
+    }
+
+    pub const fn get_whole(&self) -> &U {
+        &self.whole
+    }
+
     pub fn as_map(&self) -> &T::Target
     where
         T: Deref,
@@ -57,6 +65,16 @@ impl<T, U, V> From<MapInWhole<MapInWhole<T, U>, V>> for MapInWhole<U, V> {
 }
 
 impl<'a, T> MapInWhole<&'a T, &'a [T]> {
+    pub fn with_element_offset(slice: &'a [T], element_offset: usize) -> Option<Self> {
+        match slice.get(element_offset) {
+            Some(element) => Some(Self {
+                map: element,
+                whole: slice,
+            }),
+            None => None,
+        }
+    }
+
     pub const fn before(&self) -> &[T] {
         if const { size_of::<T>() == 0 } {
             return self.whole;
@@ -201,6 +219,15 @@ impl<'a, T, U> MapInWhole<MapInWhole<U, &'a T>, &'a [T]> {
 }
 
 impl<'a, T> MapInWhole<&'a [T], &'a [T]> {
+    pub fn with_range(slice: &'a [T], range: Range<usize>) -> Option<Self> {
+        match slice.get(range) {
+            Some(subslice) => Some(Self {
+                map: subslice,
+                whole: slice,
+            }),
+            None => None,
+        }
+    }
     pub const fn before(&self) -> &[T] {
         if const { size_of::<T>() == 0 } {
             return self.whole;
@@ -306,10 +333,7 @@ impl<'a, T, U> MapInWhole<&'a [T], MapInWhole<&'a [T], U>> {
         unsafe {
             // SAFETY: By construction, `self.map` points to a subslice entirely within `self.whole.map`,
             //         so its start does not preceed the slice's.
-            let start = self
-                .map
-                .as_ptr()
-                .offset_from_unsigned(self.whole.map.as_ptr());
+            let start = self.map.as_ptr().offset_from_unsigned(self.whole.map.as_ptr());
             Range {
                 start,
                 // SAFETY: Adding the length of a subslice to its start cannot overflow.
@@ -367,11 +391,7 @@ impl<'a, T, U> MapInWhole<MapInWhole<U, &'a [T]>, &'a [T]> {
         unsafe {
             // SAFETY: By construction, `self.map.whole` points to a subslice entirely within `self.whole`,
             //         so its start does not preceed the slice's.
-            let start = self
-                .map
-                .whole
-                .as_ptr()
-                .offset_from_unsigned(self.whole.as_ptr());
+            let start = self.map.whole.as_ptr().offset_from_unsigned(self.whole.as_ptr());
             Range {
                 start,
                 // SAFETY: Adding the length of a subslice to its start cannot overflow.

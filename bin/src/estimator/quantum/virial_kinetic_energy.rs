@@ -2,10 +2,8 @@ use lib::{
     core::{Vector, error::EmptyError},
     estimator::quantum::{AdditiveValueQuantumEstimator, AtomAdditiveQuantumEstimator},
 };
-use std::{
-    convert::Infallible,
-    ops::{Add, Mul},
-};
+use num::Float;
+use std::convert::Infallible;
 
 pub struct VirialKineticEnergy<T> {
     prefactor: T,
@@ -21,8 +19,8 @@ impl<T: From<f32>> VirialKineticEnergy<T> {
 
 impl<T, V> AtomAdditiveQuantumEstimator<T, V> for VirialKineticEnergy<T>
 where
-    T: Add<Output = T> + Mul<Output = T> + Clone,
-    V: Clone + Vector<Element = T>,
+    T: Float,
+    V: Vector<Element = T>,
 {
     type Output = T;
     type AtomError = Infallible;
@@ -37,6 +35,6 @@ where
         physical_force: &V,
         _exchange_force: &V,
     ) -> Result<Self::Output, Self::AtomError> {
-        Ok(self.prefactor.clone() * position.clone().dot(physical_force.clone()))
+        Ok(self.prefactor * position.dot(*physical_force))
     }
 }

@@ -9,35 +9,35 @@ use lib::{
     },
     potential::exchange::ExchangePotential,
 };
-use std::ops::{Add, Mul};
+use num::Float;
 
-pub struct DistinguishableExchangePotential<const N: usize, T, A> {
+pub struct DistinguishableExchangePotential<T, A> {
     adder: A,
     potential_prefactor: T,
 }
 
-impl<const N: usize, T, A> DistinguishableExchangePotential<N, T, A>
+impl<T, A> DistinguishableExchangePotential<T, A>
 where
-    T: PartialOrd + Mul<Output = T> + Clone + From<f32>,
+    T: From<f32> + Float,
 {
     pub fn new(images: usize, mass: T, temperature: T, adder: A) -> Self {
-        assert!(mass.clone() > 0.0.into(), "the mass must be positive");
-        assert!(temperature.clone() > 0.0.into(), "the temperature must be positive");
+        assert!(mass > T::zero(), "the mass must be positive");
+        assert!(temperature > T::zero(), "the temperature must be positive");
         Self {
-            potential_prefactor: T::from(
+            potential_prefactor: <T as From<_>>::from(
                 0.5 * (images as f32) * BOLTZMANN_CONSTANT * BOLTZMANN_CONSTANT
                     / (REDUCED_PLANK_CONSTANT * REDUCED_PLANK_CONSTANT),
             ) * mass
-                * temperature.clone()
+                * temperature
                 * temperature,
             adder,
         }
     }
 }
 
-impl<const N: usize, T, A> DistinguishableExchangePotential<N, T, A>
+impl<T, A> DistinguishableExchangePotential<T, A>
 where
-    T: Add<Output = T> + Mul<Output = T> + Clone + From<f32>,
+    T: From<f32> + Float,
 {
     #[inline]
     fn calculate_energy_group_contribution_set_forces<V>(
@@ -48,22 +48,22 @@ where
         forces: &mut [V],
     ) -> T
     where
-        V: Clone + Vector<Element = T>,
+        V: Vector<Element = T>,
     {
-        let mut energy = T::from(0.0);
+        let mut energy = T::zero();
         for zip_items!(force, position, prev_image_position, next_image_position) in zip_iterators!(
             forces,
             positions.read(),
             prev_image_positions.read(),
             next_image_positions.read()
         ) {
-            let delta_prev = prev_image_position.clone() - position.clone();
-            let delta_next = next_image_position.clone() - position.clone();
-            energy = energy.clone() + delta_prev.clone().magnitude_squared() + delta_next.clone().magnitude_squared();
-            *force = (delta_prev + delta_next) * self.potential_prefactor.clone() * 2.0.into();
+            let delta_prev = *prev_image_position - *position;
+            let delta_next = *next_image_position - *position;
+            energy = energy + delta_prev.magnitude_squared() + delta_next.magnitude_squared();
+            *force = (delta_prev + delta_next) * self.potential_prefactor * 2.0.into();
         }
         // We multiply by a half to account for redunduncies across all threads.
-        energy * self.potential_prefactor.clone() * 0.5.into()
+        energy * self.potential_prefactor * 0.5.into()
     }
 
     #[inline]
@@ -75,22 +75,22 @@ where
         forces: &mut [V],
     ) -> T
     where
-        V: Clone + Vector<Element = T>,
+        V: Vector<Element = T>,
     {
-        let mut energy = T::from(0.0);
-        for zip_items!(force, position, prev_image_position, next_image_position) in zip_iterators!(
+        let mut energy = T::zero();
+        for zip_items!(force, &position, &prev_image_position, &next_image_position) in zip_iterators!(
             forces,
             positions.read(),
             prev_image_positions.read(),
             next_image_positions.read()
         ) {
-            let delta_prev = prev_image_position.clone() - position.clone();
-            let delta_next = next_image_position.clone() - position.clone();
-            energy = energy.clone() + delta_prev.clone().magnitude_squared() + delta_next.clone().magnitude_squared();
-            *force = force.clone() + (delta_prev + delta_next) * self.potential_prefactor.clone() * 2.0.into();
+            let delta_prev = prev_image_position - position;
+            let delta_next = next_image_position - position;
+            energy = energy + delta_prev.magnitude_squared() + delta_next.magnitude_squared();
+            *force = *force + (delta_prev + delta_next) * self.potential_prefactor * 2.0.into();
         }
         // We multiply by a half to account for redunduncies across all threads.
-        energy * self.potential_prefactor.clone() * 0.5.into()
+        energy * self.potential_prefactor * 0.5.into()
     }
 
     #[inline]
@@ -101,20 +101,20 @@ where
         positions: &GroupInTypeInImage<V>,
     ) -> T
     where
-        V: Clone + Vector<Element = T>,
+        V: Vector<Element = T>,
     {
-        let mut energy = T::from(0.0);
-        for zip_items!(position, prev_image_position, next_image_position) in zip_iterators!(
+        let mut energy = T::zero();
+        for zip_items!(&position, &prev_image_position, &next_image_position) in zip_iterators!(
             positions.read(),
             prev_image_positions.read(),
             next_image_positions.read(),
         ) {
-            energy = energy.clone()
-                + (prev_image_position.clone() - position.clone()).magnitude_squared()
-                + (next_image_position.clone() - position.clone()).magnitude_squared();
+            energy = energy
+                + (prev_image_position - position).magnitude_squared()
+                + (next_image_position - position).magnitude_squared();
         }
         // We multiply by a half to account for redunduncies across all threads.
-        energy * self.potential_prefactor.clone() * 0.5.into()
+        energy * self.potential_prefactor * 0.5.into()
     }
 
     #[inline]
@@ -125,16 +125,16 @@ where
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) where
-        V: Clone + Vector<Element = T>,
+        V: Vector<Element = T>,
     {
-        for zip_items!(force, position, prev_image_position, next_image_position) in zip_iterators!(
+        for zip_items!(force, &position, &prev_image_position, &next_image_position) in zip_iterators!(
             forces,
             positions.read(),
             prev_image_positions.read(),
             next_image_positions.read(),
         ) {
-            *force = (prev_image_position.clone() + next_image_position.clone() - position.clone() * 2.0.into())
-                * self.potential_prefactor.clone()
+            *force = (prev_image_position + next_image_position - position * 2.0.into())
+                * self.potential_prefactor
                 * 2.0.into();
         }
     }
@@ -147,28 +147,28 @@ where
         positions: &GroupInTypeInImage<V>,
         forces: &mut [V],
     ) where
-        V: Clone + Vector<Element = T>,
+        V: Vector<Element = T>,
     {
-        for zip_items!(force, position, prev_image_position, next_image_position) in zip_iterators!(
+        for zip_items!(force, &position, &prev_image_position, &next_image_position) in zip_iterators!(
             forces,
             positions.read(),
             prev_image_positions.read(),
             next_image_positions.read(),
         ) {
-            *force = force.clone()
-                + (prev_image_position.clone() + next_image_position.clone() - position.clone() * 2.0.into())
-                    * self.potential_prefactor.clone()
+            *force = *force
+                + (prev_image_position + next_image_position - position * 2.0.into())
+                    * self.potential_prefactor
                     * 2.0.into();
         }
     }
 }
 
-impl<const N: usize, T, A> Distinguishable for DistinguishableExchangePotential<N, T, A> {}
+impl<T, A> Distinguishable for DistinguishableExchangePotential<T, A> {}
 
-impl<const N: usize, T, V, A> ExchangePotential<T, V, ()> for DistinguishableExchangePotential<N, T, A>
+impl<T, V, A> ExchangePotential<T, V, ()> for DistinguishableExchangePotential<T, A>
 where
-    T: Add<Output = T> + Mul<Output = T> + Clone + From<f32>,
-    V: Clone + Vector<Element = T>,
+    T: From<f32> + Float,
+    V: Vector<Element = T>,
     A: SyncAddSender<T>,
 {
     type Error = A::Error;
@@ -241,10 +241,10 @@ where
     }
 }
 
-impl<const N: usize, T, V, A> ExchangePotential<T, V, T> for DistinguishableExchangePotential<N, T, A>
+impl<T, V, A> ExchangePotential<T, V, T> for DistinguishableExchangePotential<T, A>
 where
-    T: Add<Output = T> + Mul<Output = T> + Clone + From<f32> + MeaningfulOutput,
-    V: Clone + Vector<Element = T>,
+    T: From<f32> + Float + MeaningfulOutput,
+    V: Vector<Element = T>,
     A: SyncAddReceiver<T>,
 {
     type Error = A::Error;

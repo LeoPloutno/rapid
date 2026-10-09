@@ -37,6 +37,13 @@ pub type ArcSliceReaderLock<T, A = Global> = ArcReaderLock<[T], A>;
 
 pub type UniqueArcSliceRwLock<T, A = Global> = UniqueArcMappedRwLock<[T], [T], A>;
 
+impl<T, U> MappedRwLock<U, [T]> {
+    pub const fn len(&self) -> usize {
+        // SAFETY: By construction, `inner` points to live and valid data.
+        unsafe { &raw mut (*self.inner.as_ptr()).data }.len()
+    }
+}
+
 impl<T> ElementRwLock<T> {
     pub const fn element_offset(&self) -> usize {
         // SAFETY: By construction, `inner` points to live and valid data.

@@ -58,28 +58,17 @@ mod unimplemented {
         }
 
         #[inline]
-        fn calculate_energy(
-            &mut self,
-            _positions: &GroupInTypeInImage<V>,
-        ) -> Result<O, Self::Error> {
+        fn calculate_energy(&mut self, _positions: &GroupInTypeInImage<V>) -> Result<O, Self::Error> {
             Err(UnimplementedError)
         }
 
         #[inline]
-        fn set_forces(
-            &mut self,
-            _positions: &GroupInTypeInImage<V>,
-            _forces: &mut [V],
-        ) -> Result<(), Self::Error> {
+        fn set_forces(&mut self, _positions: &GroupInTypeInImage<V>, _forces: &mut [V]) -> Result<(), Self::Error> {
             Err(UnimplementedError)
         }
 
         #[inline]
-        fn add_forces(
-            &mut self,
-            _positions: &GroupInTypeInImage<V>,
-            _forces: &mut [V],
-        ) -> Result<(), Self::Error> {
+        fn add_forces(&mut self, _positions: &GroupInTypeInImage<V>, _forces: &mut [V]) -> Result<(), Self::Error> {
             Err(UnimplementedError)
         }
     }
@@ -142,6 +131,7 @@ mod unimplemented {
 
         fn thermalize(
             &mut self,
+            _step_size: T,
             _positions: &GroupInTypeInImageInSystem<V>,
             _physical_forces: &GroupInTypeInImageInSystem<V>,
             _exchange_forces: &GroupInTypeInImageInSystem<V>,
@@ -151,5 +141,4 @@ mod unimplemented {
         }
     }
 }
-
 pub use unimplemented::{Unimplemented, UnimplementedError};

@@ -27,6 +27,7 @@ where
     fn thermalize(
         &mut self,
         atom_index: usize,
+        step_size: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
@@ -55,19 +56,26 @@ where
     fn thermalize(
         &mut self,
         atom_index: usize,
+        step_size: T,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
         momentum: &mut V,
     ) -> Result<T, Self::ErrorAtom> {
-        self.0
-            .thermalize(atom_index, position, physical_force, exchange_force, momentum)
+        self.0.thermalize(
+            atom_index,
+            step_size,
+            position,
+            physical_force,
+            exchange_force,
+            momentum,
+        )
     }
 }
 
 impl<T, V, U> Thermostat<T, V> for DecoupledThermostat<U>
 where
-    T: Add<Output = T>,
+    T: Add<Output = T> + Clone,
     U: ?Sized,
     Self: AtomDecoupledThermostat<T, V>,
 {
@@ -75,6 +83,7 @@ where
 
     fn thermalize(
         &mut self,
+        step_size: T,
         positions: &GroupInTypeInImageInSystem<V>,
         physical_forces: &GroupInTypeInImageInSystem<V>,
         exchange_forces: &GroupInTypeInImageInSystem<V>,
@@ -89,7 +98,15 @@ where
         .enumerate()
         .map(
             |(index, zip_items!(position, physical_force, exchange_force, momentum))| {
-                AtomDecoupledThermostat::thermalize(self, index, position, physical_force, exchange_force, momentum)
+                AtomDecoupledThermostat::thermalize(
+                    self,
+                    index,
+                    step_size.clone(),
+                    position,
+                    physical_force,
+                    exchange_force,
+                    momentum,
+                )
             },
         );
         let first_atom_heat = iter.next().ok_or(EmptyError)??;

@@ -6,9 +6,10 @@ use std::{
     slice::{Iter, IterMut},
 };
 
-pub struct SimdVector<const N: usize, T: SimdElement>(Simd<T, N>);
+#[derive(Clone, Copy)]
+pub struct SimdVector<T: SimdElement, const N: usize>(Simd<T, N>);
 
-impl<const N: usize, T> Add<Self> for SimdVector<N, T>
+impl<T, const N: usize> Add<Self> for SimdVector<T, N>
 where
     T: SimdElement + Add<Output = T>,
     Simd<T, N>: Add<Output = Simd<T, N>>,
@@ -20,7 +21,7 @@ where
     }
 }
 
-impl<const N: usize, T> AddAssign<Self> for SimdVector<N, T>
+impl<T, const N: usize> AddAssign<Self> for SimdVector<T, N>
 where
     T: SimdElement,
     Simd<T, N>: Add<Output = Simd<T, N>>,
@@ -30,7 +31,7 @@ where
     }
 }
 
-impl<const N: usize, T> Sub<Self> for SimdVector<N, T>
+impl<T, const N: usize> Sub<Self> for SimdVector<T, N>
 where
     T: SimdElement + Sub<Output = T>,
     Simd<T, N>: Sub<Output = Simd<T, N>>,
@@ -42,7 +43,7 @@ where
     }
 }
 
-impl<const N: usize, T> SubAssign<Self> for SimdVector<N, T>
+impl<T, const N: usize> SubAssign<Self> for SimdVector<T, N>
 where
     T: SimdElement,
     Simd<T, N>: Sub<Output = Simd<T, N>>,
@@ -52,7 +53,7 @@ where
     }
 }
 
-impl<const N: usize, T> Mul<T> for SimdVector<N, T>
+impl<T, const N: usize> Mul<T> for SimdVector<T, N>
 where
     T: SimdElement,
     Simd<T, N>: Mul<Output = Simd<T, N>>,
@@ -64,7 +65,7 @@ where
     }
 }
 
-impl<const N: usize, T> MulAssign<T> for SimdVector<N, T>
+impl<T, const N: usize> MulAssign<T> for SimdVector<T, N>
 where
     T: SimdElement,
     Simd<T, N>: Mul<Output = Simd<T, N>>,
@@ -74,7 +75,7 @@ where
     }
 }
 
-impl<const N: usize, T> Div<T> for SimdVector<N, T>
+impl<T, const N: usize> Div<T> for SimdVector<T, N>
 where
     T: SimdElement,
     Simd<T, N>: Div<Output = Simd<T, N>>,
@@ -86,7 +87,7 @@ where
     }
 }
 
-impl<const N: usize, T> DivAssign<T> for SimdVector<N, T>
+impl<T, const N: usize> DivAssign<T> for SimdVector<T, N>
 where
     T: SimdElement,
     Simd<T, N>: Div<Output = Simd<T, N>>,
@@ -96,7 +97,7 @@ where
     }
 }
 
-impl<const N: usize, T> Neg for SimdVector<N, T>
+impl<T, const N: usize> Neg for SimdVector<T, N>
 where
     T: SimdElement,
     Simd<T, N>: Neg<Output = Simd<T, N>>,
@@ -108,7 +109,13 @@ where
     }
 }
 
-impl<'a, const N: usize, T: SimdElement> IntoIterator for &'a SimdVector<N, T> {
+impl<T: SimdElement, const N: usize> From<[T; N]> for SimdVector<T, N> {
+    fn from(value: [T; N]) -> Self {
+        Self(Simd::from_array(value))
+    }
+}
+
+impl<'a, T: SimdElement, const N: usize> IntoIterator for &'a SimdVector<T, N> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
 
@@ -117,7 +124,7 @@ impl<'a, const N: usize, T: SimdElement> IntoIterator for &'a SimdVector<N, T> {
     }
 }
 
-impl<'a, const N: usize, T: SimdElement> IntoIterator for &'a mut SimdVector<N, T> {
+impl<'a, T: SimdElement, const N: usize> IntoIterator for &'a mut SimdVector<T, N> {
     type Item = &'a mut T;
     type IntoIter = IterMut<'a, T>;
 
@@ -126,7 +133,7 @@ impl<'a, const N: usize, T: SimdElement> IntoIterator for &'a mut SimdVector<N, 
     }
 }
 
-impl<const N: usize, T> Vector for SimdVector<N, T>
+impl<T, const N: usize> Vector for SimdVector<T, N>
 where
     T: SimdElement + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Sum,
     Simd<T, N>: Add<Output = Simd<T, N>>

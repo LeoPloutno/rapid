@@ -3,6 +3,11 @@
 
 use std::ops::{Deref, DerefMut};
 
+use crate::{
+    core::{GroupInTypeInImage, marker::ValidOutput},
+    potential::exchange::ExchangePotential,
+};
+
 /// An enum differentiating between distinguishable and bosonic statistics.
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
@@ -60,6 +65,102 @@ impl<D, B> Stat<D, B> {
             Self::Distinguishable(dist) => Stat::Distinguishable(dist),
             Self::Bosonic(boson) => Stat::Bosonic(boson),
         }
+    }
+}
+
+impl<T, V, O, D, B> ExchangePotential<T, V, O> for Stat<D, B>
+where
+    O: ValidOutput<T>,
+    D: ExchangePotential<T, V, O>,
+    B: ExchangePotential<T, V, O>,
+{
+    type Error = Stat<D::Error, B::Error>;
+
+    fn calculate_energy_set_forces(
+        &mut self,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<O, Self::Error> {
+        Ok(match self {
+            Self::Distinguishable(exchange_potential) => exchange_potential
+                .calculate_energy_set_forces(prev_image_positions, next_image_positions, positions, forces)
+                .map_err(Stat::Distinguishable)?,
+            Self::Bosonic(exchange_potential) => exchange_potential
+                .calculate_energy_set_forces(prev_image_positions, next_image_positions, positions, forces)
+                .map_err(Stat::Bosonic)?,
+        })
+    }
+
+    fn calculate_energy_add_forces(
+        &mut self,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<O, Self::Error> {
+        Ok(match self {
+            Self::Distinguishable(exchange_potential) => exchange_potential
+                .calculate_energy_add_forces(prev_image_positions, next_image_positions, positions, forces)
+                .map_err(Stat::Distinguishable)?,
+            Self::Bosonic(exchange_potential) => exchange_potential
+                .calculate_energy_add_forces(prev_image_positions, next_image_positions, positions, forces)
+                .map_err(Stat::Bosonic)?,
+        })
+    }
+
+    fn calculate_energy(
+        &mut self,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
+    ) -> Result<O, Self::Error> {
+        #[allow(deprecated)]
+        Ok(match self {
+            Self::Distinguishable(exchange_potential) => exchange_potential
+                .calculate_energy(prev_image_positions, next_image_positions, positions)
+                .map_err(Stat::Distinguishable)?,
+            Self::Bosonic(exchange_potential) => exchange_potential
+                .calculate_energy(prev_image_positions, next_image_positions, positions)
+                .map_err(Stat::Bosonic)?,
+        })
+    }
+
+    fn set_forces(
+        &mut self,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &super::GroupInTypeInImage<V>,
+        positions: &super::GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<(), Self::Error> {
+        #[allow(deprecated)]
+        Ok(match self {
+            Self::Distinguishable(exchange_potential) => exchange_potential
+                .set_forces(prev_image_positions, next_image_positions, positions, forces)
+                .map_err(Stat::Distinguishable)?,
+            Self::Bosonic(exchange_potential) => exchange_potential
+                .set_forces(prev_image_positions, next_image_positions, positions, forces)
+                .map_err(Stat::Bosonic)?,
+        })
+    }
+
+    fn add_forces(
+        &mut self,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &super::GroupInTypeInImage<V>,
+        positions: &super::GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<(), Self::Error> {
+        #[allow(deprecated)]
+        Ok(match self {
+            Self::Distinguishable(exchange_potential) => exchange_potential
+                .add_forces(prev_image_positions, next_image_positions, positions, forces)
+                .map_err(Stat::Distinguishable)?,
+            Self::Bosonic(exchange_potential) => exchange_potential
+                .add_forces(prev_image_positions, next_image_positions, positions, forces)
+                .map_err(Stat::Bosonic)?,
+        })
     }
 }
 

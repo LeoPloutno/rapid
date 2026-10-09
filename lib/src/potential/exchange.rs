@@ -78,3 +78,68 @@ pub trait ExchangePotential<T, V, O: ValidOutput<T>> {
         forces: &mut [V],
     ) -> Result<(), Self::Error>;
 }
+
+impl<'a, T, V, O, P> ExchangePotential<T, V, O> for &'a mut P
+where
+    O: ValidOutput<T>,
+    P: ExchangePotential<T, V, O> + ?Sized,
+{
+    type Error = P::Error;
+
+    #[inline]
+    fn calculate_energy_set_forces(
+        &mut self,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<O, Self::Error> {
+        (*self).calculate_energy_set_forces(prev_image_positions, next_image_positions, positions, forces)
+    }
+
+    #[inline]
+    fn calculate_energy_add_forces(
+        &mut self,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<O, Self::Error> {
+        (*self).calculate_energy_add_forces(prev_image_positions, next_image_positions, positions, forces)
+    }
+
+    #[inline]
+    fn calculate_energy(
+        &mut self,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
+    ) -> Result<O, Self::Error> {
+        #[allow(deprecated)]
+        (*self).calculate_energy(prev_image_positions, next_image_positions, positions)
+    }
+
+    #[inline]
+    fn set_forces(
+        &mut self,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<(), Self::Error> {
+        #[allow(deprecated)]
+        (*self).set_forces(prev_image_positions, next_image_positions, positions, forces)
+    }
+
+    #[inline]
+    fn add_forces(
+        &mut self,
+        prev_image_positions: &GroupInTypeInImage<V>,
+        next_image_positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<V>,
+        forces: &mut [V],
+    ) -> Result<(), Self::Error> {
+        #[allow(deprecated)]
+        (*self).add_forces(prev_image_positions, next_image_positions, positions, forces)
+    }
+}

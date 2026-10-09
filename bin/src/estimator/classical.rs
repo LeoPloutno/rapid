@@ -1,14 +1,12 @@
-use std::ops::{Add, Mul};
+mod physical_potential_energy;
+pub use physical_potential_energy::{
+    PhysicalPotentialEnergyImageLeader, PhysicalPotentialEnergyOutput, PhysicalPotentialEnergyTrailing,
+};
 
-use lib::core::marker::MeaningfulOutput;
+mod exchange_potential_energy;
+pub use exchange_potential_energy::{
+    ExchangePotentialEnergyOutput, ExchangePotentialEnergyTrailing, ExchangePotentialEnergyTypeLeader,
+};
 
-trait Foo<T, U, V> {}
-
-struct Bar<const N: usize, T, U>(std::marker::PhantomData<(T, U)>);
-
-impl<const N: usize, T, U, V> Foo<T, U, ()> for Bar<N, T, V> {}
-
-impl<const N: usize, T, U, V> Foo<T, U, T> for Bar<N, T, V> where
-    T: Add<Output = T> + Mul<Output = T> + From<f32> + MeaningfulOutput
-{
-}
+mod kinetic_energy;
+pub use kinetic_energy::KineticEnergy;

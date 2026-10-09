@@ -2,8 +2,8 @@ use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, Copy, Debug)]
 pub struct MapOutsideWhole<T, U> {
-    map: T,
-    whole: U,
+    pub map: T,
+    pub whole: U,
 }
 
 impl<T, U> MapOutsideWhole<T, U> {
