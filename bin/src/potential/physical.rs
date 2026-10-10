@@ -1,2 +1,1 @@
-mod harmonic;
-pub use harmonic::Harmonic;
+pub mod harmonic;

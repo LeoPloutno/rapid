@@ -26,8 +26,9 @@ where
     #[heavy_computation]
     fn thermalize(
         &mut self,
-        atom_index: usize,
         step_size: T,
+        step: usize,
+        atom_index: usize,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
@@ -55,16 +56,18 @@ where
 
     fn thermalize(
         &mut self,
-        atom_index: usize,
         step_size: T,
+        step: usize,
+        atom_index: usize,
         position: &V,
         physical_force: &V,
         exchange_force: &V,
         momentum: &mut V,
     ) -> Result<T, Self::ErrorAtom> {
         self.0.thermalize(
-            atom_index,
             step_size,
+            step,
+            atom_index,
             position,
             physical_force,
             exchange_force,
@@ -84,6 +87,7 @@ where
     fn thermalize(
         &mut self,
         step_size: T,
+        step: usize,
         positions: &GroupInTypeInImageInSystem<V>,
         physical_forces: &GroupInTypeInImageInSystem<V>,
         exchange_forces: &GroupInTypeInImageInSystem<V>,
@@ -100,8 +104,9 @@ where
             |(index, zip_items!(position, physical_force, exchange_force, momentum))| {
                 AtomDecoupledThermostat::thermalize(
                     self,
-                    index,
                     step_size.clone(),
+                    step,
+                    index,
                     position,
                     physical_force,
                     exchange_force,

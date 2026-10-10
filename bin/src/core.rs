@@ -6,10 +6,11 @@ pub mod constants {
 mod unimplemented {
     use lib::{
         core::{
-            GroupInTypeInImage, GroupInTypeInImageInSystem,
+            GroupInTypeInImage, GroupInTypeInImageInSystem, Vector,
             marker::ValidOutput,
             stat::{Bosonic, Distinguishable},
         },
+        output::{StepStream, ValuesStream, VectorsStream},
         potential::{exchange::ExchangePotential, physical::PhysicalPotential},
         thermostat::Thermostat,
     };
@@ -132,11 +133,36 @@ mod unimplemented {
         fn thermalize(
             &mut self,
             _step_size: T,
+            _step: usize,
             _positions: &GroupInTypeInImageInSystem<V>,
             _physical_forces: &GroupInTypeInImageInSystem<V>,
             _exchange_forces: &GroupInTypeInImageInSystem<V>,
             _momenta: &mut [V],
         ) -> Result<T, Self::Error> {
+            Err(UnimplementedError)
+        }
+    }
+
+    impl StepStream for Unimplemented {
+        type Error = UnimplementedError;
+
+        fn write_prelude(&mut self, _step: usize) -> Result<(), Self::Error> {
+            Err(UnimplementedError)
+        }
+
+        fn new_line(&mut self) -> Result<(), Self::Error> {
+            Err(UnimplementedError)
+        }
+    }
+
+    impl<T> ValuesStream<T> for Unimplemented {
+        fn write_value(&mut self, _value: T) -> Result<(), Self::Error> {
+            Err(UnimplementedError)
+        }
+    }
+
+    impl<T, V: Vector<Element = T>> VectorsStream<T, V> for Unimplemented {
+        fn write_vectors(&mut self, _vectors: &GroupInTypeInImageInSystem<V>) -> Result<(), Self::Error> {
             Err(UnimplementedError)
         }
     }

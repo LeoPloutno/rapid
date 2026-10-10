@@ -1,2 +1,1 @@
-mod langevin;
-pub use langevin::Langevin;
+pub mod langevin;

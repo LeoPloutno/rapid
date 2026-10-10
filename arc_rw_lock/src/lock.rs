@@ -1,13 +1,13 @@
 mod inner;
-pub(crate) use inner::InnerRwLock;
+pub(crate) use inner::{InnerRwLock, PoisonLock};
 
 mod mapped {
     use crate::lock::InnerRwLock;
 
     use super::inner::PoisonLock;
     use std::{
-        marker::PhantomData,
-        ops::{Deref, DerefMut},
+        marker::{PhantomData, Unsize},
+        ops::{CoerceUnsized, Deref, DerefMut},
         ptr::NonNull,
         sync::nonpoison::WouldBlock,
         thread::panicking,
@@ -56,6 +56,14 @@ mod mapped {
         }
     }
 
+    impl<T, U, V> CoerceUnsized<MappedRwLock<V, U>> for MappedRwLock<T, U>
+    where
+        T: Unsize<V> + ?Sized,
+        U: ?Sized,
+        V: ?Sized,
+    {
+    }
+
     unsafe impl<T: Send + Sync + ?Sized> Sync for MappedRwLock<T> {}
 
     pub struct MappedRwLockGuard<'a, T: ?Sized> {
@@ -91,6 +99,13 @@ mod mapped {
         }
     }
 
+    impl<'a, T, U> CoerceUnsized<MappedRwLockGuard<'a, U>> for MappedRwLockGuard<'a, T>
+    where
+        T: Unsize<U> + ?Sized,
+        U: ?Sized,
+    {
+    }
+
     unsafe impl<'a, T: Sync + ?Sized> Sync for MappedRwLockGuard<'a, T> {}
 }
 pub use mapped::{MappedRwLock, MappedRwLockGuard};
@@ -98,8 +113,8 @@ pub use mapped::{MappedRwLock, MappedRwLockGuard};
 mod read {
     use super::inner::InnerRwLock;
     use std::{
-        marker::PhantomData,
-        ops::Deref,
+        marker::{PhantomData, Unsize},
+        ops::{CoerceUnsized, Deref},
         ptr::NonNull,
         sync::{LockResult, PoisonError, TryLockError, TryLockResult},
     };
@@ -141,6 +156,13 @@ mod read {
         }
     }
 
+    impl<T, U> CoerceUnsized<ReaderLock<U>> for ReaderLock<T>
+    where
+        T: Unsize<U> + ?Sized,
+        U: ?Sized,
+    {
+    }
+
     unsafe impl<T: Send + Sync + ?Sized> Send for ReaderLock<T> {}
 
     unsafe impl<T: Send + Sync + ?Sized> Sync for ReaderLock<T> {}
@@ -171,6 +193,13 @@ mod read {
             //         - Aliasing rules are enforced via synchronization.
             unsafe { &(*self.lock.as_ptr()).data }
         }
+    }
+
+    impl<'a, T, U> CoerceUnsized<ReaderLockGuard<'a, U>> for ReaderLockGuard<'a, T>
+    where
+        T: Unsize<U> + ?Sized,
+        U: ?Sized,
+    {
     }
 
     unsafe impl<'a, T: Sync + ?Sized> Sync for ReaderLockGuard<'a, T> {}

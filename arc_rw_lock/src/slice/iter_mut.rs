@@ -1,3 +1,4 @@
+use crate::{MappedRwLock, UniqueArcElementRwLock, arc::InnerArc};
 use std::{
     alloc::{Allocator, Global},
     mem::needs_drop,
@@ -6,14 +7,12 @@ use std::{
     sync::atomic::{self, Ordering},
 };
 
-use crate::{MappedRwLock, UniqueArcElementRwLock, arc::InnerArc, unlikely};
-
-pub struct Iter<T, A: Allocator = Global> {
+pub struct IterMut<T, A: Allocator = Global> {
     pub(crate) lock: MappedRwLock<[T], [T]>,
     pub(crate) allocator: A,
 }
 
-impl<T, A: Allocator> Drop for Iter<T, A> {
+impl<T, A: Allocator> Drop for IterMut<T, A> {
     fn drop(&mut self) {
         // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.
         let (allocation, layout) = unsafe { InnerArc::from_lock(self.lock.inner) };
@@ -34,7 +33,7 @@ impl<T, A: Allocator> Drop for Iter<T, A> {
     }
 }
 
-impl<T, A: Allocator + Clone> Iterator for Iter<T, A> {
+impl<T, A: Allocator + Clone> Iterator for IterMut<T, A> {
     type Item = UniqueArcElementRwLock<T, A>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -48,7 +47,7 @@ impl<T, A: Allocator + Clone> Iterator for Iter<T, A> {
                     len.unchecked_sub(1),
                 );
             }
-            if unlikely(unsafe {
+            if crate::unlikely(unsafe {
                 // SAFETY: By construction, the calculated pointer points to a valid and live instance of `InnerArc`.
                 InnerArc::increment_shared_counter(
                     // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.
@@ -71,7 +70,7 @@ impl<T, A: Allocator + Clone> Iterator for Iter<T, A> {
     }
 }
 
-impl<T, A: Allocator + Clone> DoubleEndedIterator for Iter<T, A> {
+impl<T, A: Allocator + Clone> DoubleEndedIterator for IterMut<T, A> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let (ptr, mut len) = self.lock.subfield.to_raw_parts();
         if len > 0 {
@@ -79,7 +78,7 @@ impl<T, A: Allocator + Clone> DoubleEndedIterator for Iter<T, A> {
             len = unsafe { len.unchecked_sub(1) };
             let ptr = ptr.cast::<T>();
             self.lock.subfield = NonNull::from_raw_parts(ptr, len);
-            if unlikely(unsafe {
+            if crate::unlikely(unsafe {
                 // SAFETY: By construction, the calculated pointer points to a valid and live instance of `InnerArc`.
                 InnerArc::increment_shared_counter(
                     // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.

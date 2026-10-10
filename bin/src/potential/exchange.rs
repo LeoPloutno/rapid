@@ -1,2 +1,1 @@
-mod distinguishable;
-pub use distinguishable::DistinguishableExchangePotential;
+pub mod distinguishable;

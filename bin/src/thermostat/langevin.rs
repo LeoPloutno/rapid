@@ -44,8 +44,9 @@ where
 
     fn thermalize(
         &mut self,
-        _atom_index: usize,
         step_size: T,
+        _step: usize,
+        _atom_index: usize,
         _position: &V,
         _physical_force: &V,
         _exchange_force: &V,

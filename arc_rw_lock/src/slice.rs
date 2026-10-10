@@ -2,7 +2,7 @@ use crate::{
     ArcMappedRwLock, ArcReaderLock, MappedRwLock, MappedRwLockGuard, ReaderLock, ReaderLockGuard,
     UniqueArcMappedRwLock,
     arc::InnerArc,
-    slice::{iter::IterMut, iter_mut::Iter},
+    slice::{iter::Iter, iter_mut::IterMut},
 };
 use std::{
     alloc::{Allocator, Global},

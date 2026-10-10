@@ -23,6 +23,7 @@ pub trait Thermostat<T, V> {
     fn thermalize(
         &mut self,
         step_size: T,
+        step: usize,
         positions: &GroupInTypeInImageInSystem<V>,
         physical_forces: &GroupInTypeInImageInSystem<V>,
         exchange_forces: &GroupInTypeInImageInSystem<V>,

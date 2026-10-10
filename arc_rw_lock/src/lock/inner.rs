@@ -1,9 +1,8 @@
 use std::{
+    alloc::{Layout, LayoutError},
     hint, process,
     sync::atomic::{self, AtomicBool, AtomicU32, Ordering},
 };
-
-use crate::unlikely;
 
 pub(crate) struct Lock(AtomicU32);
 
@@ -38,7 +37,7 @@ impl Lock {
                     }
                 }
             } else if loaded & Self::WRITE_FLAG != 0 {
-                if unlikely(loaded >> Self::COUNTER_MASK.trailing_zeros() == Self::COUNTER_MAX) {
+                if crate::unlikely(loaded >> Self::COUNTER_MASK.trailing_zeros() == Self::COUNTER_MAX) {
                     process::abort();
                 }
                 match self.0.compare_exchange_weak(
@@ -81,7 +80,7 @@ impl Lock {
                     }
                 }
             } else if loaded & Self::WRITE_FLAG != 0 {
-                if unlikely(loaded >> Self::COUNTER_MASK.trailing_zeros() == Self::COUNTER_MAX) {
+                if crate::unlikely(loaded >> Self::COUNTER_MASK.trailing_zeros() == Self::COUNTER_MAX) {
                     process::abort();
                 }
                 match self.0.compare_exchange_weak(
@@ -110,12 +109,10 @@ impl Lock {
         let mut loaded = self.0.load(Ordering::Relaxed);
         loop {
             if loaded == Self::EMPTY {
-                match self.0.compare_exchange_weak(
-                    loaded,
-                    Self::COUNTER_ONE,
-                    Ordering::Acquire,
-                    Ordering::Relaxed,
-                ) {
+                match self
+                    .0
+                    .compare_exchange_weak(loaded, Self::COUNTER_ONE, Ordering::Acquire, Ordering::Relaxed)
+                {
                     Ok(_) => return,
                     Err(current) => {
                         hint::spin_loop();
@@ -123,7 +120,7 @@ impl Lock {
                     }
                 }
             } else if loaded & Self::WRITE_FLAG == 0 {
-                if unlikely(loaded >> Self::COUNTER_MASK.trailing_zeros() == Self::COUNTER_MAX) {
+                if crate::unlikely(loaded >> Self::COUNTER_MASK.trailing_zeros() == Self::COUNTER_MAX) {
                     process::abort();
                 }
                 match self.0.compare_exchange_weak(
@@ -153,12 +150,10 @@ impl Lock {
         let mut loaded = self.0.load(Ordering::Relaxed);
         loop {
             if loaded == Self::EMPTY {
-                match self.0.compare_exchange_weak(
-                    loaded,
-                    Self::COUNTER_ONE,
-                    Ordering::Acquire,
-                    Ordering::Relaxed,
-                ) {
+                match self
+                    .0
+                    .compare_exchange_weak(loaded, Self::COUNTER_ONE, Ordering::Acquire, Ordering::Relaxed)
+                {
                     Ok(_) => return true,
                     Err(current) => {
                         hint::spin_loop();
@@ -166,7 +161,7 @@ impl Lock {
                     }
                 }
             } else if loaded & Self::WRITE_FLAG == 0 {
-                if unlikely(loaded >> Self::COUNTER_MASK.trailing_zeros() == Self::COUNTER_MAX) {
+                if crate::unlikely(loaded >> Self::COUNTER_MASK.trailing_zeros() == Self::COUNTER_MAX) {
                     process::abort();
                 }
                 match self.0.compare_exchange_weak(
@@ -205,12 +200,10 @@ impl Lock {
                     hint::unreachable_unchecked();
                 }
             } else if counter == 1 {
-                match self.0.compare_exchange_weak(
-                    loaded,
-                    Self::EMPTY,
-                    Ordering::Release,
-                    Ordering::Relaxed,
-                ) {
+                match self
+                    .0
+                    .compare_exchange_weak(loaded, Self::EMPTY, Ordering::Release, Ordering::Relaxed)
+                {
                     Ok(_) => {
                         atomic_wait::wake_all(&self.0);
                         return;
@@ -282,7 +275,17 @@ impl PoisonLock {
     }
 }
 
+#[repr(C)]
 pub(crate) struct InnerRwLock<T: ?Sized> {
     pub(crate) poison_lock: PoisonLock,
     pub(crate) data: T,
+}
+
+impl<T: ?Sized> InnerRwLock<T> {
+    pub(crate) const fn get_layout(data_layout: Layout) -> Result<Layout, LayoutError> {
+        match Layout::new::<PoisonLock>().extend(data_layout) {
+            Ok((layout, _)) => Ok(layout.pad_to_align()),
+            Err(err) => Err(err),
+        }
+    }
 }
