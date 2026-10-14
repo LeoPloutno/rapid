@@ -1,19 +1,19 @@
 use crate::{
-    ArcMappedRwLock, ArcReaderLock, MappedRwLock, MappedRwLockGuard, ReaderLock, ReaderLockGuard,
-    UniqueArcMappedRwLock,
-    arc::InnerArc,
-    slice::{iter::Iter, iter_mut::IterMut},
+    ArcMappedRwLock, ArcReaderLock, MappedRwLock, MappedRwLockGuard, ReaderLock, ReaderLockGuard, UniqueArcMappedRwLock,
 };
-use std::{
-    alloc::{Allocator, Global},
-    mem, process,
-    ptr::NonNull,
-    range::Range,
-    sync::atomic::Ordering,
-};
+use std::{alloc::Global, ptr::NonNull, range::Range};
 
 mod iter;
+pub use iter::Iter;
+
 mod iter_mut;
+pub use iter_mut::IterMut;
+
+mod chunks_exact;
+pub use chunks_exact::ChunksExact;
+
+mod chunks_exact_mut;
+pub use chunks_exact_mut::ChunksExactMut;
 
 pub type ElementRwLock<T> = MappedRwLock<T, [T]>;
 
@@ -72,33 +72,5 @@ impl<T> SliceRwLock<T> {
             // SAFETY: By construction, `start + len` points within or right outside the allocation.
             end: unsafe { start.unchecked_add(len) },
         }
-    }
-}
-
-impl<T, A: Allocator> UniqueArcSliceRwLock<T, A> {
-    pub fn iter(self) -> Iter<T, A> {
-        // SAFETY: All fields of `self` are forgotten immediately after
-        //         reading them out of the pointers.
-        let lock = unsafe { (&raw const self.lock).read() };
-        let allocator = unsafe { (&raw const self.allocator).read() };
-        mem::forget(self);
-        // SAFETY: `lock.inner` has been allocated as a part of an `InnerArc`.
-        let allocation = unsafe { InnerArc::from_lock(lock.inner).0 };
-        unsafe {
-            InnerArc::decrement_unique_counter(allocation, Ordering::Relaxed);
-            if InnerArc::increment_shared_counter(allocation, Ordering::Release) {
-                process::abort();
-            }
-        }
-        Iter { lock, allocator }
-    }
-
-    pub fn iter_mut(self) -> IterMut<T, A> {
-        // SAFETY: All fields of `self` are forgotten immediately after
-        //         reading them out of the pointers.
-        let lock = unsafe { (&raw const self.lock).read() };
-        let allocator = unsafe { (&raw const self.allocator).read() };
-        mem::forget(self);
-        IterMut { lock, allocator }
     }
 }

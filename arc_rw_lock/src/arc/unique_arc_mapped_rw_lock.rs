@@ -2,13 +2,15 @@ use super::InnerArc;
 use crate::{
     ArcMappedRwLock, ArcReaderLock, ReaderLock,
     lock::{InnerRwLock, MappedRwLock, PoisonLock},
+    slice::{ChunksExactMut, IterMut},
 };
 use std::{
     alloc::{AllocError, Allocator, AllocatorClone, Global, Layout, LayoutError, handle_alloc_error},
     borrow::{Borrow, BorrowMut},
     convert::{AsMut, AsRef},
     marker::Unsize,
-    mem::{self, MaybeUninit, needs_drop},
+    mem::{self, MaybeUninit},
+    num::NonZeroUsize,
     ops::{CoerceUnsized, Deref, DerefMut},
     process,
     ptr::NonNull,
@@ -33,12 +35,12 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> UniqueArcMappedRwLock<T, U, A> {
         mem::forget(self);
         unsafe {
             // SAFETY: `lock.inner` has been allocated as a part of an `InnerArc`.
-            let inner_arc_ptr = InnerArc::from_lock(lock.inner).0;
+            let allocation = InnerArc::from_lock(lock.inner).0;
             // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
-            if InnerArc::increment_shared_counter(inner_arc_ptr, Ordering::Relaxed) {
+            if InnerArc::increment_shared_counter(allocation, Ordering::Relaxed) {
                 process::abort();
             }
-            InnerArc::decrement_unique_counter(inner_arc_ptr, Ordering::Release);
+            InnerArc::decrement_unique_counter(allocation, Ordering::Release);
         };
         ArcMappedRwLock { lock, allocator }
     }
@@ -526,13 +528,56 @@ impl<T, A: Allocator> UniqueArcMappedRwLock<[MaybeUninit<T>], [MaybeUninit<T>], 
     }
 }
 
+impl<T, U: ?Sized, A: Allocator> UniqueArcMappedRwLock<[T], U, A> {
+    pub fn iter_mut(self) -> IterMut<T, U, A> {
+        // SAFETY: All fields of `self` are forgotten immediately after
+        //         reading them out of the pointers.
+        let lock = unsafe { (&raw const self.lock).read() };
+        let allocator = unsafe { (&raw const self.allocator).read() };
+        mem::forget(self);
+        IterMut { lock, allocator }
+    }
+
+    pub fn chunks_exact_mut(self, chunk_size: usize) -> ChunksExactMut<T, U, A> {
+        assert!(chunk_size != 0, "chunk size must be non-zero");
+
+        // SAFETY: Checked above that `chunk_size != 0`.
+        let chunk_size = unsafe { NonZeroUsize::new_unchecked(chunk_size) };
+
+        // SAFETY: All fields of `self` are forgotten immediately after
+        //         reading them out of the pointers.
+        let MappedRwLock { inner, subfield: slice } = unsafe { (&raw const self.lock).read() };
+        let allocator = unsafe { (&raw const self.allocator).read() };
+        mem::forget(self);
+
+        let (ptr, len) = slice.to_raw_parts();
+        let ptr = ptr.cast::<T>();
+        let remainder = len % chunk_size;
+        let len_chunks = len - remainder;
+
+        ChunksExactMut {
+            remainder_lock: MappedRwLock {
+                inner,
+                subfield: NonNull::from_raw_parts(
+                    // SAFETY: By construction, `ptr` points to a slice which contains at least `len_chunks + remainder` elements.
+                    unsafe { ptr.add(len_chunks) },
+                    remainder,
+                ),
+            },
+            slice: NonNull::from_raw_parts(ptr, len_chunks),
+            chunk_size,
+            allocator,
+        }
+    }
+}
+
 impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for UniqueArcMappedRwLock<T, U, A> {
     fn drop(&mut self) {
         // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.
         let (allocation, layout) = unsafe { InnerArc::from_lock(self.lock.inner) };
         if unsafe { InnerArc::decrement_unique_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
-            if const { needs_drop::<InnerArc<U>>() } {
+            if const { mem::needs_drop::<InnerArc<U>>() } {
                 // SAFETY: - By construction, `allocation` points to live and valid data.
                 //         - Ensured this was the last handle to this allocation.
                 unsafe {

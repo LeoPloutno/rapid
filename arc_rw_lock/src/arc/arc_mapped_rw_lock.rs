@@ -2,14 +2,16 @@ use super::InnerArc;
 use crate::{
     ArcReaderLock, ReaderLock,
     lock::{InnerRwLock, MappedRwLock, PoisonLock},
+    slice::{ChunksExact, Iter},
 };
 use std::{
     alloc::{AllocError, Allocator, AllocatorClone, Global, Layout, LayoutError, handle_alloc_error},
     borrow::Borrow,
     convert::AsRef,
     marker::Unsize,
-    mem::{self, MaybeUninit, needs_drop},
-    ops::{CoerceUnsized, Deref, DerefMut},
+    mem::{self, MaybeUninit},
+    num::NonZeroUsize,
+    ops::{CoerceUnsized, Deref},
     process,
     ptr::NonNull,
     sync::atomic::{self, AtomicUsize, Ordering},
@@ -508,9 +510,46 @@ impl<T, A: Allocator> ArcMappedRwLock<[MaybeUninit<T>], [MaybeUninit<T>], A> {
     }
 }
 
-impl<T: ?Sized, U: ?Sized, A: Allocator> DerefMut for ArcMappedRwLock<T, U, A> {
-    fn deref_mut(&mut self) -> &mut MappedRwLock<T, U> {
-        &mut self.lock
+impl<T, U: ?Sized, A: Allocator> ArcMappedRwLock<[T], U, A> {
+    pub fn iter(self) -> Iter<T, U, A> {
+        // SAFETY: All fields of `self` are forgotten immediately after
+        //         reading them out of the pointers.
+        let lock = unsafe { (&raw const self.lock).read() };
+        let allocator = unsafe { (&raw const self.allocator).read() };
+        mem::forget(self);
+        Iter { lock, allocator }
+    }
+
+    pub fn chunks_exact(self, chunk_size: usize) -> ChunksExact<T, U, A> {
+        assert!(chunk_size != 0, "chunk size must be non-zero");
+
+        // SAFETY: Checked above that `chunk_size != 0`.
+        let chunk_size = unsafe { NonZeroUsize::new_unchecked(chunk_size) };
+
+        // SAFETY: All fields of `self` are forgotten immediately after
+        //         reading them out of the pointers.
+        let MappedRwLock { inner, subfield: slice } = unsafe { (&raw const self.lock).read() };
+        let allocator = unsafe { (&raw const self.allocator).read() };
+        mem::forget(self);
+
+        let (ptr, len) = slice.to_raw_parts();
+        let ptr = ptr.cast::<T>();
+        let remainder = len % chunk_size;
+        let len_chunks = len - remainder;
+
+        ChunksExact {
+            remainder_lock: MappedRwLock {
+                inner,
+                subfield: NonNull::from_raw_parts(
+                    // SAFETY: By construction, `ptr` points to a slice which contains at least `len_chunks + remainder` elements.
+                    unsafe { ptr.add(len_chunks) },
+                    remainder,
+                ),
+            },
+            slice: NonNull::from_raw_parts(ptr, len_chunks),
+            chunk_size,
+            allocator,
+        }
     }
 }
 
@@ -520,7 +559,7 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for ArcMappedRwLock<T, U, A> {
         let (allocation, layout) = unsafe { InnerArc::from_lock(self.lock.inner) };
         if unsafe { InnerArc::decrement_shared_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
-            if const { needs_drop::<InnerArc<U>>() } {
+            if const { mem::needs_drop::<InnerArc<U>>() } {
                 // SAFETY: - By construction, `allocation` points to live and valid data.
                 //         - Ensured this was the last handle to this allocation.
                 unsafe {
@@ -586,7 +625,7 @@ impl<T: ?Sized, U: ?Sized, A: AllocatorClone> Clone for ArcMappedRwLock<T, U, A>
             InnerArc::increment_shared_counter(
                 // SAFETY: `lock.inner` has been allocated as a part of an `InnerArc`.
                 InnerArc::from_lock(self.lock.inner).0,
-                Ordering::Relaxed,
+                Ordering::Release,
             )
         } {
             process::abort();

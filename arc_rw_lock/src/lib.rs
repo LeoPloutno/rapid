@@ -11,7 +11,6 @@ pub use slice::{
     ArcElementRwLock, ArcSliceReaderLock, ArcSliceRwLock, ElementRwLock, ElementRwLockGuard, SliceReaderLock,
     SliceReaderLockGuard, SliceRwLock, UniqueArcElementRwLock, UniqueArcSliceRwLock,
 };
-mod unique_arc;
 
 #[cold]
 fn unlikely<T>(value: T) -> T {

@@ -6,7 +6,7 @@ use std::{
     convert::AsRef,
     fmt::Debug,
     marker::Unsize,
-    mem::{self, MaybeUninit, needs_drop},
+    mem::{self, MaybeUninit},
     ops::{CoerceUnsized, Deref},
     process,
     ptr::NonNull,
@@ -61,7 +61,7 @@ impl<T: ?Sized, A: Allocator> Drop for ArcReaderLock<T, A> {
         let (allocation, layout) = unsafe { InnerArc::from_lock(self.lock.0) };
         if unsafe { InnerArc::decrement_shared_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
-            if const { needs_drop::<InnerArc<T>>() } {
+            if const { mem::needs_drop::<InnerArc<T>>() } {
                 // SAFETY: - By construction, `allocation` points to live and valid data.
                 //         - Ensured this was the last handle to this allocation.
                 unsafe {
@@ -131,7 +131,7 @@ impl<T: ?Sized, A: AllocatorClone> Clone for ArcReaderLock<T, A> {
             InnerArc::increment_shared_counter(
                 // SAFETY: `self.lock.0` has been allocated as a part of an `InnerArc`.
                 InnerArc::from_lock(self.lock.0).0,
-                Ordering::Relaxed,
+                Ordering::Release,
             )
         } {
             process::abort();
