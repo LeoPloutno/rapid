@@ -1,6 +1,7 @@
 use std::{
     alloc::{Layout, LayoutError},
     hint, process,
+    ptr::{NonNull, Pointee},
     sync::atomic::{self, AtomicBool, AtomicU32, Ordering},
 };
 
@@ -282,6 +283,23 @@ pub(crate) struct InnerRwLock<T: ?Sized> {
 }
 
 impl<T: ?Sized> InnerRwLock<T> {
+    /// Converts a type-erased pointer to a `PoisonLock` into a pointer to an `InnerRwLock<T>`.
+    ///
+    /// # Safety
+    ///
+    /// - The pointer points to a valid and live `PoisonLock`.
+    /// - The pointer was derived from a pointer to a valid and live `InnerRwLock<T>`
+    ///   with the same metadata as `metadata`
+    #[inline]
+    pub(crate) const unsafe fn from_poison_lock_with_metadata(
+        lock: NonNull<PoisonLock>,
+        metadata: <T as Pointee>::Metadata,
+    ) -> NonNull<Self> {
+        // SAFETY: Because `poison_lock` is the first field of `InnerRwLock` and the latter
+        //         is `#[repr(C)]`, the cast if trivial and valid.
+        NonNull::from_raw_parts(lock, metadata)
+    }
+
     pub(crate) const fn get_layout(data_layout: Layout) -> Result<Layout, LayoutError> {
         match Layout::new::<PoisonLock>().extend(data_layout) {
             Ok((layout, _)) => Ok(layout.pad_to_align()),

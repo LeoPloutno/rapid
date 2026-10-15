@@ -1,7 +1,7 @@
 use std::{
     alloc::{Layout, LayoutError},
-    hint, mem,
-    ptr::{self, NonNull, Pointee},
+    hint,
+    ptr::{NonNull, Pointee},
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -45,14 +45,12 @@ impl<T: ?Sized> InnerArc<T> {
     /// - The pointer was derived from a pointer to a valid and live `InnerArc<T>`
     ///   with the same metadata as `metadata`
     #[inline]
-    pub(crate) const unsafe fn from_inner_poison_lock_with_metadata(
+    pub(crate) const unsafe fn from_poison_lock_with_metadata(
         lock: NonNull<PoisonLock>,
         metadata: <T as Pointee>::Metadata,
     ) -> (NonNull<Self>, Layout) {
-        // SAFETY: - User-upheld invariants.
-        //         - Because `poison_lock` is the first field of `InnerRwLock` and the latter
-        //           is `#[repr(C)]`, the cast if trivial and valid.
-        unsafe { Self::from_inner_rw_lock(NonNull::from_raw_parts(lock, metadata)) }
+        // SAFETY: User-upheld invariants.
+        unsafe { Self::from_inner_rw_lock(InnerRwLock::from_poison_lock_with_metadata(lock, metadata)) }
     }
 
     /// Converts a pointer to a `InnerRwLock<T>` into a pointer to an `InnerArc<T>`.

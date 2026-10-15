@@ -1,4 +1,4 @@
-use crate::{ArcMappedRwLock, MappedRwLock, arc::InnerArc, lock::InnerRwLock};
+use crate::{ArcMappedRwLock, arc::InnerArc, lock::InnerRwLock};
 use std::{
     alloc::{Allocator, AllocatorClone, Global},
     iter::FusedIterator,
@@ -10,27 +10,67 @@ use std::{
 };
 
 pub struct ChunksExact<T, U: ?Sized = dyn Send + Sync + 'static, A: Allocator = Global> {
-    pub(crate) remainder: NonNull<[T]>,
-    pub(crate) slice: NonNull<[T]>,
-    pub(crate) chunk_size: NonZeroUsize,
-    pub(crate) allocation: NonNull<InnerRwLock<U>>,
-    pub(crate) allocator: A,
+    remainder: NonNull<[T]>,
+    slice: NonNull<[T]>,
+    chunk_size: NonZeroUsize,
+    allocation: NonNull<InnerRwLock<U>>,
+    allocator: A,
 }
 
 impl<T, U: ?Sized, A: Allocator> ChunksExact<T, U, A> {
+    /// Creates a new instance of `ChunksExact`.
+    ///
+    /// # Safety
+    ///
+    /// - `slice` points to a valid and live slice.
+    /// - `allocation` points to a valid and live `InnerRwLock<U>`.
+    /// - Both `slice` and `allocation` are derived from a pointer to the same instance of `InnerArc`.
+    /// - The underlying allocation has been allocated using `allocator` or a valid clone of its.
+    /// - There are no locks with mutable access to the slice.
+    #[inline]
+    pub(crate) const unsafe fn from_raw_parts(
+        slice: NonNull<[T]>,
+        allocation: NonNull<InnerRwLock<U>>,
+        chunk_size: NonZeroUsize,
+        allocator: A,
+    ) -> Self {
+        let (ptr, len) = slice.to_raw_parts();
+        let ptr = ptr.cast::<T>();
+        let remainder = len % chunk_size.get();
+        let len_chunks = len - remainder;
+        Self {
+            remainder: NonNull::from_raw_parts(
+                // SAFETY: By construction, `ptr` points to a slice which contains at least `len_chunks + remainder` elements.
+                unsafe { ptr.add(len_chunks) },
+                remainder,
+            ),
+            slice: NonNull::from_raw_parts(ptr, len_chunks),
+            chunk_size,
+            allocation,
+            allocator,
+        }
+    }
+
     pub const fn into_remainder(self) -> ArcMappedRwLock<[T], U, A> {
         // SAFETY: All fields of `self` are forgotten immediately after
         //         reading them out of the pointers.
-        let subfield = unsafe { (&raw const self.remainder).read() };
-        let inner = unsafe { (&raw const self.allocation).read() };
+        let data = unsafe { (&raw const self.remainder).read() };
+        let allocation = unsafe { (&raw const self.allocation).read() };
         let allocator = unsafe { (&raw const self.allocator).read() };
         mem::forget(self);
-        ArcMappedRwLock {
-            lock: MappedRwLock {
-                lock: inner,
-                data: subfield,
-            },
-            allocator,
+        unsafe {
+            // SAFETY: - By construction, `data` and `allocation` are pointers derived
+            //           from a pointer to a valid and live `InnerRwLock`.
+            //         - Using the actual metadata of the allocation.
+            //         - `ArcMappedRwLock` does not provide mutable
+            //           access to this lock so no write operations can be performed using it.
+            ArcMappedRwLock::from_raw_parts(
+                // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).poison_lock),
+                data,
+                allocation.to_raw_parts().1,
+                allocator,
+            )
         }
     }
 }
@@ -41,7 +81,7 @@ impl<T, U: ?Sized, A: Allocator> Drop for ChunksExact<T, U, A> {
         let (allocation, layout) = unsafe { InnerArc::from_inner_rw_lock(self.allocation) };
         if unsafe { InnerArc::decrement_shared_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
-            if const { mem::needs_drop::<InnerArc<[T]>>() } {
+            if const { mem::needs_drop::<InnerArc<U>>() } {
                 // SAFETY: - By construction, `allocation` points to live and valid data.
                 //         - Ensured this was the last handle to this allocation.
                 unsafe {
@@ -98,12 +138,19 @@ impl<T, U: ?Sized, A: AllocatorClone> Iterator for ChunksExact<T, U, A> {
             }) {
                 process::abort()
             }
-            Some(ArcMappedRwLock {
-                lock: MappedRwLock {
-                    lock: self.allocation,
-                    data: NonNull::from_raw_parts(ptr, self.chunk_size.get()),
-                },
-                allocator: self.allocator.clone(),
+            Some(unsafe {
+                // SAFETY: - By construction, the computed pointer and `self.allocation` are pointers derived
+                //           from a pointer to a valid and live `InnerRwLock`.
+                //         - Using the actual metadata of the allocation.
+                //         - `ArcMappedRwLock` does not provide mutable
+                //           access to this lock so no write operations can be performed using it.
+                ArcMappedRwLock::from_raw_parts(
+                    // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                    NonNull::new_unchecked(&raw mut (*self.allocation.as_ptr()).poison_lock),
+                    NonNull::from_raw_parts(ptr, self.chunk_size.get()),
+                    self.allocation.to_raw_parts().1,
+                    self.allocator.clone(),
+                )
             })
         } else {
             None
@@ -130,16 +177,23 @@ impl<T, U: ?Sized, A: AllocatorClone> DoubleEndedIterator for ChunksExact<T, U, 
             }) {
                 process::abort()
             }
-            Some(ArcMappedRwLock {
-                lock: MappedRwLock {
-                    lock: self.allocation,
-                    data: NonNull::from_raw_parts(
+            Some(unsafe {
+                // SAFETY: - By construction, the computed pointer and `self.allocation` are pointers derived
+                //           from a pointer to a valid and live `InnerRwLock`.
+                //         - Using the actual metadata of the allocation.
+                //         - `ArcMappedRwLock` does not provide mutable
+                //           access to this lock so no write operations can be performed using it.
+                ArcMappedRwLock::from_raw_parts(
+                    // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                    NonNull::new_unchecked(&raw mut (*self.allocation.as_ptr()).poison_lock),
+                    NonNull::from_raw_parts(
                         // SAFETY: By construction, 'ptr' points to a slice which contains at least `len + self.chunk_size` elements.
-                        unsafe { ptr.add(len) },
+                        ptr.add(len),
                         self.chunk_size.get(),
                     ),
-                },
-                allocator: self.allocator.clone(),
+                    self.allocation.to_raw_parts().1,
+                    self.allocator.clone(),
+                )
             })
         } else {
             None

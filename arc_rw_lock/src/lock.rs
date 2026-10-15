@@ -24,7 +24,7 @@ mod mapped {
         ///
         /// - `lock` points to a valid and live `PoisonLock`.
         /// - `data` points to a valid and live instance of `T`
-        /// - Both `lock` and `data` are derived from the same instance of `InnerArc`.
+        /// - Both `lock` and `data` are derived from a pointer to the same instance of `InnerArc`.
         /// - If there are other locks pointing to the pointee of `data`,
         ///   neither they nor the one returned by this function shall be used
         ///   to mutate the data.
@@ -42,6 +42,11 @@ mod mapped {
         #[inline]
         pub(crate) const unsafe fn clone(&self) -> Self {
             Self { ..*self }
+        }
+
+        #[inline]
+        pub(crate) const fn get_data(&self) -> NonNull<T> {
+            self.data
         }
 
         #[inline]

@@ -3,22 +3,45 @@ use std::{
     alloc::{Allocator, AllocatorClone, Global},
     iter::FusedIterator,
     mem, process,
-    ptr::NonNull,
+    ptr::Pointee,
     sync::atomic::{self, Ordering},
 };
 
 pub struct Iter<T, U: ?Sized = dyn Send + Sync + 'static, A: Allocator = Global> {
-    pub(crate) lock: MappedRwLock<[T], U>,
-    pub(crate) allocator: A,
+    lock: MappedRwLock<[T]>,
+    metadata: <U as Pointee>::Metadata,
+    allocator: A,
+}
+
+impl<T, U: ?Sized, A: Allocator> Iter<T, U, A> {
+    /// Creates a new instance of `Iter`.
+    ///
+    /// # Safety
+    ///
+    /// See [`ArcMappedRwLock::from_lock`].
+    #[inline]
+    pub(crate) const unsafe fn from_lock(
+        lock: MappedRwLock<[T]>,
+        metadata: <U as Pointee>::Metadata,
+        allocator: A,
+    ) -> Self {
+        Self {
+            lock,
+            metadata,
+            allocator,
+        }
+    }
 }
 
 impl<T, U: ?Sized, A: Allocator> Drop for Iter<T, U, A> {
     fn drop(&mut self) {
-        // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.
-        let (allocation, layout) = unsafe { InnerArc::from_lock(self.lock.inner) };
+        // SAFETY: - By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
+        //         - By construction, `self.metadata` is the metadata of the underlying allocation.
+        let (allocation, layout) =
+            unsafe { InnerArc::<U>::from_poison_lock_with_metadata(self.lock.get_lock(), self.metadata) };
         if unsafe { InnerArc::decrement_shared_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
-            if const { mem::needs_drop::<InnerArc<[T]>>() } {
+            if const { mem::needs_drop::<InnerArc<U>>() } {
                 // SAFETY: - By construction, `allocation` points to live and valid data.
                 //         - Ensured this was the last handle to this allocation.
                 unsafe {
@@ -53,75 +76,53 @@ impl<T, U: ?Sized, A: AllocatorClone> Iterator for Iter<T, U, A> {
     type Item = ArcMappedRwLock<T, U, A>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (ptr, len) = self.lock.subfield.to_raw_parts();
-        if len > 0 {
-            let ptr = ptr.cast::<T>();
-            unsafe {
-                self.lock.subfield = NonNull::from_raw_parts(
-                    // SAFETY: By construction, `ptr` points to a slice which contains at least one element.
-                    ptr.add(1),
-                    // SAFETY: Checked above that `len > 0`.
-                    len.unchecked_sub(1),
-                );
+        match unsafe { self.lock.split_off_first() } {
+            Some(lock) => {
+                if crate::unlikely(unsafe {
+                    // SAFETY: See below.
+                    InnerArc::increment_shared_counter(
+                        // SAFETY: - By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
+                        //         - By construction, `self.metadata` is the metadata of the underlying allocation.
+                        InnerArc::<U>::from_poison_lock_with_metadata(self.lock.get_lock(), self.metadata).0,
+                        Ordering::Release,
+                    )
+                }) {
+                    process::abort()
+                }
+                // SAFETY: By construction, this allocation has been allocated by this allocator.
+                unsafe { Some(ArcMappedRwLock::from_lock(lock, self.metadata, self.allocator.clone())) }
             }
-            if crate::unlikely(unsafe {
-                // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
-                InnerArc::increment_shared_counter(
-                    // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.
-                    InnerArc::from_lock(self.lock.inner).0,
-                    Ordering::Release,
-                )
-            }) {
-                process::abort()
-            }
-            Some(ArcMappedRwLock {
-                lock: MappedRwLock {
-                    inner: self.lock.inner,
-                    subfield: ptr,
-                },
-                allocator: self.allocator.clone(),
-            })
-        } else {
-            None
+            None => None,
         }
     }
 }
 
 impl<T, U: ?Sized, A: AllocatorClone> DoubleEndedIterator for Iter<T, U, A> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        let (ptr, mut len) = self.lock.subfield.to_raw_parts();
-        if len > 0 {
-            // SAFETY: Checked above that `len > 0`.
-            len = unsafe { len.unchecked_sub(1) };
-            let ptr = ptr.cast::<T>();
-            self.lock.subfield = NonNull::from_raw_parts(ptr, len);
-            if crate::unlikely(unsafe {
-                // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
-                InnerArc::increment_shared_counter(
-                    // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.
-                    InnerArc::from_lock(self.lock.inner).0,
-                    Ordering::Release,
-                )
-            }) {
-                process::abort()
+        match unsafe { self.lock.split_off_last() } {
+            Some(lock) => {
+                if crate::unlikely(unsafe {
+                    // SAFETY: See below.
+                    InnerArc::increment_shared_counter(
+                        // SAFETY: - By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
+                        //         - By construction, `self.metadata` is the metadata of the underlying allocation.
+                        InnerArc::<U>::from_poison_lock_with_metadata(self.lock.get_lock(), self.metadata).0,
+                        Ordering::Release,
+                    )
+                }) {
+                    process::abort()
+                }
+                // SAFETY: By construction, this allocation has been allocated by this allocator.
+                unsafe { Some(ArcMappedRwLock::from_lock(lock, self.metadata, self.allocator.clone())) }
             }
-            Some(ArcMappedRwLock {
-                lock: MappedRwLock {
-                    inner: self.lock.inner,
-                    // SAFETY: By construction, `ptr` points to a slice which contains at least `len + 1` elements.
-                    subfield: unsafe { ptr.add(len) },
-                },
-                allocator: self.allocator.clone(),
-            })
-        } else {
-            None
+            None => None,
         }
     }
 }
 
 impl<T, U: ?Sized, A: AllocatorClone> ExactSizeIterator for Iter<T, U, A> {
     fn len(&self) -> usize {
-        self.lock.subfield.len()
+        self.lock.get_data().len()
     }
 }
 
@@ -130,17 +131,21 @@ impl<T, U: ?Sized, A: AllocatorClone> FusedIterator for Iter<T, U, A> {}
 impl<T, U: ?Sized, A: AllocatorClone> Clone for Iter<T, U, A> {
     fn clone(&self) -> Self {
         if unsafe {
-            // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
+            // SAFETY: See below.
             InnerArc::increment_shared_counter(
-                // SAFETY: `lock.lock.inner` has been allocated as a part of an `InnerArc`.
-                InnerArc::from_lock(self.lock.inner).0,
+                // SAFETY: - By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
+                //         - By construction, `self.metadata` is the metadata of the underlying allocation.
+                InnerArc::<U>::from_poison_lock_with_metadata(self.lock.get_lock(), self.metadata).0,
                 Ordering::Release,
             )
         } {
             process::abort();
         }
         Self {
-            lock: MappedRwLock { ..self.lock },
+            // SAFETY: `ArcMappedRwLock` does not provide mutable
+            //         access to this lock so no write operations can be performed using it.
+            lock: unsafe { self.lock.clone() },
+            metadata: self.metadata,
             allocator: self.allocator.clone(),
         }
     }
