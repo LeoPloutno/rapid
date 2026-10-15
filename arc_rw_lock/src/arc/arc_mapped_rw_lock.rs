@@ -11,18 +11,41 @@ use std::{
     marker::Unsize,
     mem::{self, MaybeUninit},
     num::NonZeroUsize,
-    ops::{CoerceUnsized, Deref},
+    ops::{CoerceUnsized, Deref, OneSidedRange, OneSidedRangeBound},
     process,
-    ptr::NonNull,
+    ptr::{NonNull, Pointee},
     sync::atomic::{self, AtomicUsize, Ordering},
 };
 
 pub struct ArcMappedRwLock<T: ?Sized, U: ?Sized = dyn Send + Sync + 'static, A: Allocator = Global> {
-    pub(crate) lock: MappedRwLock<T, U>,
+    pub(crate) lock: MappedRwLock<T>,
+    pub(crate) metadata: <U as Pointee>::Metadata,
     pub(crate) allocator: A,
 }
 
 impl<T: ?Sized, U: ?Sized, A: Allocator> ArcMappedRwLock<T, U, A> {
+    /// Creates a new instance of `ArcMappedRwLock<T, U, A>` from raw parts.
+    ///
+    /// # Safety
+    ///
+    /// - `metadata` is the same as the metadata of the
+    ///   `InnerArc<U>` from which `lock` and `data` are derived.
+    /// - The underlying allocation has been allocated using `allocator` or a valid clone of its.
+    /// - See [`MappedRwLock::from_raw_parts`]
+    #[inline]
+    pub(crate) const unsafe fn from_raw_parts(
+        lock: NonNull<PoisonLock>,
+        data: NonNull<T>,
+        metadata: <U as Pointee>::Metadata,
+        allocator: A,
+    ) -> Self {
+        Self {
+            lock: unsafe { MappedRwLock::from_raw_parts(lock, data) },
+            metadata,
+            allocator,
+        }
+    }
+
     pub const fn allocator(this: &Self) -> &A {
         &this.allocator
     }
@@ -94,19 +117,29 @@ where
         unsafe {
             allocation.write(inner);
         }
-        // SAFETY: A pointer to a field of a live and valid struct is non-null.
-        let inner = unsafe { NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock) };
         Ok((
-            Self {
-                lock: MappedRwLock {
-                    inner,
+            unsafe {
+                // SAFETY: - Provided a clone of the allocator, where `A: AllocatorClone`.,
+                //         - Both pointers are derived from a valid and live allocation
+                //           of `InnerArc`.
+                //         - Neither `ArcMappedRwLock` nor `ArcReaderLock` provide mutable
+                //           access to this lock so no write operations can be performed using it.
+                Self::from_raw_parts(
                     // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                    subfield: unsafe { NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock.data) },
-                },
-                allocator: alloc.clone(),
+                    NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock.poison_lock),
+                    NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock.data),
+                    (),
+                    alloc.clone(),
+                )
             },
             ArcReaderLock {
-                lock: ReaderLock(inner),
+                lock: unsafe {
+                    // SAFETY: The pointer is derived from a valid and live allocation of `InnerArc`.
+                    ReaderLock::from_raw_parts(
+                        // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                        NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
+                    )
+                },
                 allocator: alloc,
             },
         ))
@@ -133,19 +166,29 @@ where
             (&raw mut (*ptr).counter).write(AtomicUsize::new(InnerArc::<MaybeUninit<T>>::SHARED_COUNTER_ONE));
             (&raw mut (*ptr).lock.poison_lock).write(PoisonLock::new());
         }
-        // SAFETY: A pointer to a field of a live and valid struct is non-null.
-        let inner = unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock) };
         Ok((
-            ArcMappedRwLock {
-                lock: MappedRwLock {
-                    inner,
+            unsafe {
+                // SAFETY: - Provided a clone of the allocator, where `A: AllocatorClone`.,
+                //         - Both pointers are derived from a valid and live allocation
+                //           of `InnerArc`.
+                //         - Neither `ArcMappedRwLock` nor `ArcReaderLock` provide mutable
+                //           access to this lock so no write operations can be performed using it.
+                ArcMappedRwLock::from_raw_parts(
                     // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                    subfield: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
-                },
-                allocator: alloc.clone(),
+                    NonNull::new_unchecked(&raw mut (*ptr).lock.poison_lock),
+                    NonNull::new_unchecked(&raw mut (*ptr).lock.data),
+                    (),
+                    alloc.clone(),
+                )
             },
             ArcReaderLock {
-                lock: ReaderLock(inner),
+                lock: unsafe {
+                    // SAFETY: The pointer is derived from a valid and live allocation of `InnerArc`.
+                    ReaderLock::from_raw_parts(
+                        // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                        NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
+                    )
+                },
                 allocator: alloc,
             },
         ))
@@ -172,19 +215,29 @@ where
             (&raw mut (*ptr).counter).write(AtomicUsize::new(InnerArc::<MaybeUninit<T>>::SHARED_COUNTER_ONE));
             (&raw mut (*ptr).lock.poison_lock).write(PoisonLock::new());
         }
-        // SAFETY: A pointer to a field of a live and valid struct is non-null.
-        let inner = unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock) };
         Ok((
-            ArcMappedRwLock {
-                lock: MappedRwLock {
-                    inner,
+            unsafe {
+                // SAFETY: - Provided a clone of the allocator, where `A: AllocatorClone`.,
+                //         - Both pointers are derived from a valid and live allocation
+                //           of `InnerArc`.
+                //         - Neither `ArcMappedRwLock` nor `ArcReaderLock` provide mutable
+                //           access to this lock so no write operations can be performed using it.
+                ArcMappedRwLock::from_raw_parts(
                     // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                    subfield: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
-                },
-                allocator: alloc.clone(),
+                    NonNull::new_unchecked(&raw mut (*ptr).lock.poison_lock),
+                    NonNull::new_unchecked(&raw mut (*ptr).lock.data),
+                    (),
+                    alloc.clone(),
+                )
             },
             ArcReaderLock {
-                lock: ReaderLock(inner),
+                lock: unsafe {
+                    // SAFETY: The pointer is derived from a valid and live allocation of `InnerArc`.
+                    ReaderLock::from_raw_parts(
+                        // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                        NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
+                    )
+                },
                 allocator: alloc,
             },
         ))
@@ -331,19 +384,38 @@ where
             (&raw mut (*ptr).counter).write(AtomicUsize::new(1));
             (&raw mut (*ptr).lock.poison_lock).write(PoisonLock::new());
         }
-        // SAFETY: A pointer to a field of a live and valid struct is non-null.
-        let inner = unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock) };
         Ok((
-            ArcMappedRwLock {
-                lock: MappedRwLock {
-                    inner,
+            // ArcMappedRwLock {
+            //     lock: MappedRwLock {
+            //         lock: inner,
+            //         // SAFETY: A pointer to a field of a live and valid struct is non-null.
+            //         data: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
+            //     },
+            //     allocator: alloc.clone(),
+            // },
+            unsafe {
+                // SAFETY: - By construction, `len` is the length of the unsized part of the allocation.
+                //         - Provided a clone of the allocator, where `A: AllocatorClone`.,
+                //         - Both pointers are derived from a valid and live allocation
+                //           of `InnerArc`.
+                //         - Neither `ArcMappedRwLock` nor `ArcReaderLock` provide mutable
+                //           access to this lock so no write operations can be performed using it.
+                ArcMappedRwLock::from_raw_parts(
                     // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                    subfield: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
-                },
-                allocator: alloc.clone(),
+                    NonNull::new_unchecked(&raw mut (*ptr).lock.poison_lock),
+                    NonNull::new_unchecked(&raw mut (*ptr).lock.data),
+                    len,
+                    alloc.clone(),
+                )
             },
             ArcReaderLock {
-                lock: ReaderLock(inner),
+                lock: unsafe {
+                    // SAFETY: The pointer is derived from a valid and live allocation of `InnerArc`.
+                    ReaderLock::from_raw_parts(
+                        // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                        NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
+                    )
+                },
                 allocator: alloc,
             },
         ))
@@ -371,19 +443,38 @@ where
             (&raw mut (*ptr).counter).write(AtomicUsize::new(1));
             (&raw mut (*ptr).lock.poison_lock).write(PoisonLock::new());
         }
-        // SAFETY: A pointer to a field of a live and valid struct is non-null.
-        let inner = unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock) };
         Ok((
-            ArcMappedRwLock {
-                lock: MappedRwLock {
-                    inner,
+            // ArcMappedRwLock {
+            //     lock: MappedRwLock {
+            //         lock: inner,
+            //         // SAFETY: A pointer to a field of a live and valid struct is non-null.
+            //         data: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
+            //     },
+            //     allocator: alloc.clone(),
+            // },
+            unsafe {
+                // SAFETY: - By construction, `len` is the length of the unsized part of the allocation.
+                //         - Provided a clone of the allocator, where `A: AllocatorClone`.,
+                //         - Both pointers are derived from a valid and live allocation
+                //           of `InnerArc`.
+                //         - Neither `ArcMappedRwLock` nor `ArcReaderLock` provide mutable
+                //           access to this lock so no write operations can be performed using it.
+                ArcMappedRwLock::from_raw_parts(
                     // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                    subfield: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
-                },
-                allocator: alloc.clone(),
+                    NonNull::new_unchecked(&raw mut (*ptr).lock.poison_lock),
+                    NonNull::new_unchecked(&raw mut (*ptr).lock.data),
+                    len,
+                    alloc.clone(),
+                )
             },
             ArcReaderLock {
-                lock: ReaderLock(inner),
+                lock: unsafe {
+                    // SAFETY: The pointer is derived from a valid and live allocation of `InnerArc`.
+                    ReaderLock::from_raw_parts(
+                        // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                        NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
+                    )
+                },
                 allocator: alloc,
             },
         ))
@@ -458,10 +549,9 @@ impl<T, U, A: Allocator> ArcMappedRwLock<MaybeUninit<T>, MaybeUninit<U>, A> {
         let allocator = unsafe { (&raw const self.allocator).read() };
         mem::forget(self);
         ArcMappedRwLock {
-            lock: MappedRwLock {
-                inner: lock.inner.cast(),
-                subfield: lock.subfield.cast(),
-            },
+            // SAFETY: User-upheld invariant.
+            lock: unsafe { lock.assume_init() },
+            metadata: (),
             allocator,
         }
     }
@@ -472,16 +562,13 @@ impl<T, A: Allocator> ArcMappedRwLock<MaybeUninit<T>, [MaybeUninit<T>], A> {
         // SAFETY: All fields of `self` are forgotten immediately after
         //         reading them out of the pointers.
         let lock = unsafe { (&raw const self.lock).read() };
+        let metadata = unsafe { (&raw const self.metadata).read() };
         let allocator = unsafe { (&raw const self.allocator).read() };
         mem::forget(self);
         ArcMappedRwLock {
-            lock: MappedRwLock {
-                inner: {
-                    let (ptr, len) = lock.inner.to_raw_parts();
-                    NonNull::from_raw_parts(ptr, len)
-                },
-                subfield: lock.subfield.cast(),
-            },
+            // SAFETY: User-upheld invariant.
+            lock: unsafe { lock.assume_init() },
+            metadata,
             allocator,
         }
     }
@@ -492,19 +579,13 @@ impl<T, A: Allocator> ArcMappedRwLock<[MaybeUninit<T>], [MaybeUninit<T>], A> {
         // SAFETY: All fields of `self` are forgotten immediately after
         //         reading them out of the pointers.
         let lock = unsafe { (&raw const self.lock).read() };
+        let metadata = unsafe { (&raw const self.metadata).read() };
         let allocator = unsafe { (&raw const self.allocator).read() };
         mem::forget(self);
         ArcMappedRwLock {
-            lock: MappedRwLock {
-                inner: {
-                    let (ptr, len) = lock.inner.to_raw_parts();
-                    NonNull::from_raw_parts(ptr, len)
-                },
-                subfield: {
-                    let (ptr, len) = lock.subfield.to_raw_parts();
-                    NonNull::from_raw_parts(ptr, len)
-                },
-            },
+            // SAFETY: User-upheld invariant.
+            lock: unsafe { lock.assume_init() },
+            metadata,
             allocator,
         }
     }
@@ -528,7 +609,10 @@ impl<T, U: ?Sized, A: Allocator> ArcMappedRwLock<[T], U, A> {
 
         // SAFETY: All fields of `self` are forgotten immediately after
         //         reading them out of the pointers.
-        let MappedRwLock { inner, subfield: slice } = unsafe { (&raw const self.lock).read() };
+        let MappedRwLock {
+            lock: allocation,
+            data: slice,
+        } = unsafe { (&raw const self.lock).read() };
         let allocator = unsafe { (&raw const self.allocator).read() };
         mem::forget(self);
 
@@ -538,14 +622,12 @@ impl<T, U: ?Sized, A: Allocator> ArcMappedRwLock<[T], U, A> {
         let len_chunks = len - remainder;
 
         ChunksExact {
-            remainder_lock: MappedRwLock {
-                inner,
-                subfield: NonNull::from_raw_parts(
-                    // SAFETY: By construction, `ptr` points to a slice which contains at least `len_chunks + remainder` elements.
-                    unsafe { ptr.add(len_chunks) },
-                    remainder,
-                ),
-            },
+            allocation,
+            remainder: NonNull::from_raw_parts(
+                // SAFETY: By construction, `ptr` points to a slice which contains at least `len_chunks + remainder` elements.
+                unsafe { ptr.add(len_chunks) },
+                remainder,
+            ),
             slice: NonNull::from_raw_parts(ptr, len_chunks),
             chunk_size,
             allocator,
@@ -553,10 +635,99 @@ impl<T, U: ?Sized, A: Allocator> ArcMappedRwLock<[T], U, A> {
     }
 }
 
+impl<T, U: ?Sized, A: AllocatorClone> ArcMappedRwLock<[T], U, A> {
+    pub fn split_at(self, mid: usize) -> (Self, Self) {
+        match self.split_at_checked(mid) {
+            Ok(pair) => pair,
+            Err(_) => panic!("mid > len"),
+        }
+    }
+
+    pub fn split_at_checked(mut self, mid: usize) -> Result<(Self, Self), Self> {
+        match unsafe {
+            self.lock
+                // SAFETY: Temporary value; Not used to mutate anything.
+                .clone()
+                // SAFETY: `ArcMappedRwLock` does not provide mutable
+                //         access to this lock so no write operations can be performed using it.
+                .split_at_checked(mid)
+        } {
+            Ok((left, right)) => {
+                self.lock = left;
+                let (metadata, allocator) = (self.metadata, self.allocator.clone());
+                Ok((
+                    self,
+                    Self {
+                        lock: right,
+                        metadata,
+                        allocator,
+                    },
+                ))
+            }
+            Err(_) => Err(self),
+        }
+    }
+
+    pub fn split_first(mut self) -> Result<(ArcMappedRwLock<T, U, A>, Self), Self> {
+        match self.split_off_first() {
+            Some(first) => Ok((first, self)),
+            None => Err(self),
+        }
+    }
+
+    pub fn split_last(mut self) -> Result<(ArcMappedRwLock<T, U, A>, Self), Self> {
+        match self.split_off_last() {
+            Some(last) => Ok((last, self)),
+            None => Err(self),
+        }
+    }
+
+    pub fn split_off<R: OneSidedRange<usize>>(&mut self, range: R) -> Option<Self> {
+        // SAFETY: `ArcMappedRwLock` does not provide mutable
+        //         access to this lock so no write operations can be performe
+        match unsafe { self.lock.split_off(range) } {
+            Some(lock) => Some(Self {
+                lock,
+                metadata: self.metadata,
+                allocator: self.allocator.clone(),
+            }),
+            None => None,
+        }
+    }
+
+    pub fn split_off_first(&mut self) -> Option<ArcMappedRwLock<T, U, A>> {
+        // SAFETY: `ArcMappedRwLock` does not provide mutable
+        //         access to this lock so no write operations can be performe
+        match unsafe { self.lock.split_off_first() } {
+            Some(lock) => Some(ArcMappedRwLock {
+                lock,
+                metadata: self.metadata,
+                allocator: self.allocator.clone(),
+            }),
+            None => None,
+        }
+    }
+
+    pub fn split_off_last(&mut self) -> Option<ArcMappedRwLock<T, U, A>> {
+        // SAFETY: `ArcMappedRwLock` does not provide mutable
+        //         access to this lock so no write operations can be performe
+        match unsafe { self.lock.split_off_last() } {
+            Some(lock) => Some(ArcMappedRwLock {
+                lock,
+                metadata: self.metadata,
+                allocator: self.allocator.clone(),
+            }),
+            None => None,
+        }
+    }
+}
+
 impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for ArcMappedRwLock<T, U, A> {
     fn drop(&mut self) {
-        // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.
-        let (allocation, layout) = unsafe { InnerArc::from_lock(self.lock.inner) };
+        // SAFETY: - By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
+        //         - By construction, `self.metadata` is the metadata of the underlying allocation.
+        let (allocation, layout) =
+            unsafe { InnerArc::<U>::from_inner_poison_lock_with_metadata(self.lock.get_lock(), self.metadata) };
         if unsafe { InnerArc::decrement_shared_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
             if const { mem::needs_drop::<InnerArc<U>>() } {
@@ -575,21 +746,21 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for ArcMappedRwLock<T, U, A> {
 }
 
 impl<T: ?Sized, U: ?Sized, A: Allocator> Deref for ArcMappedRwLock<T, U, A> {
-    type Target = MappedRwLock<T, U>;
+    type Target = MappedRwLock<T>;
 
-    fn deref(&self) -> &MappedRwLock<T, U> {
+    fn deref(&self) -> &MappedRwLock<T> {
         &self.lock
     }
 }
 
-impl<T: ?Sized, U: ?Sized, A: Allocator> AsRef<MappedRwLock<T, U>> for ArcMappedRwLock<T, U, A> {
-    fn as_ref(&self) -> &MappedRwLock<T, U> {
+impl<T: ?Sized, U: ?Sized, A: Allocator> AsRef<MappedRwLock<T>> for ArcMappedRwLock<T, U, A> {
+    fn as_ref(&self) -> &MappedRwLock<T> {
         &self.lock
     }
 }
 
-impl<T: ?Sized, U: ?Sized, A: Allocator> Borrow<MappedRwLock<T, U>> for ArcMappedRwLock<T, U, A> {
-    fn borrow(&self) -> &MappedRwLock<T, U> {
+impl<T: ?Sized, U: ?Sized, A: Allocator> Borrow<MappedRwLock<T>> for ArcMappedRwLock<T, U, A> {
+    fn borrow(&self) -> &MappedRwLock<T> {
         &self.lock
     }
 }
@@ -623,15 +794,19 @@ impl<T: ?Sized, U: ?Sized, A: AllocatorClone> Clone for ArcMappedRwLock<T, U, A>
         if unsafe {
             // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
             InnerArc::increment_shared_counter(
-                // SAFETY: `lock.inner` has been allocated as a part of an `InnerArc`.
-                InnerArc::from_lock(self.lock.inner).0,
+                // SAFETY: - By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
+                //         - By construction, `self.metadata` is the metadata of the underlying allocation.
+                InnerArc::<U>::from_inner_poison_lock_with_metadata(self.lock.get_lock(), self.metadata).0,
                 Ordering::Release,
             )
         } {
             process::abort();
         }
         Self {
-            lock: MappedRwLock { ..self.lock },
+            // SAFETY: `ArcMappedRwLock` does not provide mutable
+            //         access to this lock so no write operations can be performed using it.
+            lock: unsafe { self.lock.clone() },
+            metadata: self.metadata,
             allocator: self.allocator.clone(),
         }
     }

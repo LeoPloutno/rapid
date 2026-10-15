@@ -35,7 +35,7 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> UniqueArcMappedRwLock<T, U, A> {
         mem::forget(self);
         unsafe {
             // SAFETY: `lock.inner` has been allocated as a part of an `InnerArc`.
-            let allocation = InnerArc::from_lock(lock.inner).0;
+            let allocation = InnerArc::from_inner_rw_lock(lock.lock).0;
             // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
             if InnerArc::increment_shared_counter(allocation, Ordering::Relaxed) {
                 process::abort();
@@ -117,9 +117,9 @@ where
         Ok((
             Self {
                 lock: MappedRwLock {
-                    inner,
+                    lock: inner,
                     // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                    subfield: unsafe { NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock.data) },
+                    data: unsafe { NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock.data) },
                 },
                 allocator: alloc.clone(),
             },
@@ -156,9 +156,9 @@ where
         Ok((
             UniqueArcMappedRwLock {
                 lock: MappedRwLock {
-                    inner,
+                    lock: inner,
                     // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                    subfield: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
+                    data: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
                 },
                 allocator: alloc.clone(),
             },
@@ -195,9 +195,9 @@ where
         Ok((
             UniqueArcMappedRwLock {
                 lock: MappedRwLock {
-                    inner,
+                    lock: inner,
                     // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                    subfield: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
+                    data: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
                 },
                 allocator: alloc.clone(),
             },
@@ -354,9 +354,9 @@ where
         Ok((
             UniqueArcMappedRwLock {
                 lock: MappedRwLock {
-                    inner,
+                    lock: inner,
                     // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                    subfield: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
+                    data: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
                 },
                 allocator: alloc.clone(),
             },
@@ -394,9 +394,9 @@ where
         Ok((
             UniqueArcMappedRwLock {
                 lock: MappedRwLock {
-                    inner,
+                    lock: inner,
                     // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                    subfield: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
+                    data: unsafe { NonNull::new_unchecked(&raw mut (*ptr).lock.data) },
                 },
                 allocator: alloc.clone(),
             },
@@ -477,8 +477,8 @@ impl<T, U, A: Allocator> UniqueArcMappedRwLock<MaybeUninit<T>, MaybeUninit<U>, A
         mem::forget(self);
         UniqueArcMappedRwLock {
             lock: MappedRwLock {
-                inner: lock.inner.cast(),
-                subfield: lock.subfield.cast(),
+                lock: lock.lock.cast(),
+                data: lock.data.cast(),
             },
             allocator,
         }
@@ -494,11 +494,11 @@ impl<T, A: Allocator> UniqueArcMappedRwLock<MaybeUninit<T>, [MaybeUninit<T>], A>
         mem::forget(self);
         UniqueArcMappedRwLock {
             lock: MappedRwLock {
-                inner: {
-                    let (ptr, len) = lock.inner.to_raw_parts();
+                lock: {
+                    let (ptr, len) = lock.lock.to_raw_parts();
                     NonNull::from_raw_parts(ptr, len)
                 },
-                subfield: lock.subfield.cast(),
+                data: lock.data.cast(),
             },
             allocator,
         }
@@ -514,12 +514,12 @@ impl<T, A: Allocator> UniqueArcMappedRwLock<[MaybeUninit<T>], [MaybeUninit<T>], 
         mem::forget(self);
         UniqueArcMappedRwLock {
             lock: MappedRwLock {
-                inner: {
-                    let (ptr, len) = lock.inner.to_raw_parts();
+                lock: {
+                    let (ptr, len) = lock.lock.to_raw_parts();
                     NonNull::from_raw_parts(ptr, len)
                 },
-                subfield: {
-                    let (ptr, len) = lock.subfield.to_raw_parts();
+                data: {
+                    let (ptr, len) = lock.data.to_raw_parts();
                     NonNull::from_raw_parts(ptr, len)
                 },
             },
@@ -546,7 +546,10 @@ impl<T, U: ?Sized, A: Allocator> UniqueArcMappedRwLock<[T], U, A> {
 
         // SAFETY: All fields of `self` are forgotten immediately after
         //         reading them out of the pointers.
-        let MappedRwLock { inner, subfield: slice } = unsafe { (&raw const self.lock).read() };
+        let MappedRwLock {
+            lock: allocation,
+            data: slice,
+        } = unsafe { (&raw const self.lock).read() };
         let allocator = unsafe { (&raw const self.allocator).read() };
         mem::forget(self);
 
@@ -556,14 +559,12 @@ impl<T, U: ?Sized, A: Allocator> UniqueArcMappedRwLock<[T], U, A> {
         let len_chunks = len - remainder;
 
         ChunksExactMut {
-            remainder_lock: MappedRwLock {
-                inner,
-                subfield: NonNull::from_raw_parts(
-                    // SAFETY: By construction, `ptr` points to a slice which contains at least `len_chunks + remainder` elements.
-                    unsafe { ptr.add(len_chunks) },
-                    remainder,
-                ),
-            },
+            allocation,
+            remainder: NonNull::from_raw_parts(
+                // SAFETY: By construction, `ptr` points to a slice which contains at least `len_chunks + remainder` elements.
+                unsafe { ptr.add(len_chunks) },
+                remainder,
+            ),
             slice: NonNull::from_raw_parts(ptr, len_chunks),
             chunk_size,
             allocator,
@@ -574,7 +575,7 @@ impl<T, U: ?Sized, A: Allocator> UniqueArcMappedRwLock<[T], U, A> {
 impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for UniqueArcMappedRwLock<T, U, A> {
     fn drop(&mut self) {
         // SAFETY: `self.lock.inner` has been allocated as a part of an `InnerArc`.
-        let (allocation, layout) = unsafe { InnerArc::from_lock(self.lock.inner) };
+        let (allocation, layout) = unsafe { InnerArc::from_inner_rw_lock(self.lock.lock) };
         if unsafe { InnerArc::decrement_unique_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
             if const { mem::needs_drop::<InnerArc<U>>() } {

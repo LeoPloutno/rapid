@@ -1,4 +1,4 @@
-use crate::{MappedRwLock, UniqueArcMappedRwLock, arc::InnerArc};
+use crate::{MappedRwLock, UniqueArcMappedRwLock, arc::InnerArc, lock::InnerRwLock};
 use std::{
     alloc::{Allocator, AllocatorClone, Global},
     iter::FusedIterator,
@@ -10,9 +10,10 @@ use std::{
 };
 
 pub struct ChunksExactMut<T, U: ?Sized = dyn Send + Sync + 'static, A: Allocator = Global> {
-    pub(crate) remainder_lock: MappedRwLock<[T], U>,
+    pub(crate) remainder: NonNull<[T]>,
     pub(crate) slice: NonNull<[T]>,
     pub(crate) chunk_size: NonZeroUsize,
+    pub(crate) allocation: NonNull<InnerRwLock<U>>,
     pub(crate) allocator: A,
 }
 
@@ -20,17 +21,24 @@ impl<T, U: ?Sized, A: Allocator> ChunksExactMut<T, U, A> {
     pub const fn into_remainder(self) -> UniqueArcMappedRwLock<[T], U, A> {
         // SAFETY: All fields of `self` are forgotten immediately after
         //         reading them out of the pointers.
-        let lock = unsafe { (&raw const self.remainder_lock).read() };
+        let subfield = unsafe { (&raw const self.remainder).read() };
+        let inner = unsafe { (&raw const self.allocation).read() };
         let allocator = unsafe { (&raw const self.allocator).read() };
         mem::forget(self);
-        UniqueArcMappedRwLock { lock, allocator }
+        UniqueArcMappedRwLock {
+            lock: MappedRwLock {
+                lock: inner,
+                data: subfield,
+            },
+            allocator,
+        }
     }
 }
 
 impl<T, U: ?Sized, A: Allocator> Drop for ChunksExactMut<T, U, A> {
     fn drop(&mut self) {
-        // SAFETY: `self.remainder_lock.inner` has been allocated as a part of an `InnerArc`.
-        let (allocation, layout) = unsafe { InnerArc::from_lock(self.remainder_lock.inner) };
+        // SAFETY: `self.allocation` has been allocated as a part of an `InnerArc`.
+        let (allocation, layout) = unsafe { InnerArc::from_inner_rw_lock(self.allocation) };
         if unsafe { InnerArc::decrement_unique_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
             if const { mem::needs_drop::<InnerArc<[T]>>() } {
@@ -83,8 +91,8 @@ impl<T, U: ?Sized, A: AllocatorClone> Iterator for ChunksExactMut<T, U, A> {
             if crate::unlikely(unsafe {
                 // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
                 InnerArc::increment_unique_counter(
-                    // SAFETY: `self.remainder_lock.inner` has been allocated as a part of an `InnerArc`.
-                    InnerArc::from_lock(self.remainder_lock.inner).0,
+                    // SAFETY: `self.allocation` has been allocated as a part of an `InnerArc`.
+                    InnerArc::from_inner_rw_lock(self.allocation).0,
                     Ordering::Release,
                 )
             }) {
@@ -92,8 +100,8 @@ impl<T, U: ?Sized, A: AllocatorClone> Iterator for ChunksExactMut<T, U, A> {
             }
             Some(UniqueArcMappedRwLock {
                 lock: MappedRwLock {
-                    inner: self.remainder_lock.inner,
-                    subfield: NonNull::from_raw_parts(ptr, self.chunk_size.get()),
+                    lock: self.allocation,
+                    data: NonNull::from_raw_parts(ptr, self.chunk_size.get()),
                 },
                 allocator: self.allocator.clone(),
             })
@@ -115,8 +123,8 @@ impl<T, U: ?Sized, A: AllocatorClone> DoubleEndedIterator for ChunksExactMut<T, 
             if crate::unlikely(unsafe {
                 // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
                 InnerArc::increment_unique_counter(
-                    // SAFETY: `self.remainder_lock.inner` has been allocated as a part of an `InnerArc`.
-                    InnerArc::from_lock(self.remainder_lock.inner).0,
+                    // SAFETY: `self.allocation` has been allocated as a part of an `InnerArc`.
+                    InnerArc::from_inner_rw_lock(self.allocation).0,
                     Ordering::Release,
                 )
             }) {
@@ -124,8 +132,8 @@ impl<T, U: ?Sized, A: AllocatorClone> DoubleEndedIterator for ChunksExactMut<T, 
             }
             Some(UniqueArcMappedRwLock {
                 lock: MappedRwLock {
-                    inner: self.remainder_lock.inner,
-                    subfield: NonNull::from_raw_parts(
+                    lock: self.allocation,
+                    data: NonNull::from_raw_parts(
                         // SAFETY: By construction, 'ptr' points to a slice which contains at least `len + self.chunk_size` elements.
                         unsafe { ptr.add(len) },
                         self.chunk_size.get(),

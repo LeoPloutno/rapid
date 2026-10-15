@@ -1,5 +1,5 @@
 use super::InnerArc;
-use crate::lock::ReaderLock;
+use crate::lock::{InnerRwLock, ReaderLock};
 use std::{
     alloc::{Allocator, AllocatorClone, Global},
     borrow::Borrow,
@@ -19,6 +19,21 @@ pub struct ArcReaderLock<T: ?Sized, A: Allocator = Global> {
 }
 
 impl<T: ?Sized, A: Allocator> ArcReaderLock<T, A> {
+    /// Creates a new instance of `ArcReaderLock<T, U, A>` from raw parts.
+    ///
+    /// # Safety
+    ///
+    /// - The underlying allocation has been allocated using `allocator` or a valid clone of its.
+    /// - See [`ReaderLock::from_raw_parts`]
+    #[inline]
+    pub(crate) const unsafe fn from_raw_parts(lock: NonNull<InnerRwLock<T>>, allocator: A) -> Self {
+        Self {
+            // SAFETY: User-upheld invariant.
+            lock: unsafe { ReaderLock::from_raw_parts(lock) },
+            allocator,
+        }
+    }
+
     pub const fn allocator(&self) -> &A {
         &self.allocator
     }
@@ -28,11 +43,12 @@ impl<T, A: Allocator> ArcReaderLock<MaybeUninit<T>, A> {
     pub const unsafe fn assume_init(self) -> ArcReaderLock<T, A> {
         // SAFETY: All fields of `self` are forgotten immediately after
         //         reading them out of the pointers.
-        let ReaderLock(lock) = unsafe { (&raw const self.lock).read() };
+        let lock = unsafe { (&raw const self.lock).read() };
         let allocator = unsafe { (&raw const self.allocator).read() };
         mem::forget(self);
         ArcReaderLock {
-            lock: ReaderLock(lock.cast()),
+            // SAFETY: User-upheld invariant.
+            lock: unsafe { lock.assume_init() },
             allocator,
         }
     }
@@ -42,14 +58,12 @@ impl<T, A: Allocator> ArcReaderLock<[MaybeUninit<T>], A> {
     pub const unsafe fn assume_init(self) -> ArcReaderLock<[T], A> {
         // SAFETY: All fields of `self` are forgotten immediately after
         //         reading them out of the pointers.
-        let ReaderLock(lock) = unsafe { (&raw const self.lock).read() };
+        let lock = unsafe { (&raw const self.lock).read() };
         let allocator = unsafe { (&raw const self.allocator).read() };
         mem::forget(self);
         ArcReaderLock {
-            lock: ReaderLock({
-                let (ptr, len) = lock.to_raw_parts();
-                NonNull::from_raw_parts(ptr, len)
-            }),
+            // SAFETY: User-upheld invariant.
+            lock: unsafe { lock.assume_init() },
             allocator,
         }
     }
@@ -57,8 +71,8 @@ impl<T, A: Allocator> ArcReaderLock<[MaybeUninit<T>], A> {
 
 impl<T: ?Sized, A: Allocator> Drop for ArcReaderLock<T, A> {
     fn drop(&mut self) {
-        // SAFETY: `self.lock.0` has been allocated as a part of an `InnerArc`.
-        let (allocation, layout) = unsafe { InnerArc::from_lock(self.lock.0) };
+        // SAFETY: By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
+        let (allocation, layout) = unsafe { InnerArc::from_inner_rw_lock(self.lock.get_lock()) };
         if unsafe { InnerArc::decrement_shared_counter(allocation, Ordering::Release) } {
             atomic::fence(Ordering::Acquire);
             if const { mem::needs_drop::<InnerArc<T>>() } {
@@ -129,15 +143,16 @@ impl<T: ?Sized, A: AllocatorClone> Clone for ArcReaderLock<T, A> {
         if unsafe {
             // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
             InnerArc::increment_shared_counter(
-                // SAFETY: `self.lock.0` has been allocated as a part of an `InnerArc`.
-                InnerArc::from_lock(self.lock.0).0,
+                // SAFETY: By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
+                InnerArc::from_inner_rw_lock(self.lock.get_lock()).0,
                 Ordering::Release,
             )
         } {
             process::abort();
         }
         Self {
-            lock: ReaderLock(self.lock.0),
+            // SAFETY: By construction, the pointee of `self.lock` has been allocated as a part of an `InnerRwLock`.
+            lock: unsafe { ReaderLock::from_raw_parts(self.lock.get_lock()) },
             allocator: self.allocator.clone(),
         }
     }
