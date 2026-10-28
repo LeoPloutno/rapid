@@ -103,9 +103,9 @@ mod value {
             _multiplier: &mut M,
             physical_potential_energy: T,
             type_exchange_potential_energy: T,
-            positions: &GroupInTypeInImage<V>,
-            physical_forces: &GroupInTypeInImage<V>,
-            exchange_forces: &GroupInTypeInImage<V>,
+            positions: &GroupInTypeInImage<T, V>,
+            physical_forces: &GroupInTypeInImage<T, V>,
+            exchange_forces: &GroupInTypeInImage<T, V>,
         ) -> Result<(), Self::Error> {
             let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
                 .enumerate()
@@ -147,9 +147,9 @@ mod value {
             _multiplier: &mut M,
             physical_potential_energy: T,
             type_exchange_potential_energy: T,
-            positions: &GroupInTypeInImage<V>,
-            physical_forces: &GroupInTypeInImage<V>,
-            exchange_forces: &GroupInTypeInImage<V>,
+            positions: &GroupInTypeInImage<T, V>,
+            physical_forces: &GroupInTypeInImage<T, V>,
+            exchange_forces: &GroupInTypeInImage<T, V>,
         ) -> Result<T, Self::Error> {
             let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
                 .enumerate()
@@ -192,19 +192,19 @@ mod vector {
 
     /// A wrapper for implementors of the [`AtomAdditiveQuantumEstimator<T, V, Output = V>`] trait,
     /// where `V` is a [vector](Vector).
-    pub struct AdditiveVectorQuantumEstimator<E: ?Sized>(pub(crate) E);
+    pub struct AdditiveVectorQuantumEstimator<E: ?Sized, const N: usize>(pub(crate) E);
 
-    impl<E> AdditiveVectorQuantumEstimator<E> {
+    impl<E, const N: usize> AdditiveVectorQuantumEstimator<E, N> {
         /// Wraps the provided value with `AdditiveVectorQuantumEstimator`.
         pub const fn new(value: E) -> Self {
             Self(value)
         }
     }
 
-    impl<T, V, E> AtomAdditiveQuantumEstimator<T, V> for AdditiveVectorQuantumEstimator<E>
+    impl<T, V, E, const N: usize> AtomAdditiveQuantumEstimator<T, V> for AdditiveVectorQuantumEstimator<E, N>
     where
         T: Add<Output = T> + Clone,
-        V: Vector<Element = T>,
+        V: Vector<N, Element = T>,
         E: AtomAdditiveQuantumEstimator<T, V, Output = V> + ?Sized,
     {
         type Output = V;
@@ -232,11 +232,10 @@ mod vector {
         }
     }
 
-    impl<T, V, A, M, E> QuantumEstimator<T, V, A, M, ()> for AdditiveVectorQuantumEstimator<E>
+    impl<T, V, A, M, E, const N: usize> QuantumEstimator<T, V, A, M, ()> for AdditiveVectorQuantumEstimator<E, N>
     where
         T: Add<Output = T> + Clone,
-        V: Vector<Element = T>,
-        for<'a> &'a V: IntoIterator<Item = &'a T>,
+        V: Vector<N, Element = T>,
         A: SyncAddSender<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
@@ -252,9 +251,9 @@ mod vector {
             _multiplier: &mut M,
             physical_potential_energy: T,
             type_exchange_potential_energy: T,
-            positions: &GroupInTypeInImage<V>,
-            physical_forces: &GroupInTypeInImage<V>,
-            exchange_forces: &GroupInTypeInImage<V>,
+            positions: &GroupInTypeInImage<T, V>,
+            physical_forces: &GroupInTypeInImage<T, V>,
+            exchange_forces: &GroupInTypeInImage<T, V>,
         ) -> Result<(), Self::Error> {
             let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
                 .enumerate()
@@ -273,7 +272,7 @@ mod vector {
             let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
                 Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(accum_observable + atom_observable?)
             })?;
-            for element in &group_observable {
+            for element in group_observable.as_array() {
                 adder.send(element.clone())?;
                 barrier.wait();
                 // The receiver receives the sum of all sent values.
@@ -283,11 +282,10 @@ mod vector {
         }
     }
 
-    impl<T, V, A, M, E> QuantumEstimator<T, V, A, M, V> for AdditiveVectorQuantumEstimator<E>
+    impl<T, V, A, M, E, const N: usize> QuantumEstimator<T, V, A, M, V> for AdditiveVectorQuantumEstimator<E, N>
     where
         T: Add<Output = T> + Clone,
-        V: Vector<Element = T> + MeaningfulOutput,
-        for<'a> &'a mut V: IntoIterator<Item = &'a mut T>,
+        V: Vector<N, Element = T> + MeaningfulOutput,
         A: SyncAddReceiver<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
@@ -303,9 +301,9 @@ mod vector {
             _multiplier: &mut M,
             physical_potential_energy: T,
             type_exchange_potential_energy: T,
-            positions: &GroupInTypeInImage<V>,
-            physical_forces: &GroupInTypeInImage<V>,
-            exchange_forces: &GroupInTypeInImage<V>,
+            positions: &GroupInTypeInImage<T, V>,
+            physical_forces: &GroupInTypeInImage<T, V>,
+            exchange_forces: &GroupInTypeInImage<T, V>,
         ) -> Result<V, Self::Error> {
             let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
                 .enumerate()
@@ -324,7 +322,7 @@ mod vector {
             let mut group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
                 Ok::<_, <Self as AtomAdditiveQuantumEstimator<T, V>>::AtomError>(accum_observable + atom_observable?)
             })?;
-            for element in &mut group_observable {
+            for element in group_observable.as_mut_array() {
                 // The senders send their values.
                 barrier.wait();
                 let other_groups_element = adder.recv_sum()?;

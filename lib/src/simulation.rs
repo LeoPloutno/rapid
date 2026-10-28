@@ -107,10 +107,10 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                 impl ClassicalEstimator<T, V, SysAdd, SysMul, (), Output = V, Error = EstErr>,
             >],
         >,
-        positions: &mut GroupRwLockInTypeInImageInSystem<V>,
-        momenta: &mut GroupRwLockInTypeInImageInSystem<V>,
-        physical_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
-        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+        positions: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        momenta: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        physical_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
     ) -> Result<(), Err>
     where
         Phys: PhysicalPotential<T, V, OutPhys>,
@@ -256,7 +256,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Ok(())
     }
 
-    pub fn step__image_leader_group<V, OutPhys, OutExch, EstErr, Err>(
+    pub fn step__image_leader_group<V, OutPhys, OutExch, EstErr, Err, const N: usize>(
         &mut self,
         step: usize,
         quantum_estimators: Option<
@@ -271,10 +271,10 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                 impl ClassicalEstimator<T, V, SysAdd, SysMul, (), Output = V, Error = EstErr>,
             >],
         >,
-        positions: &mut GroupRwLockInTypeInImageInSystem<V>,
-        momenta: &mut GroupRwLockInTypeInImageInSystem<V>,
-        physical_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
-        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+        positions: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        momenta: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        physical_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
     ) -> Result<(), Err>
     where
         EstAdd: SyncAddSender<T>,
@@ -284,7 +284,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Therm: Thermostat<T, V>,
         Prop: Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch>,
         T: Clone + MeaningfulOutput,
-        V: Vector<Element = T> + MeaningfulOutput,
+        V: Vector<N, Element = T> + MeaningfulOutput,
         for<'b> &'b V: IntoIterator<Item = &'b T>,
         OutPhys: ValidOutput<T> + PropagationOutput<T>,
         OutExch: ValidOutput<T> + PropagationOutput<T>,
@@ -430,7 +430,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Ok(())
     }
 
-    pub fn step_output<V, ValS, VecS, OutPhys, OutExch, EstErr, Err>(
+    pub fn step_output<V, ValS, VecS, OutPhys, OutExch, EstErr, Err, const N: usize>(
         &mut self,
         step: usize,
         estimators_output: EstimatorsOutputOption<
@@ -448,10 +448,10 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         momenta_output: Option<&mut VecS>,
         physical_forces_output: Option<&mut VecS>,
         exchange_forces_output: Option<&mut VecS>,
-        positions: &mut GroupRwLockInTypeInImageInSystem<V>,
-        momenta: &mut GroupRwLockInTypeInImageInSystem<V>,
-        physical_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
-        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+        positions: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        momenta: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        physical_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
     ) -> Result<(), Err>
     where
         EstAdd: SyncAddReceiver<T>,
@@ -461,7 +461,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Therm: Thermostat<T, V>,
         Prop: Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch>,
         T: Add<Output = T> + Div<Output = T> + Clone + From<usize> + MeaningfulOutput,
-        V: Vector<Element = T> + MeaningfulOutput,
+        V: Vector<N, Element = T> + MeaningfulOutput,
         for<'b> &'b mut V: IntoIterator<Item = &'b mut T>,
         ValS: ValuesStream<T> + ValuesStream<V>,
         VecS: VectorsStream<T, V>,

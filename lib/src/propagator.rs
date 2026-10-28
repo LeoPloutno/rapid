@@ -38,9 +38,9 @@ where
         physical_potential: &mut Phys,
         exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        positions: &mut GroupRwLockInTypeInImageInSystem<V>,
-        momenta: &mut GroupRwLockInTypeInImageInSystem<V>,
-        physical_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
-        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+        positions: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        momenta: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        physical_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
     ) -> Result<(OutPhys, OutExch, T), Self::Error>;
 }

@@ -142,7 +142,7 @@ where
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
@@ -171,7 +171,7 @@ where
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
@@ -200,7 +200,7 @@ where
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
             let positions = positions.read();
@@ -224,7 +224,7 @@ where
         changed_group: ChangedGroup,
         changed_atom_index: usize,
         _old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
@@ -250,7 +250,7 @@ where
         changed_group: ChangedGroup,
         changed_atom_index: usize,
         _old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, ()>>::Error> {
         if let ChangedGroup::This = changed_group {
@@ -289,7 +289,7 @@ where
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, T>>::Error> {
         if let ChangedGroup::This = changed_group {
@@ -319,7 +319,7 @@ where
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, T>>::Error> {
         if let ChangedGroup::This = changed_group {
@@ -349,7 +349,7 @@ where
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
     ) -> Result<T, <Self as MonteCarloPhysicalPotential<T, V, T>>::Error> {
         if let ChangedGroup::This = changed_group {
             let positions = positions.read();
@@ -374,7 +374,7 @@ where
         changed_group: ChangedGroup,
         changed_atom_index: usize,
         _old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, T>>::Error> {
         if let ChangedGroup::This = changed_group {
@@ -400,7 +400,7 @@ where
         changed_group: ChangedGroup,
         changed_atom_index: usize,
         _old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, T>>::Error> {
         if let ChangedGroup::This = changed_group {

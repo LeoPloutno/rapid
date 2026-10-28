@@ -88,9 +88,9 @@ where
         &mut self,
         step_size: T,
         step: usize,
-        positions: &GroupInTypeInImageInSystem<V>,
-        physical_forces: &GroupInTypeInImageInSystem<V>,
-        exchange_forces: &GroupInTypeInImageInSystem<V>,
+        positions: &GroupInTypeInImageInSystem<T, V>,
+        physical_forces: &GroupInTypeInImageInSystem<T, V>,
+        exchange_forces: &GroupInTypeInImageInSystem<T, V>,
         group_momenta: &mut [V],
     ) -> Result<T, Self::Error> {
         let mut iter = zip_iterators!(

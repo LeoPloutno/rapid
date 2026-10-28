@@ -3,7 +3,6 @@ use std::{
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     simd::{Simd, SimdElement},
-    slice::{Iter, IterMut},
 };
 
 #[derive(Clone, Copy)]
@@ -115,25 +114,7 @@ impl<T: SimdElement, const N: usize> From<[T; N]> for SimdVector<T, N> {
     }
 }
 
-impl<'a, T: SimdElement, const N: usize> IntoIterator for &'a SimdVector<T, N> {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.as_array().iter()
-    }
-}
-
-impl<'a, T: SimdElement, const N: usize> IntoIterator for &'a mut SimdVector<T, N> {
-    type Item = &'a mut T;
-    type IntoIter = IterMut<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.as_mut_array().iter_mut()
-    }
-}
-
-impl<T, const N: usize> Vector for SimdVector<T, N>
+impl<T, const N: usize> Vector<N> for SimdVector<T, N>
 where
     T: SimdElement + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Div<Output = T> + Sum,
     Simd<T, N>: Add<Output = Simd<T, N>>
@@ -142,7 +123,6 @@ where
         + Div<Output = Simd<T, N>>
         + Neg<Output = Simd<T, N>>,
 {
-    const DIM: usize = N;
     type Element = T;
 
     fn magnitude_squared(self) -> Self::Element {
@@ -151,5 +131,13 @@ where
 
     fn dot(self, rhs: Self) -> Self::Element {
         (self.0 * rhs.0).to_array().into_iter().sum()
+    }
+
+    fn as_array(&self) -> &[Self::Element; N] {
+        self.0.as_array()
+    }
+
+    fn as_mut_array(&mut self) -> &mut [Self::Element; N] {
+        self.0.as_mut_array()
     }
 }

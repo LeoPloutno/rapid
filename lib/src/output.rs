@@ -2,7 +2,7 @@
 
 use std::ops::{Deref, DerefMut};
 
-use crate::core::{GroupInTypeInImageInSystem, Vector};
+use crate::core::GroupInTypeInImageInSystem;
 
 /// A trait for streams that write into a file as the simulation progresses.
 pub trait StepStream {
@@ -17,12 +17,9 @@ pub trait StepStream {
 }
 
 /// A trait for streams that write to coordinate files, such as '.xyz' files.
-pub trait VectorsStream<T, V>: StepStream
-where
-    V: Vector<Element = T>,
-{
+pub trait VectorsStream<T, V>: StepStream {
     /// Writes the vectors.
-    fn write_vectors(&mut self, vectors: &GroupInTypeInImageInSystem<V>) -> Result<(), Self::Error>;
+    fn write_vectors(&mut self, vectors: &GroupInTypeInImageInSystem<T, V>) -> Result<(), Self::Error>;
 }
 
 /// A trait for streams that write values into the output file.

@@ -162,7 +162,7 @@ impl<'a, T, const N: usize> IntoIterator for &'a mut ArrayVector<T, N> {
     }
 }
 
-impl<T, const N: usize> Vector for ArrayVector<T, N>
+impl<T, const N: usize> Vector<N> for ArrayVector<T, N>
 where
     T: Copy
         + Add<Output = T>
@@ -177,7 +177,6 @@ where
         + Sum,
 {
     type Element = T;
-    const DIM: usize = N;
 
     fn magnitude_squared(self) -> Self::Element {
         self.0.into_iter().map(|elem| elem * elem).sum()
@@ -185,5 +184,13 @@ where
 
     fn dot(self, rhs: Self) -> Self::Element {
         self.0.into_iter().zip(rhs.0).map(|(lhs, rhs)| lhs * rhs).sum()
+    }
+
+    fn as_array(&self) -> &[Self::Element; N] {
+        &self.0
+    }
+
+    fn as_mut_array(&mut self) -> &mut [Self::Element; N] {
+        &mut self.0
     }
 }

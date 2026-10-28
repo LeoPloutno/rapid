@@ -17,9 +17,9 @@ impl<T, V, A: ?Sized, M: ?Sized> QuantumEstimator<T, V, A, M, ()> for PotentialE
         _multiplier: &mut M,
         _physical_potential_energy: T,
         _type_exchange_potential_energy: T,
-        _positions: &GroupInTypeInImage<V>,
-        _physical_forces: &GroupInTypeInImage<V>,
-        _exchange_forces: &GroupInTypeInImage<V>,
+        _positions: &GroupInTypeInImage<T, V>,
+        _physical_forces: &GroupInTypeInImage<T, V>,
+        _exchange_forces: &GroupInTypeInImage<T, V>,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -36,9 +36,9 @@ impl<T: MeaningfulOutput, V, A: ?Sized, M: ?Sized> QuantumEstimator<T, V, A, M, 
         _multiplier: &mut M,
         physical_potential_energy: T,
         _type_exchange_potential_energy: T,
-        _positions: &GroupInTypeInImage<V>,
-        _physical_forces: &GroupInTypeInImage<V>,
-        _exchange_forces: &GroupInTypeInImage<V>,
+        _positions: &GroupInTypeInImage<T, V>,
+        _physical_forces: &GroupInTypeInImage<T, V>,
+        _exchange_forces: &GroupInTypeInImage<T, V>,
     ) -> Result<T, Self::Error> {
         Ok(physical_potential_energy)
     }

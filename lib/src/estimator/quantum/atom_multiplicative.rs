@@ -97,9 +97,9 @@ where
         multiplier: &mut M,
         physical_potential_energy: T,
         type_exchange_potential_energy: T,
-        positions: &GroupInTypeInImage<V>,
-        physical_forces: &GroupInTypeInImage<V>,
-        exchange_forces: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
+        physical_forces: &GroupInTypeInImage<T, V>,
+        exchange_forces: &GroupInTypeInImage<T, V>,
     ) -> Result<(), Self::Error> {
         let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
             .enumerate()
@@ -141,9 +141,9 @@ where
         multiplier: &mut M,
         physical_potential_energy: T,
         type_exchange_potential_energy: T,
-        positions: &GroupInTypeInImage<V>,
-        physical_forces: &GroupInTypeInImage<V>,
-        exchange_forces: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
+        physical_forces: &GroupInTypeInImage<T, V>,
+        exchange_forces: &GroupInTypeInImage<T, V>,
     ) -> Result<T, Self::Error> {
         let mut iter = zip_iterators!(positions.read(), physical_forces.read(), exchange_forces.read())
             .enumerate()

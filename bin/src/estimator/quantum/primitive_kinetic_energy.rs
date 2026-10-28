@@ -34,9 +34,9 @@ impl<T, V, A: ?Sized, M: ?Sized> QuantumEstimator<T, V, A, M, ()> for PrimitiveK
         _multiplier: &mut M,
         _physical_potential_energy: T,
         _type_exchange_potential_energy: T,
-        _positions: &GroupInTypeInImage<V>,
-        _physical_forces: &GroupInTypeInImage<V>,
-        _exchange_forces: &GroupInTypeInImage<V>,
+        _positions: &GroupInTypeInImage<T, V>,
+        _physical_forces: &GroupInTypeInImage<T, V>,
+        _exchange_forces: &GroupInTypeInImage<T, V>,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -58,9 +58,9 @@ where
         _multiplier: &mut M,
         _physical_potential_energy: T,
         type_exchange_potential_energy: T,
-        _positions: &GroupInTypeInImage<V>,
-        _physical_forces: &GroupInTypeInImage<V>,
-        _exchange_forces: &GroupInTypeInImage<V>,
+        _positions: &GroupInTypeInImage<T, V>,
+        _physical_forces: &GroupInTypeInImage<T, V>,
+        _exchange_forces: &GroupInTypeInImage<T, V>,
     ) -> Result<T, Self::Error> {
         Ok(self.constant - type_exchange_potential_energy)
     }

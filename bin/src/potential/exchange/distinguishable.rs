@@ -11,12 +11,12 @@ use lib::{
 };
 use num::Float;
 
-pub struct DistinguishableExchangePotential<T, A> {
+pub struct DistinguishableExchangePotential<T, A, const N: usize> {
     adder: A,
     potential_prefactor: T,
 }
 
-impl<T, A> DistinguishableExchangePotential<T, A>
+impl<T, A, const N: usize> DistinguishableExchangePotential<T, A, N>
 where
     T: From<f32> + Float,
 {
@@ -35,20 +35,20 @@ where
     }
 }
 
-impl<T, A> DistinguishableExchangePotential<T, A>
+impl<T, A, const N: usize> DistinguishableExchangePotential<T, A, N>
 where
     T: From<f32> + Float,
 {
     #[inline]
     fn calculate_energy_group_contribution_set_forces<V>(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> T
     where
-        V: Vector<Element = T>,
+        V: Vector<N, Element = T>,
     {
         let mut energy = T::zero();
         for zip_items!(force, position, prev_image_position, next_image_position) in zip_iterators!(
@@ -69,13 +69,13 @@ where
     #[inline]
     fn calculate_energy_group_contribution_add_forces<V>(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> T
     where
-        V: Vector<Element = T>,
+        V: Vector<N, Element = T>,
     {
         let mut energy = T::zero();
         for zip_items!(force, &position, &prev_image_position, &next_image_position) in zip_iterators!(
@@ -96,12 +96,12 @@ where
     #[inline]
     fn calculate_energy_group_contribution<V>(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
     ) -> T
     where
-        V: Vector<Element = T>,
+        V: Vector<N, Element = T>,
     {
         let mut energy = T::zero();
         for zip_items!(&position, &prev_image_position, &next_image_position) in zip_iterators!(
@@ -120,12 +120,12 @@ where
     #[inline]
     fn set_forces<V>(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) where
-        V: Vector<Element = T>,
+        V: Vector<N, Element = T>,
     {
         for zip_items!(force, &position, &prev_image_position, &next_image_position) in zip_iterators!(
             forces,
@@ -142,12 +142,12 @@ where
     #[inline]
     fn add_forces<V>(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) where
-        V: Vector<Element = T>,
+        V: Vector<N, Element = T>,
     {
         for zip_items!(force, &position, &prev_image_position, &next_image_position) in zip_iterators!(
             forces,
@@ -163,21 +163,21 @@ where
     }
 }
 
-impl<T, A> Distinguishable for DistinguishableExchangePotential<T, A> {}
+impl<T, A, const N: usize> Distinguishable for DistinguishableExchangePotential<T, A, N> {}
 
-impl<T, V, A> ExchangePotential<T, V, ()> for DistinguishableExchangePotential<T, A>
+impl<T, V, A, const N: usize> ExchangePotential<T, V, ()> for DistinguishableExchangePotential<T, A, N>
 where
     T: From<f32> + Float,
-    V: Vector<Element = T>,
+    V: Vector<N, Element = T>,
     A: SyncAddSender<T>,
 {
     type Error = A::Error;
 
     fn calculate_energy_set_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
         let energy = self.calculate_energy_group_contribution_set_forces(
@@ -192,9 +192,9 @@ where
 
     fn calculate_energy_add_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
         let energy = self.calculate_energy_group_contribution_add_forces(
@@ -209,9 +209,9 @@ where
 
     fn calculate_energy(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
     ) -> Result<(), Self::Error> {
         let energy = self.calculate_energy_group_contribution(prev_image_positions, next_image_positions, positions);
         self.adder.send(energy)?;
@@ -220,9 +220,9 @@ where
 
     fn set_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
         self.set_forces(prev_image_positions, next_image_positions, positions, forces);
@@ -231,9 +231,9 @@ where
 
     fn add_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
         self.add_forces(prev_image_positions, next_image_positions, positions, forces);
@@ -241,19 +241,19 @@ where
     }
 }
 
-impl<T, V, A> ExchangePotential<T, V, T> for DistinguishableExchangePotential<T, A>
+impl<T, V, A, const N: usize> ExchangePotential<T, V, T> for DistinguishableExchangePotential<T, A, N>
 where
     T: From<f32> + Float + MeaningfulOutput,
-    V: Vector<Element = T>,
+    V: Vector<N, Element = T>,
     A: SyncAddReceiver<T>,
 {
     type Error = A::Error;
 
     fn calculate_energy_set_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<T, Self::Error> {
         let image_energy = self.calculate_energy_group_contribution_set_forces(
@@ -270,9 +270,9 @@ where
 
     fn calculate_energy_add_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<T, Self::Error> {
         let image_energy = self.calculate_energy_group_contribution_add_forces(
@@ -289,9 +289,9 @@ where
 
     fn calculate_energy(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
     ) -> Result<T, Self::Error> {
         let image_energy =
             self.calculate_energy_group_contribution(prev_image_positions, next_image_positions, positions);
@@ -303,9 +303,9 @@ where
 
     fn set_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
         self.set_forces(prev_image_positions, next_image_positions, positions, forces);
@@ -314,9 +314,9 @@ where
 
     fn add_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
         self.add_forces(prev_image_positions, next_image_positions, positions, forces);

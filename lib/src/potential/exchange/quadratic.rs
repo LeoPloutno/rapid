@@ -2,7 +2,7 @@
 
 use super::ExchangePotential;
 use crate::{
-    core::{AtomTypeReaderLock, marker::ValidOutput},
+    core::{AtomType, marker::ValidOutput},
     stride::Stride,
 };
 use std::iter::FusedIterator;
@@ -33,14 +33,14 @@ pub trait Transform<T, V> {
     /// is the same as the number of atoms in the group allocated to it.
     fn transform(
         &mut self,
-        images_type_coordinates: TypeAcrossImages<V>,
+        images_type_coordinates: TypeAcrossImages<T, V>,
         group_modes: &mut [V],
     ) -> Result<(), Self::Error>;
 
     /// Transforms all modes into the coordinates of this group.
     fn inverse_transform(
         &mut self,
-        modes: TypeAcrossImages<V>,
+        modes: TypeAcrossImages<T, V>,
         group_coordinates: &mut [V],
     ) -> Result<(), Self::Error>;
 
@@ -53,18 +53,18 @@ pub trait Transform<T, V> {
 
 /// An iterator over different instantiations of an atom type in all images.
 #[derive(Debug)]
-pub struct TypeAcrossImages<'a, V>(Stride<'a, AtomTypeReaderLock<V>>);
+pub struct TypeAcrossImages<'a, T, V>(Stride<'a, AtomType<'a, T, V>>);
 
-impl<'a, V> Clone for TypeAcrossImages<'a, V> {
+impl<'a, T, V> Clone for TypeAcrossImages<'a, T, V> {
     fn clone(&self) -> Self {
         Self { ..*self }
     }
 }
 
-impl<'a, V> Copy for TypeAcrossImages<'a, V> {}
+impl<'a, T, V> Copy for TypeAcrossImages<'a, T, V> {}
 
-impl<'a, V> Iterator for TypeAcrossImages<'a, V> {
-    type Item = &'a AtomTypeReaderLock<V>;
+impl<'a, T, V> Iterator for TypeAcrossImages<'a, T, V> {
+    type Item = &'a AtomType<'a, T, V>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -72,18 +72,18 @@ impl<'a, V> Iterator for TypeAcrossImages<'a, V> {
     }
 }
 
-impl<'a, V> DoubleEndedIterator for TypeAcrossImages<'a, V> {
+impl<'a, T, V> DoubleEndedIterator for TypeAcrossImages<'a, T, V> {
     #[inline(always)]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
     }
 }
 
-impl<'a, V> ExactSizeIterator for TypeAcrossImages<'a, V> {
+impl<'a, T, V> ExactSizeIterator for TypeAcrossImages<'a, T, V> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.0.len()
     }
 }
 
-impl<'a, V> FusedIterator for TypeAcrossImages<'a, V> {}
+impl<'a, T, V> FusedIterator for TypeAcrossImages<'a, T, V> {}

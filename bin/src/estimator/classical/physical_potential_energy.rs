@@ -27,10 +27,10 @@ where
         _physical_potential_energy: T,
         _type_exchange_potential_energy: T,
         _group_heat: T,
-        _positions: &GroupInTypeInImageInSystem<V>,
-        _momenta: &GroupInTypeInImageInSystem<V>,
-        _physical_forces: &GroupInTypeInImageInSystem<V>,
-        _exchange_forces: &GroupInTypeInImageInSystem<V>,
+        _positions: &GroupInTypeInImageInSystem<T, V>,
+        _momenta: &GroupInTypeInImageInSystem<T, V>,
+        _physical_forces: &GroupInTypeInImageInSystem<T, V>,
+        _exchange_forces: &GroupInTypeInImageInSystem<T, V>,
     ) -> Result<(), Self::Error> {
         adder.send_empty()?;
         Ok(())
@@ -56,10 +56,10 @@ where
         physical_potential_energy: T,
         _type_exchange_potential_energy: T,
         _group_heat: T,
-        _positions: &GroupInTypeInImageInSystem<V>,
-        _momenta: &GroupInTypeInImageInSystem<V>,
-        _physical_forces: &GroupInTypeInImageInSystem<V>,
-        _exchange_forces: &GroupInTypeInImageInSystem<V>,
+        _positions: &GroupInTypeInImageInSystem<T, V>,
+        _momenta: &GroupInTypeInImageInSystem<T, V>,
+        _physical_forces: &GroupInTypeInImageInSystem<T, V>,
+        _exchange_forces: &GroupInTypeInImageInSystem<T, V>,
     ) -> Result<(), Self::Error> {
         adder.send(physical_potential_energy)?;
         Ok(())
@@ -86,10 +86,10 @@ where
         physical_potential_energy: T,
         _type_exchange_potential_energy: T,
         _group_heat: T,
-        _positions: &GroupInTypeInImageInSystem<V>,
-        _momenta: &GroupInTypeInImageInSystem<V>,
-        _physical_forces: &GroupInTypeInImageInSystem<V>,
-        _exchange_forces: &GroupInTypeInImageInSystem<V>,
+        _positions: &GroupInTypeInImageInSystem<T, V>,
+        _momenta: &GroupInTypeInImageInSystem<T, V>,
+        _physical_forces: &GroupInTypeInImageInSystem<T, V>,
+        _exchange_forces: &GroupInTypeInImageInSystem<T, V>,
     ) -> Result<T, Self::Error> {
         Ok(match adder.recv_sum()? {
             Some(other_images_energy) => other_images_energy + physical_potential_energy,

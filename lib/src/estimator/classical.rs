@@ -5,14 +5,11 @@ use macros::heavy_computation;
 
 mod atom_additive;
 pub use atom_additive::{
-    AdditiveValueClassicalEstimator, AdditiveVectorClassicalEstimator,
-    AtomAdditiveClassicalEstimator,
+    AdditiveValueClassicalEstimator, AdditiveVectorClassicalEstimator, AtomAdditiveClassicalEstimator,
 };
 
 mod atom_multiplicative;
-pub use atom_multiplicative::{
-    AtomMultiplicativeClassicalEstimator, MultiplicativeValueClassicalEstimator,
-};
+pub use atom_multiplicative::{AtomMultiplicativeClassicalEstimator, MultiplicativeValueClassicalEstimator};
 
 /// A trait for classical estimators.
 ///
@@ -43,9 +40,9 @@ where
         physical_potential_energy: T,
         type_exchange_potential_energy: T,
         group_heat: T,
-        positions: &GroupInTypeInImageInSystem<V>,
-        momenta: &GroupInTypeInImageInSystem<V>,
-        physical_forces: &GroupInTypeInImageInSystem<V>,
-        exchange_forces: &GroupInTypeInImageInSystem<V>,
+        positions: &GroupInTypeInImageInSystem<T, V>,
+        momenta: &GroupInTypeInImageInSystem<T, V>,
+        physical_forces: &GroupInTypeInImageInSystem<T, V>,
+        exchange_forces: &GroupInTypeInImageInSystem<T, V>,
     ) -> Result<O, Self::Error>;
 }

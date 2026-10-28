@@ -4,14 +4,10 @@ use crate::core::{GroupInTypeInImage, Synchronizer, marker::ValidOutput};
 use macros::heavy_computation;
 
 mod atom_additive;
-pub use atom_additive::{
-    AdditiveValueQuantumEstimator, AdditiveVectorQuantumEstimator, AtomAdditiveQuantumEstimator,
-};
+pub use atom_additive::{AdditiveValueQuantumEstimator, AdditiveVectorQuantumEstimator, AtomAdditiveQuantumEstimator};
 
 mod atom_multiplicative;
-pub use atom_multiplicative::{
-    AtomMultiplicativeQuantumEstimator, MultiplicativeValueQuantumEstimator,
-};
+pub use atom_multiplicative::{AtomMultiplicativeQuantumEstimator, MultiplicativeValueQuantumEstimator};
 
 /// A trait for quantum estimators.
 ///
@@ -44,8 +40,8 @@ where
         multiplier: &mut M,
         physical_potential_energy: T,
         type_exchange_potential_energy: T,
-        positions: &GroupInTypeInImage<V>,
-        physical_forces: &GroupInTypeInImage<V>,
-        exchange_forces: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
+        physical_forces: &GroupInTypeInImage<T, V>,
+        exchange_forces: &GroupInTypeInImage<T, V>,
     ) -> Result<O, Self::Error>;
 }

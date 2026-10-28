@@ -32,7 +32,7 @@ pub trait MonteCarloPhysicalPotential<T, V, O: ValidOutput<T>>: PhysicalPotentia
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, <Self as MonteCarloPhysicalPotential<T, V, O>>::Error>;
 
@@ -48,7 +48,7 @@ pub trait MonteCarloPhysicalPotential<T, V, O: ValidOutput<T>>: PhysicalPotentia
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, <Self as MonteCarloPhysicalPotential<T, V, O>>::Error>;
 
@@ -57,17 +57,14 @@ pub trait MonteCarloPhysicalPotential<T, V, O: ValidOutput<T>>: PhysicalPotentia
     ///
     /// Where applicable, returns the potential energy.
     #[heavy_computation]
-    #[efficient_alternatives(
-        "calculate_new_energy_set_changed_forces",
-        "calculate_new_energy_add_changed_forces"
-    )]
+    #[efficient_alternatives("calculate_new_energy_set_changed_forces", "calculate_new_energy_add_changed_forces")]
     fn calculate_new_energy(
         &mut self,
         changed_group: ChangedGroup,
         changed_atom_index: usize,
         old_energy: T,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
     ) -> Result<O, <Self as MonteCarloPhysicalPotential<T, V, O>>::Error>;
 
     /// Sets the forces of a group after a change in the position of a single atom.
@@ -77,7 +74,7 @@ pub trait MonteCarloPhysicalPotential<T, V, O: ValidOutput<T>>: PhysicalPotentia
         changed_group: ChangedGroup,
         changed_atom_index: usize,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, O>>::Error>;
 
@@ -89,7 +86,7 @@ pub trait MonteCarloPhysicalPotential<T, V, O: ValidOutput<T>>: PhysicalPotentia
         changed_group: ChangedGroup,
         changed_atom_index: usize,
         old_position: V,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, O>>::Error>;
 }

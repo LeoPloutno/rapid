@@ -57,17 +57,17 @@ mod error {
 }
 pub use error::VelocityVerletError;
 
-pub struct VelocityVerlet<T> {
+pub struct VelocityVerlet<T, const N: usize> {
     step_size: T,
     mass: T,
     barrier: Arc<Barrier>,
 }
 
-impl<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch> Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch>
-    for VelocityVerlet<T>
+impl<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch, const N: usize>
+    Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch> for VelocityVerlet<T, N>
 where
     T: From<f32> + Float,
-    V: Vector<Element = T>,
+    V: Vector<N, Element = T>,
     Phys: PhysicalPotential<T, V, OutPhys> + ?Sized,
     Dist: ExchangePotential<T, V, OutExch> + Distinguishable + ?Sized,
     Boson: ExchangePotential<T, V, OutExch> + Bosonic + ?Sized,
@@ -83,10 +83,10 @@ where
         physical_potential: &mut Phys,
         mut exchange_potential: Stat<&mut Dist, &mut Boson>,
         thermostat: &mut Therm,
-        positions: &mut GroupRwLockInTypeInImageInSystem<V>,
-        momenta: &mut GroupRwLockInTypeInImageInSystem<V>,
-        physical_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
-        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<V>,
+        positions: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        momenta: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        physical_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
     ) -> Result<(OutPhys, OutExch, T), Self::Error> {
         let mut momenta_lock_guard = momenta.write();
         let momenta = &mut *momenta_lock_guard.write();
@@ -167,7 +167,7 @@ where
             };
 
             self.barrier.wait();
-            let prev_image_type_guard = type_in_prev_image.read()?;
+            let prev_image_type_guard = type_in_prev_image.lock.read()?;
             let prev_image_positions = MapOutsideWhole {
                 map: prev_image_type_guard
                     .get(group_index)
@@ -175,7 +175,7 @@ where
                 whole: type_in_prev_image,
             };
 
-            let next_image_type_guard = type_in_next_image.read()?;
+            let next_image_type_guard = type_in_next_image.lock.read()?;
             let next_image_positions = MapOutsideWhole {
                 map: next_image_type_guard
                     .get(group_index)

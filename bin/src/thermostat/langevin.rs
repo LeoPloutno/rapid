@@ -8,14 +8,14 @@ use rand::Rng;
 use rand_distr::{Distribution, StandardNormal};
 use std::{array, convert::Infallible};
 
-pub struct Langevin<T, R> {
+pub struct Langevin<T, R, const N: usize> {
     mass: T,
     beta_recip: T,
     gamma: T,
     rng: R,
 }
 
-impl<T, R> Langevin<T, R>
+impl<T, R, const N: usize> Langevin<T, R, N>
 where
     T: From<f32> + Float,
 {
@@ -33,10 +33,10 @@ where
     }
 }
 
-impl<T, V, R> AtomDecoupledThermostat<T, V> for Langevin<T, R>
+impl<T, V, R, const N: usize> AtomDecoupledThermostat<T, V> for Langevin<T, R, N>
 where
     T: From<f32> + Float,
-    V: From<[T; V::DIM]> + Vector<Element = T>,
+    V: From<[T; N]> + Vector<N, Element = T>,
     R: Rng,
 {
     type ErrorAtom = Infallible;

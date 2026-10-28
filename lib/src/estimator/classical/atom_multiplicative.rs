@@ -105,10 +105,10 @@ where
         physical_potential_energy: T,
         type_exchange_potential_energy: T,
         group_heat: T,
-        positions: &GroupInTypeInImageInSystem<V>,
-        momenta: &GroupInTypeInImageInSystem<V>,
-        physical_forces: &GroupInTypeInImageInSystem<V>,
-        exchange_forces: &GroupInTypeInImageInSystem<V>,
+        positions: &GroupInTypeInImageInSystem<T, V>,
+        momenta: &GroupInTypeInImageInSystem<T, V>,
+        physical_forces: &GroupInTypeInImageInSystem<T, V>,
+        exchange_forces: &GroupInTypeInImageInSystem<T, V>,
     ) -> Result<(), Self::Error> {
         let mut iter = zip_iterators!(
             positions.read(),
@@ -163,10 +163,10 @@ where
         physical_potential_energy: T,
         type_exchange_potential_energy: T,
         group_heat: T,
-        positions: &GroupInTypeInImageInSystem<V>,
-        momenta: &GroupInTypeInImageInSystem<V>,
-        physical_forces: &GroupInTypeInImageInSystem<V>,
-        exchange_forces: &GroupInTypeInImageInSystem<V>,
+        positions: &GroupInTypeInImageInSystem<T, V>,
+        momenta: &GroupInTypeInImageInSystem<T, V>,
+        physical_forces: &GroupInTypeInImageInSystem<T, V>,
+        exchange_forces: &GroupInTypeInImageInSystem<T, V>,
     ) -> Result<T, Self::Error> {
         let mut iter = zip_iterators!(
             positions.read(),

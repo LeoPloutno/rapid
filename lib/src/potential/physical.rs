@@ -31,7 +31,7 @@ pub trait PhysicalPotential<T, V, O: ValidOutput<T>> {
     #[heavy_computation]
     fn calculate_energy_set_forces(
         &mut self,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error>;
 
@@ -42,7 +42,7 @@ pub trait PhysicalPotential<T, V, O: ValidOutput<T>> {
     #[heavy_computation]
     fn calculate_energy_add_forces(
         &mut self,
-        positions: &GroupInTypeInImage<V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error>;
 
@@ -52,13 +52,13 @@ pub trait PhysicalPotential<T, V, O: ValidOutput<T>> {
     /// Where applicable, returns the potential energy.
     #[heavy_computation]
     #[efficient_alternatives("calculate_energy_set_forces", "calculate_energy_add_forces")]
-    fn calculate_energy(&mut self, positions: &GroupInTypeInImage<V>) -> Result<O, Self::Error>;
+    fn calculate_energy(&mut self, positions: &GroupInTypeInImage<T, V>) -> Result<O, Self::Error>;
 
     /// Sets the forces of a group.
     #[efficient_alternatives("calculate_energy_set_forces")]
-    fn set_forces(&mut self, positions: &GroupInTypeInImage<V>, forces: &mut [V]) -> Result<(), Self::Error>;
+    fn set_forces(&mut self, positions: &GroupInTypeInImage<T, V>, forces: &mut [V]) -> Result<(), Self::Error>;
 
     /// Adds the forces arising from this potential to the forces of a group.
     #[efficient_alternatives("calculate_energy_add_forces")]
-    fn add_forces(&mut self, positions: &GroupInTypeInImage<V>, forces: &mut [V]) -> Result<(), Self::Error>;
+    fn add_forces(&mut self, positions: &GroupInTypeInImage<T, V>, forces: &mut [V]) -> Result<(), Self::Error>;
 }

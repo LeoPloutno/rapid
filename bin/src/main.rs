@@ -3,6 +3,7 @@
 
 pub mod core;
 pub mod estimator;
+pub mod output;
 pub mod potential;
 pub mod propagator;
 pub mod thermostat;

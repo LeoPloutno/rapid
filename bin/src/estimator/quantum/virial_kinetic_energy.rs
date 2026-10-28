@@ -5,11 +5,11 @@ use lib::{
 use num::Float;
 use std::convert::Infallible;
 
-pub struct VirialKineticEnergy<T> {
+pub struct VirialKineticEnergy<T, const N: usize> {
     prefactor: T,
 }
 
-impl<T: From<f32>> VirialKineticEnergy<T> {
+impl<T: From<f32>, const N: usize> VirialKineticEnergy<T, N> {
     pub fn new(images: usize) -> AdditiveValueQuantumEstimator<Self> {
         AdditiveValueQuantumEstimator::new(Self {
             prefactor: T::from(-0.5 * (images as f32)),
@@ -17,10 +17,10 @@ impl<T: From<f32>> VirialKineticEnergy<T> {
     }
 }
 
-impl<T, V> AtomAdditiveQuantumEstimator<T, V> for VirialKineticEnergy<T>
+impl<T, V, const N: usize> AtomAdditiveQuantumEstimator<T, V> for VirialKineticEnergy<T, N>
 where
     T: Float,
-    V: Vector<Element = T>,
+    V: Vector<N, Element = T>,
 {
     type Output = T;
     type AtomError = Infallible;

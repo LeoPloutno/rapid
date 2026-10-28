@@ -26,9 +26,9 @@ pub trait ExchangePotential<T, V, O: ValidOutput<T>> {
     #[heavy_computation]
     fn calculate_energy_set_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error>;
 
@@ -39,9 +39,9 @@ pub trait ExchangePotential<T, V, O: ValidOutput<T>> {
     #[heavy_computation]
     fn calculate_energy_add_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error>;
 
@@ -53,18 +53,18 @@ pub trait ExchangePotential<T, V, O: ValidOutput<T>> {
     #[efficient_alternatives("calculate_energy_set_forces", "calculate_energy_add_forces")]
     fn calculate_energy(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
     ) -> Result<O, Self::Error>;
 
     /// Sets the forces of a group.
     #[efficient_alternatives("calculate_energy_set_forces")]
     fn set_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error>;
 
@@ -72,9 +72,9 @@ pub trait ExchangePotential<T, V, O: ValidOutput<T>> {
     #[efficient_alternatives("calculate_energy_add_forces")]
     fn add_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error>;
 }
@@ -89,9 +89,9 @@ where
     #[inline]
     fn calculate_energy_set_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error> {
         (*self).calculate_energy_set_forces(prev_image_positions, next_image_positions, positions, forces)
@@ -100,9 +100,9 @@ where
     #[inline]
     fn calculate_energy_add_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error> {
         (*self).calculate_energy_add_forces(prev_image_positions, next_image_positions, positions, forces)
@@ -111,9 +111,9 @@ where
     #[inline]
     fn calculate_energy(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
     ) -> Result<O, Self::Error> {
         #[allow(deprecated)]
         (*self).calculate_energy(prev_image_positions, next_image_positions, positions)
@@ -122,9 +122,9 @@ where
     #[inline]
     fn set_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
         #[allow(deprecated)]
@@ -134,9 +134,9 @@ where
     #[inline]
     fn add_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
         #[allow(deprecated)]

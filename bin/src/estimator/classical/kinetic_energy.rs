@@ -6,11 +6,11 @@ use lib::{
 };
 use num::Float;
 
-pub struct KineticEnergy<T> {
+pub struct KineticEnergy<T, const N: usize> {
     mass: T,
 }
 
-impl<T: Float> KineticEnergy<T> {
+impl<T: Float, const N: usize> KineticEnergy<T, N> {
     pub fn new(mass: T) -> AdditiveValueClassicalEstimator<Self> {
         assert!(mass > T::zero(), "the mass must be positive");
 
@@ -18,10 +18,10 @@ impl<T: Float> KineticEnergy<T> {
     }
 }
 
-impl<T, V> AtomAdditiveClassicalEstimator<T, V> for KineticEnergy<T>
+impl<T, V, const N: usize> AtomAdditiveClassicalEstimator<T, V> for KineticEnergy<T, N>
 where
     T: From<f32> + Float,
-    V: Vector<Element = T>,
+    V: Vector<N, Element = T>,
 {
     type Output = T;
     type AtomError = Infallible;

@@ -43,7 +43,7 @@ mod unimplemented {
         #[inline]
         fn calculate_energy_set_forces(
             &mut self,
-            _positions: &GroupInTypeInImage<V>,
+            _positions: &GroupInTypeInImage<T, V>,
             _forces: &mut [V],
         ) -> Result<O, Self::Error> {
             Err(UnimplementedError)
@@ -52,24 +52,24 @@ mod unimplemented {
         #[inline]
         fn calculate_energy_add_forces(
             &mut self,
-            _positions: &GroupInTypeInImage<V>,
+            _positions: &GroupInTypeInImage<T, V>,
             _forces: &mut [V],
         ) -> Result<O, Self::Error> {
             Err(UnimplementedError)
         }
 
         #[inline]
-        fn calculate_energy(&mut self, _positions: &GroupInTypeInImage<V>) -> Result<O, Self::Error> {
+        fn calculate_energy(&mut self, _positions: &GroupInTypeInImage<T, V>) -> Result<O, Self::Error> {
             Err(UnimplementedError)
         }
 
         #[inline]
-        fn set_forces(&mut self, _positions: &GroupInTypeInImage<V>, _forces: &mut [V]) -> Result<(), Self::Error> {
+        fn set_forces(&mut self, _positions: &GroupInTypeInImage<T, V>, _forces: &mut [V]) -> Result<(), Self::Error> {
             Err(UnimplementedError)
         }
 
         #[inline]
-        fn add_forces(&mut self, _positions: &GroupInTypeInImage<V>, _forces: &mut [V]) -> Result<(), Self::Error> {
+        fn add_forces(&mut self, _positions: &GroupInTypeInImage<T, V>, _forces: &mut [V]) -> Result<(), Self::Error> {
             Err(UnimplementedError)
         }
     }
@@ -79,9 +79,9 @@ mod unimplemented {
 
         fn calculate_energy_set_forces(
             &mut self,
-            _prev_image_positions: &GroupInTypeInImage<V>,
-            _next_image_positions: &GroupInTypeInImage<V>,
-            _positions: &GroupInTypeInImage<V>,
+            _prev_image_positions: &GroupInTypeInImage<T, V>,
+            _next_image_positions: &GroupInTypeInImage<T, V>,
+            _positions: &GroupInTypeInImage<T, V>,
             _forces: &mut [V],
         ) -> Result<O, Self::Error> {
             Err(UnimplementedError)
@@ -89,9 +89,9 @@ mod unimplemented {
 
         fn calculate_energy_add_forces(
             &mut self,
-            _prev_image_positions: &GroupInTypeInImage<V>,
-            _next_image_positions: &GroupInTypeInImage<V>,
-            _positions: &GroupInTypeInImage<V>,
+            _prev_image_positions: &GroupInTypeInImage<T, V>,
+            _next_image_positions: &GroupInTypeInImage<T, V>,
+            _positions: &GroupInTypeInImage<T, V>,
             _forces: &mut [V],
         ) -> Result<O, Self::Error> {
             Err(UnimplementedError)
@@ -99,18 +99,18 @@ mod unimplemented {
 
         fn calculate_energy(
             &mut self,
-            _prev_image_positions: &GroupInTypeInImage<V>,
-            _next_image_positions: &GroupInTypeInImage<V>,
-            _positions: &GroupInTypeInImage<V>,
+            _prev_image_positions: &GroupInTypeInImage<T, V>,
+            _next_image_positions: &GroupInTypeInImage<T, V>,
+            _positions: &GroupInTypeInImage<T, V>,
         ) -> Result<O, Self::Error> {
             Err(UnimplementedError)
         }
 
         fn set_forces(
             &mut self,
-            _prev_image_positions: &GroupInTypeInImage<V>,
-            _next_image_positions: &GroupInTypeInImage<V>,
-            _positions: &GroupInTypeInImage<V>,
+            _prev_image_positions: &GroupInTypeInImage<T, V>,
+            _next_image_positions: &GroupInTypeInImage<T, V>,
+            _positions: &GroupInTypeInImage<T, V>,
             _forces: &mut [V],
         ) -> Result<(), Self::Error> {
             Err(UnimplementedError)
@@ -118,9 +118,9 @@ mod unimplemented {
 
         fn add_forces(
             &mut self,
-            _prev_image_positions: &GroupInTypeInImage<V>,
-            _next_image_positions: &GroupInTypeInImage<V>,
-            _positions: &GroupInTypeInImage<V>,
+            _prev_image_positions: &GroupInTypeInImage<T, V>,
+            _next_image_positions: &GroupInTypeInImage<T, V>,
+            _positions: &GroupInTypeInImage<T, V>,
             _forces: &mut [V],
         ) -> Result<(), Self::Error> {
             Err(UnimplementedError)
@@ -134,9 +134,9 @@ mod unimplemented {
             &mut self,
             _step_size: T,
             _step: usize,
-            _positions: &GroupInTypeInImageInSystem<V>,
-            _physical_forces: &GroupInTypeInImageInSystem<V>,
-            _exchange_forces: &GroupInTypeInImageInSystem<V>,
+            _positions: &GroupInTypeInImageInSystem<T, V>,
+            _physical_forces: &GroupInTypeInImageInSystem<T, V>,
+            _exchange_forces: &GroupInTypeInImageInSystem<T, V>,
             _momenta: &mut [V],
         ) -> Result<T, Self::Error> {
             Err(UnimplementedError)
@@ -161,8 +161,8 @@ mod unimplemented {
         }
     }
 
-    impl<T, V: Vector<Element = T>> VectorsStream<T, V> for Unimplemented {
-        fn write_vectors(&mut self, _vectors: &GroupInTypeInImageInSystem<V>) -> Result<(), Self::Error> {
+    impl<T, V> VectorsStream<T, V> for Unimplemented {
+        fn write_vectors(&mut self, _vectors: &GroupInTypeInImageInSystem<T, V>) -> Result<(), Self::Error> {
             Err(UnimplementedError)
         }
     }

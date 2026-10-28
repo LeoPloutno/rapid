@@ -110,10 +110,10 @@ mod value {
             physical_potential_energy: T,
             type_exchange_potential_energy: T,
             group_heat: T,
-            positions: &GroupInTypeInImageInSystem<V>,
-            momenta: &GroupInTypeInImageInSystem<V>,
-            physical_forces: &GroupInTypeInImageInSystem<V>,
-            exchange_forces: &GroupInTypeInImageInSystem<V>,
+            positions: &GroupInTypeInImageInSystem<T, V>,
+            momenta: &GroupInTypeInImageInSystem<T, V>,
+            physical_forces: &GroupInTypeInImageInSystem<T, V>,
+            exchange_forces: &GroupInTypeInImageInSystem<T, V>,
         ) -> Result<(), Self::Error> {
             let mut iter = zip_iterators!(
                 positions.read(),
@@ -166,10 +166,10 @@ mod value {
             physical_potential_energy: T,
             type_exchange_potential_energy: T,
             group_heat: T,
-            positions: &GroupInTypeInImageInSystem<V>,
-            momenta: &GroupInTypeInImageInSystem<V>,
-            physical_forces: &GroupInTypeInImageInSystem<V>,
-            exchange_forces: &GroupInTypeInImageInSystem<V>,
+            positions: &GroupInTypeInImageInSystem<T, V>,
+            momenta: &GroupInTypeInImageInSystem<T, V>,
+            physical_forces: &GroupInTypeInImageInSystem<T, V>,
+            exchange_forces: &GroupInTypeInImageInSystem<T, V>,
         ) -> Result<T, Self::Error> {
             let mut iter = zip_iterators!(
                 positions.read(),
@@ -221,19 +221,19 @@ mod vector {
 
     /// A wrapper for implementors of the [`AtomAdditiveClassicalEstimator<T, V, Output = V>`] trait,
     /// where `V` is a [vector](Vector).
-    pub struct AdditiveVectorClassicalEstimator<E: ?Sized>(pub(crate) E);
+    pub struct AdditiveVectorClassicalEstimator<E: ?Sized, const N: usize>(pub(crate) E);
 
-    impl<E> AdditiveVectorClassicalEstimator<E> {
+    impl<E, const N: usize> AdditiveVectorClassicalEstimator<E, N> {
         /// Wraps the provided value with `AdditiveVectorClassicalEstimator`.
         pub const fn new(value: E) -> Self {
             Self(value)
         }
     }
 
-    impl<T, V, E> AtomAdditiveClassicalEstimator<T, V> for AdditiveVectorClassicalEstimator<E>
+    impl<T, V, E, const N: usize> AtomAdditiveClassicalEstimator<T, V> for AdditiveVectorClassicalEstimator<E, N>
     where
         T: Add<Output = T> + Clone,
-        V: Vector<Element = T>,
+        V: Vector<N, Element = T>,
         E: AtomAdditiveClassicalEstimator<T, V, Output = V> + ?Sized,
     {
         type Output = V;
@@ -265,11 +265,10 @@ mod vector {
         }
     }
 
-    impl<T, V, A, M, E> ClassicalEstimator<T, V, A, M, ()> for AdditiveVectorClassicalEstimator<E>
+    impl<T, V, A, M, E, const N: usize> ClassicalEstimator<T, V, A, M, ()> for AdditiveVectorClassicalEstimator<E, N>
     where
         T: Add<Output = T> + Clone,
-        V: Vector<Element = T>,
-        for<'a> &'a V: IntoIterator<Item = &'a T>,
+        V: Vector<N, Element = T>,
         A: SyncAddSender<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
@@ -287,10 +286,10 @@ mod vector {
             physical_potential_energy: T,
             type_exchange_potential_energy: T,
             group_heat: T,
-            positions: &GroupInTypeInImageInSystem<V>,
-            momenta: &GroupInTypeInImageInSystem<V>,
-            physical_forces: &GroupInTypeInImageInSystem<V>,
-            exchange_forces: &GroupInTypeInImageInSystem<V>,
+            positions: &GroupInTypeInImageInSystem<T, V>,
+            momenta: &GroupInTypeInImageInSystem<T, V>,
+            physical_forces: &GroupInTypeInImageInSystem<T, V>,
+            exchange_forces: &GroupInTypeInImageInSystem<T, V>,
         ) -> Result<(), Self::Error> {
             let mut iter = zip_iterators!(
                 positions.read(),
@@ -318,7 +317,7 @@ mod vector {
             let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
                 Ok::<_, <Self as AtomAdditiveClassicalEstimator<T, V>>::AtomError>(accum_observable + atom_observable?)
             })?;
-            for element in &group_observable {
+            for element in group_observable.as_array() {
                 adder.send(element.clone())?;
                 barrier.wait();
                 // The receiver receives the sum of all sent values.
@@ -328,11 +327,10 @@ mod vector {
         }
     }
 
-    impl<T, V, A, M, E> ClassicalEstimator<T, V, A, M, V> for AdditiveVectorClassicalEstimator<E>
+    impl<T, V, A, M, E, const N: usize> ClassicalEstimator<T, V, A, M, V> for AdditiveVectorClassicalEstimator<E, N>
     where
         T: Add<Output = T> + Clone,
-        V: Vector<Element = T> + MeaningfulOutput,
-        for<'a> &'a mut V: IntoIterator<Item = &'a mut T>,
+        V: Vector<N, Element = T> + MeaningfulOutput,
         A: SyncAddReceiver<T> + ?Sized,
         M: ?Sized,
         E: ?Sized,
@@ -350,10 +348,10 @@ mod vector {
             physical_potential_energy: T,
             type_exchange_potential_energy: T,
             group_heat: T,
-            positions: &GroupInTypeInImageInSystem<V>,
-            momenta: &GroupInTypeInImageInSystem<V>,
-            physical_forces: &GroupInTypeInImageInSystem<V>,
-            exchange_forces: &GroupInTypeInImageInSystem<V>,
+            positions: &GroupInTypeInImageInSystem<T, V>,
+            momenta: &GroupInTypeInImageInSystem<T, V>,
+            physical_forces: &GroupInTypeInImageInSystem<T, V>,
+            exchange_forces: &GroupInTypeInImageInSystem<T, V>,
         ) -> Result<V, Self::Error> {
             let mut iter = zip_iterators!(
                 positions.read(),
@@ -381,7 +379,7 @@ mod vector {
             let mut group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
                 Ok::<_, <Self as AtomAdditiveClassicalEstimator<T, V>>::AtomError>(accum_observable + atom_observable?)
             })?;
-            for element in &mut group_observable {
+            for element in group_observable.as_mut_array() {
                 // The senders send their values.
                 barrier.wait();
                 let other_groups_element = adder.recv_sum()?;

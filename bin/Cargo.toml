@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 lib = { path = "../lib" }
 arc_rw_lock = { path = "../arc_rw_lock" }
+macros = { path = "../lib/macros" }
 num = "*"
 rand = "*"
 rand_distr = "*"

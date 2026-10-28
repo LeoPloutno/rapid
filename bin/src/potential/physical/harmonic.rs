@@ -5,11 +5,11 @@ use lib::{
 use num::Float;
 use std::convert::Infallible;
 
-pub struct Harmonic<T> {
+pub struct Harmonic<T, const N: usize> {
     potential_prefactor: T,
 }
 
-impl<T> Harmonic<T>
+impl<T, const N: usize> Harmonic<T, N>
 where
     T: From<f32> + Float,
 {
@@ -25,10 +25,10 @@ where
     }
 }
 
-impl<T, V> AtomAdditivePhysicalPotential<T, V> for Harmonic<T>
+impl<T, V, const N: usize> AtomAdditivePhysicalPotential<T, V> for Harmonic<T, N>
 where
     T: From<f32> + Float,
-    V: Vector<Element = T>,
+    V: Vector<N, Element = T>,
 {
     type AtomError = Infallible;
     type SystemError = AccessError;

@@ -78,9 +78,9 @@ where
 
     fn calculate_energy_set_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error> {
         Ok(match self {
@@ -95,9 +95,9 @@ where
 
     fn calculate_energy_add_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error> {
         Ok(match self {
@@ -112,9 +112,9 @@ where
 
     fn calculate_energy(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &GroupInTypeInImage<V>,
-        positions: &GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &GroupInTypeInImage<T, V>,
+        positions: &GroupInTypeInImage<T, V>,
     ) -> Result<O, Self::Error> {
         #[allow(deprecated)]
         Ok(match self {
@@ -129,9 +129,9 @@ where
 
     fn set_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &super::GroupInTypeInImage<V>,
-        positions: &super::GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &super::GroupInTypeInImage<T, V>,
+        positions: &super::GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
         #[allow(deprecated)]
@@ -147,9 +147,9 @@ where
 
     fn add_forces(
         &mut self,
-        prev_image_positions: &GroupInTypeInImage<V>,
-        next_image_positions: &super::GroupInTypeInImage<V>,
-        positions: &super::GroupInTypeInImage<V>,
+        prev_image_positions: &GroupInTypeInImage<T, V>,
+        next_image_positions: &super::GroupInTypeInImage<T, V>,
+        positions: &super::GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), Self::Error> {
         #[allow(deprecated)]

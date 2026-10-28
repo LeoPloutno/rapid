@@ -1,7 +1,7 @@
-#![feature(proc_macro_value)]
+#![feature(proc_macro_value, proc_macro_diagnostic)]
 
 extern crate proc_macro;
-use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
+use proc_macro::{Delimiter, Diagnostic, Group, Ident, Level, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 
 fn error(message: &str) -> TokenStream {
     [
@@ -9,9 +9,7 @@ fn error(message: &str) -> TokenStream {
         TokenTree::Punct(Punct::new('!', Spacing::Joint)),
         TokenTree::Group(Group::new(
             Delimiter::Parenthesis,
-            [TokenTree::Literal(Literal::string(message))]
-                .into_iter()
-                .collect(),
+            [TokenTree::Literal(Literal::string(message))].into_iter().collect(),
         )),
         TokenTree::Punct(Punct::new(';', Spacing::Alone)),
     ]
@@ -85,4 +83,22 @@ pub fn efficient_alternatives(args: TokenStream, item: TokenStream) -> TokenStre
     );
     ret.extend(item);
     ret
+}
+
+#[proc_macro]
+pub fn warn(item: TokenStream) -> TokenStream {
+    let mut iterator = item.into_iter();
+    let warning = if let Some(TokenTree::Literal(literal)) = iterator.next()
+        && let Ok(message) = literal.str_value()
+    {
+        Diagnostic::spanned(Span::call_site(), Level::Warning, message)
+    } else {
+        return error("only a string argument is allowed");
+    };
+    if let Some(_) = iterator.next() {
+        error("only a single argument is allowed")
+    } else {
+        warning.emit();
+        TokenStream::new()
+    }
 }

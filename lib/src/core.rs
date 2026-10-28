@@ -49,7 +49,7 @@ macro_rules! zip_iterators {
 pub use zip_iterators;
 
 /// A trait for objects that can be used as vectors.
-pub trait Vector
+pub trait Vector<const N: usize>
 where
     Self: Sized
         + Copy
@@ -61,8 +61,6 @@ where
 {
     /// The type of the element of the vector.
     type Element;
-    /// The dimension of the vector.
-    const DIM: usize;
 
     /// Calculates the square of the magnitude (length) of the vector.
     fn magnitude_squared(self) -> Self::Element {
@@ -71,29 +69,42 @@ where
 
     /// Calculates the dot product of `self` with `rhs`.
     fn dot(self, rhs: Self) -> Self::Element;
+
+    /// Converts a reference to `Self` into a reference to an array.
+    fn as_array(&self) -> &[Self::Element; N];
+
+    /// Converts a mutable reference to `Self` into a mutable reference to an array.
+    fn as_mut_array(&mut self) -> &mut [Self::Element; N];
 }
 
 pub type AtomGroup<V> = UniqueArcSliceRwLock<V>;
 
 pub type AtomGroupRwLock<V> = UniqueArcElementRwLock<AtomGroup<V>>;
 
-pub type AtomTypeReaderLock<V> = ArcSliceReaderLock<AtomGroup<V>>;
+#[derive(Debug)]
+pub struct AtomTypeCharacteristics<T> {
+    pub mass: T,
+    pub charge: T,
+    pub name: String,
+}
 
-pub type AtomType<V> = V;
+#[derive(Debug)]
+pub struct AtomType<'a, T, V> {
+    pub characteristics: &'a AtomTypeCharacteristics<T>,
+    pub lock: ArcSliceReaderLock<AtomGroup<V>>,
+}
 
-pub type Image<V> = ArcSliceReaderLock<V>;
-
-pub type GroupInTypeInImageInSystem<'a, V> = MapOutsideWhole<
+pub type GroupInTypeInImageInSystem<'a, T, V> = MapOutsideWhole<
     &'a AtomGroup<V>,
-    MapInWhole<&'a AtomTypeReaderLock<V>, MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>>,
+    MapInWhole<&'a AtomType<'a, T, V>, MapInWhole<&'a [AtomType<'a, T, V>], &'a [AtomType<'a, T, V>]>>,
 >;
 
-pub type GroupInTypeInImage<'a, V> =
-    MapOutsideWhole<&'a AtomGroup<V>, MapInWhole<&'a AtomTypeReaderLock<V>, &'a [AtomTypeReaderLock<V>]>>;
+pub type GroupInTypeInImage<'a, T, V> =
+    MapOutsideWhole<&'a AtomGroup<V>, MapInWhole<&'a AtomType<'a, T, V>, &'a [AtomType<'a, T, V>]>>;
 
-pub type GroupRwLockInTypeInImageInSystem<'a, V> = MapOutsideWhole<
+pub type GroupRwLockInTypeInImageInSystem<'a, T, V> = MapOutsideWhole<
     &'a mut AtomGroupRwLock<V>,
-    MapInWhole<&'a AtomTypeReaderLock<V>, MapInWhole<&'a [AtomTypeReaderLock<V>], &'a [AtomTypeReaderLock<V>]>>,
+    MapInWhole<&'a AtomType<'a, T, V>, MapInWhole<&'a [AtomType<'a, T, V>], &'a [AtomType<'a, T, V>]>>,
 >;
 
 /// Exchange potential expansion scheme.
