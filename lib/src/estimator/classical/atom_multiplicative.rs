@@ -11,20 +11,23 @@ use crate::{
     },
     zip_items, zip_iterators,
 };
-use std::ops::Mul;
+use std::{
+    error::Error,
+    ops::{Deref, DerefMut, Mul},
+};
 
 /// A trait for classical estimators that can be expressed as a product
 /// of estimators that each depend only on a single atom.
 ///
 /// For any type `E` that implements this trait, [`MultiplicativeValueClassicalEstimator<E>`]
 /// automatically implements [`ClassicalEstimator`].
-pub trait AtomMultiplicativeClassicalEstimator<T: Clone, V> {
+pub trait AtomMultiplicativeClassicalEstimator<T: Clone, V, E> {
     /// The type of output `Self` and [`MultiplicativeValueClassicalEstimator<Self>`] return.
     type Output: Mul<Output = Self::Output>;
     /// The type of error `Self` returns.
-    type AtomError;
+    type AtomError: Error;
     /// The type of error [`MultiplicativeValueClassicalEstimator<Self>`] returns.
-    type SystemError: From<Self::AtomError> + From<EmptyError>;
+    type SystemError: Error + From<Self::AtomError> + From<EmptyError> + From<E>;
 
     /// Calculates the contribution of an atom to the contribution
     /// of the image to the observable.
@@ -51,16 +54,16 @@ impl<E> MultiplicativeValueClassicalEstimator<E> {
     }
 }
 
-impl<T, V, E> AtomMultiplicativeClassicalEstimator<T, V> for MultiplicativeValueClassicalEstimator<E>
+impl<T, V, E, C> AtomMultiplicativeClassicalEstimator<T, V, E> for MultiplicativeValueClassicalEstimator<C>
 where
     T: Mul<Output = T> + Clone,
-    E: AtomMultiplicativeClassicalEstimator<T, V, Output = T> + ?Sized,
+    C: AtomMultiplicativeClassicalEstimator<T, V, E, Output = T> + ?Sized,
 {
     type Output = T;
-    type AtomError = E::AtomError;
-    type SystemError = E::SystemError;
+    type AtomError = C::AtomError;
+    type SystemError = C::SystemError;
 
-    #[inline(always)]
+    #[inline]
     fn calculate(
         &mut self,
         atom_index: usize,
@@ -85,16 +88,50 @@ where
     }
 }
 
+impl<T, V, E, Q> AtomMultiplicativeClassicalEstimator<T, V, E> for Q
+where
+    T: Clone,
+    Q: DerefMut<Target: AtomMultiplicativeClassicalEstimator<T, V, E>> + ?Sized,
+{
+    type Output = <<Self as Deref>::Target as AtomMultiplicativeClassicalEstimator<T, V, E>>::Output;
+    type AtomError = <<Self as Deref>::Target as AtomMultiplicativeClassicalEstimator<T, V, E>>::AtomError;
+    type SystemError = <<Self as Deref>::Target as AtomMultiplicativeClassicalEstimator<T, V, E>>::SystemError;
+
+    #[inline]
+    fn calculate(
+        &mut self,
+        atom_index: usize,
+        physical_potential_energy: T,
+        type_exchange_potential_energy: T,
+        group_heat: T,
+        position: &V,
+        momentum: &V,
+        physical_force: &V,
+        exchange_force: &V,
+    ) -> Result<Self::Output, Self::AtomError> {
+        (*self).calculate(
+            atom_index,
+            physical_potential_energy,
+            type_exchange_potential_energy,
+            group_heat,
+            position,
+            momentum,
+            physical_force,
+            exchange_force,
+        )
+    }
+}
+
 impl<T, V, A, M, E> ClassicalEstimator<T, V, A, M, ()> for MultiplicativeValueClassicalEstimator<E>
 where
     T: Mul<Output = T> + Clone,
     A: ?Sized,
     M: SyncMulSender<T> + ?Sized,
     E: ?Sized,
-    Self: AtomMultiplicativeClassicalEstimator<T, V, Output = T, SystemError: From<M::Error>>,
+    Self: AtomMultiplicativeClassicalEstimator<T, V, M::Error, Output = T>,
 {
     type Output = T;
-    type Error = <Self as AtomMultiplicativeClassicalEstimator<T, V>>::SystemError;
+    type Error = <Self as AtomMultiplicativeClassicalEstimator<T, V, M::Error>>::SystemError;
 
     fn calculate(
         &mut self,
@@ -134,7 +171,7 @@ where
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
         let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-            Ok::<_, <Self as AtomMultiplicativeClassicalEstimator<T, V>>::AtomError>(
+            Ok::<_, <Self as AtomMultiplicativeClassicalEstimator<T, V, M::Error>>::AtomError>(
                 accum_observable * atom_observable?,
             )
         })?;
@@ -149,10 +186,10 @@ where
     A: ?Sized,
     M: SyncMulReceiver<T> + ?Sized,
     E: ?Sized,
-    Self: AtomMultiplicativeClassicalEstimator<T, V, Output = T, SystemError: From<M::Error>>,
+    Self: AtomMultiplicativeClassicalEstimator<T, V, M::Error, Output = T>,
 {
     type Output = T;
-    type Error = <Self as AtomMultiplicativeClassicalEstimator<T, V>>::SystemError;
+    type Error = <Self as AtomMultiplicativeClassicalEstimator<T, V, M::Error>>::SystemError;
 
     fn calculate(
         &mut self,
@@ -192,7 +229,7 @@ where
         );
         let first_atom_observable = iter.next().ok_or(EmptyError)??;
         let group_observable = iter.try_fold(first_atom_observable, |accum_observable, atom_observable| {
-            Ok::<_, <Self as AtomMultiplicativeClassicalEstimator<T, V>>::AtomError>(
+            Ok::<_, <Self as AtomMultiplicativeClassicalEstimator<T, V, M::Error>>::AtomError>(
                 accum_observable * atom_observable?,
             )
         })?;

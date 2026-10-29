@@ -39,8 +39,8 @@ where
     V: From<[T; N]> + Vector<N, Element = T>,
     R: Rng,
 {
-    type ErrorAtom = Infallible;
-    type ErrorSystem = EmptyError;
+    type AtomError = Infallible;
+    type SystemError = EmptyError;
 
     fn thermalize(
         &mut self,
@@ -51,7 +51,7 @@ where
         _physical_force: &V,
         _exchange_force: &V,
         momentum: &mut V,
-    ) -> Result<T, Self::ErrorAtom> {
+    ) -> Result<T, Self::AtomError> {
         let gamma_times_dt = self.gamma * step_size;
         let momentum_old = *momentum;
         let momentum_new = momentum_old * (<T as From<_>>::from(-0.5) * gamma_times_dt).exp()

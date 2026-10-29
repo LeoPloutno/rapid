@@ -1,3 +1,4 @@
+use crate::estimator::EstimatorsError;
 use lib::{
     core::{GroupInTypeInImage, Synchronizer, marker::MeaningfulOutput},
     estimator::quantum::QuantumEstimator,
@@ -27,7 +28,7 @@ impl<T, V, A: ?Sized, M: ?Sized> QuantumEstimator<T, V, A, M, ()> for PotentialE
 
 impl<T: MeaningfulOutput, V, A: ?Sized, M: ?Sized> QuantumEstimator<T, V, A, M, T> for PotentialEnergy {
     type Output = T;
-    type Error = Infallible;
+    type Error = EstimatorsError;
 
     fn calculate(
         &mut self,

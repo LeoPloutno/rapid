@@ -1,3 +1,8 @@
+use std::{
+    error::Error,
+    ops::{Deref, DerefMut},
+};
+
 use super::ExchangePotential;
 use crate::core::{AtomGroup, marker::ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
@@ -24,7 +29,7 @@ pub enum NeighboringImage {
 /// that combines the recieved data and returns the total exchange potential energy.
 pub trait MonteCarloExchangePotential<T, V, O: ValidOutput<T>>: ExchangePotential<T, V, O> {
     /// The type associated with an error returned by the implementor.
-    type Error;
+    type Error: Error;
 
     /// Calculates the contribution of a group to the total exchange potential energy
     /// of the type after a change in the position of a single atom
@@ -67,10 +72,7 @@ pub trait MonteCarloExchangePotential<T, V, O: ValidOutput<T>>: ExchangePotentia
     ///
     /// Where applicable, returns the potential energy.
     #[heavy_computation]
-    #[efficient_alternatives(
-        "calculate_new_energy_set_changed_forces",
-        "calculate_new_energy_add_changed_forces"
-    )]
+    #[efficient_alternatives("calculate_new_energy_set_changed_forces", "calculate_new_energy_add_changed_forces")]
     fn calculate_new_energy(
         &mut self,
         changed_image: NeighboringImage,
@@ -112,4 +114,136 @@ pub trait MonteCarloExchangePotential<T, V, O: ValidOutput<T>>: ExchangePotentia
         type_positions: &[AtomGroup<V>],
         group_forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloExchangePotential<T, V, O>>::Error>;
+}
+
+impl<T, V, O, P> MonteCarloExchangePotential<T, V, O> for P
+where
+    O: ValidOutput<T>,
+    P: DerefMut<Target: MonteCarloExchangePotential<T, V, O>> + ?Sized,
+{
+    type Error = <<Self as Deref>::Target as MonteCarloExchangePotential<T, V, O>>::Error;
+
+    #[inline]
+    fn calculate_new_energy_set_changed_forces(
+        &mut self,
+        changed_image: NeighboringImage,
+        changed_atom_index: usize,
+        old_energy: T,
+        old_position: T,
+        prev_image_type_positions: &[AtomGroup<V>],
+        next_image_type_positions: &[AtomGroup<V>],
+        type_positions: &[AtomGroup<V>],
+        forces: &mut [V],
+    ) -> Result<O, <Self as MonteCarloExchangePotential<T, V, O>>::Error> {
+        <<Self as Deref>::Target as MonteCarloExchangePotential<T, V, O>>::calculate_new_energy_set_changed_forces(
+            &mut *self,
+            changed_image,
+            changed_atom_index,
+            old_energy,
+            old_position,
+            prev_image_type_positions,
+            next_image_type_positions,
+            type_positions,
+            forces,
+        )
+    }
+
+    #[inline]
+    fn calculate_new_energy_add_changed_forces(
+        &mut self,
+        changed_image: NeighboringImage,
+        changed_atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        prev_image_type_positions: &[AtomGroup<V>],
+        next_image_type_positions: &[AtomGroup<V>],
+        type_positions: &[AtomGroup<V>],
+        forces: &mut [V],
+    ) -> Result<O, <Self as MonteCarloExchangePotential<T, V, O>>::Error> {
+        <<Self as Deref>::Target as MonteCarloExchangePotential<T, V, O>>::calculate_new_energy_add_changed_forces(
+            &mut *self,
+            changed_image,
+            changed_atom_index,
+            old_energy,
+            old_position,
+            prev_image_type_positions,
+            next_image_type_positions,
+            type_positions,
+            forces,
+        )
+    }
+
+    #[inline]
+    fn calculate_new_energy(
+        &mut self,
+        changed_image: NeighboringImage,
+        changed_atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        prev_image_type_positions: &[AtomGroup<V>],
+        next_image_type_positions: &[AtomGroup<V>],
+        type_positions: &[AtomGroup<V>],
+    ) -> Result<O, <Self as MonteCarloExchangePotential<T, V, O>>::Error> {
+        #[allow(deprecated)]
+        <<Self as Deref>::Target as MonteCarloExchangePotential<T, V, O>>::calculate_new_energy(
+            &mut *self,
+            changed_image,
+            changed_atom_index,
+            old_energy,
+            old_position,
+            prev_image_type_positions,
+            next_image_type_positions,
+            type_positions,
+        )
+    }
+
+    #[inline]
+    fn set_changed_forces(
+        &mut self,
+        changed_image: NeighboringImage,
+        changed_atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        prev_image_type_positions: &[AtomGroup<V>],
+        next_image_type_positions: &[AtomGroup<V>],
+        type_positions: &[AtomGroup<V>],
+        forces: &mut [V],
+    ) -> Result<(), <Self as MonteCarloExchangePotential<T, V, O>>::Error> {
+        #[allow(deprecated)]
+        <<Self as Deref>::Target as MonteCarloExchangePotential<T, V, O>>::set_changed_forces(
+            &mut *self,
+            changed_image,
+            changed_atom_index,
+            old_energy,
+            old_position,
+            prev_image_type_positions,
+            next_image_type_positions,
+            type_positions,
+            forces,
+        )
+    }
+
+    #[inline]
+    fn add_changed_forces(
+        &mut self,
+        changed_image: NeighboringImage,
+        changed_atom_index: usize,
+        old_value: V,
+        prev_image_type_positions: &[AtomGroup<V>],
+        next_image_type_positions: &[AtomGroup<V>],
+        type_positions: &[AtomGroup<V>],
+        group_forces: &mut [V],
+    ) -> Result<(), <Self as MonteCarloExchangePotential<T, V, O>>::Error> {
+        #[allow(deprecated)]
+        <<Self as Deref>::Target as MonteCarloExchangePotential<T, V, O>>::add_changed_forces(
+            &mut *self,
+            changed_image,
+            changed_atom_index,
+            old_value,
+            prev_image_type_positions,
+            next_image_type_positions,
+            type_positions,
+            group_forces,
+        )
+    }
 }

@@ -1,5 +1,10 @@
 //! A trait for thermalizing the system.
 
+use std::{
+    error::Error,
+    ops::{Deref, DerefMut},
+};
+
 use crate::core::GroupInTypeInImageInSystem;
 use macros::heavy_computation;
 
@@ -13,7 +18,7 @@ pub use atom_decoupled::{AtomDecoupledThermostat, DecoupledThermostat};
 /// are sampled while keeping the temperature fixed.
 pub trait Thermostat<T, V> {
     /// The type associated with an error returned by the implementor.
-    type Error;
+    type Error: Error;
 
     /// Performs thermalization of a group.
     ///
@@ -29,4 +34,24 @@ pub trait Thermostat<T, V> {
         exchange_forces: &GroupInTypeInImageInSystem<T, V>,
         momenta: &mut [V],
     ) -> Result<T, Self::Error>;
+}
+
+impl<T, V, U> Thermostat<T, V> for U
+where
+    U: DerefMut<Target: Thermostat<T, V>> + ?Sized,
+{
+    type Error = <<Self as Deref>::Target as Thermostat<T, V>>::Error;
+
+    #[inline]
+    fn thermalize(
+        &mut self,
+        step_size: T,
+        step: usize,
+        positions: &GroupInTypeInImageInSystem<T, V>,
+        physical_forces: &GroupInTypeInImageInSystem<T, V>,
+        exchange_forces: &GroupInTypeInImageInSystem<T, V>,
+        momenta: &mut [V],
+    ) -> Result<T, Self::Error> {
+        (*self).thermalize(step_size, step, positions, physical_forces, exchange_forces, momenta)
+    }
 }

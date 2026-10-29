@@ -6,7 +6,10 @@ use crate::core::{
     sync_ops::{SyncAddReceiver, SyncAddSender},
 };
 use macros::efficient_alternatives;
-use std::ops::{Add, AddAssign};
+use std::{
+    error::Error,
+    ops::{Add, AddAssign, Deref, DerefMut},
+};
 
 #[cfg(feature = "monte_carlo")]
 mod monte_carlo;
@@ -36,11 +39,11 @@ impl<A, P> AdditivePhysicalPotential<P, A> {
 ///
 /// For any type `P` that implements this trait, [`AdditivePhysicalPotential<P>`]
 /// automatically implements [`PhysicalPotential`].
-pub trait AtomAdditivePhysicalPotential<T: Add<Output = T>, V> {
+pub trait AtomAdditivePhysicalPotential<T: Add<Output = T>, V, E> {
     /// The type of error `Self` returns.
-    type AtomError;
+    type AtomError: Error;
     /// The type of error [`AdditivePhysicalPotential<Self>`] returns.
-    type SystemError: From<Self::AtomError> + From<EmptyError> + From<InvalidIndexError>;
+    type SystemError: Error + From<Self::AtomError> + From<EmptyError> + From<InvalidIndexError> + From<E>;
 
     /// Calculates the contribution of an atom to the total physical potential energy
     /// of the image and the force arising from it.
@@ -62,30 +65,55 @@ pub trait AtomAdditivePhysicalPotential<T: Add<Output = T>, V> {
     fn calculate_force(&mut self, atom_index: usize, position: &V) -> Result<V, Self::AtomError>;
 }
 
-impl<T, V, A, P> AtomAdditivePhysicalPotential<T, V> for AdditivePhysicalPotential<P, A>
+impl<T, V, A, E, P> AtomAdditivePhysicalPotential<T, V, E> for AdditivePhysicalPotential<P, A>
 where
     T: Add<Output = T>,
-    V: AddAssign,
-    P: AtomAdditivePhysicalPotential<T, V> + ?Sized,
+    P: AtomAdditivePhysicalPotential<T, V, E> + ?Sized,
 {
     type AtomError = P::AtomError;
     type SystemError = P::SystemError;
 
-    #[inline(always)]
+    #[inline]
     fn calculate_energy_and_force(&mut self, atom_index: usize, position: &V) -> Result<(T, V), Self::AtomError> {
         self.potential.calculate_energy_and_force(atom_index, position)
     }
 
-    #[inline(always)]
+    #[inline]
     fn calculate_energy(&mut self, atom_index: usize, position: &V) -> Result<T, Self::AtomError> {
         #[allow(deprecated)]
         self.potential.calculate_energy(atom_index, position)
     }
 
-    #[inline(always)]
+    #[inline]
     fn calculate_force(&mut self, atom_index: usize, position: &V) -> Result<V, Self::AtomError> {
         #[allow(deprecated)]
         self.potential.calculate_force(atom_index, position)
+    }
+}
+
+impl<T, V, E, P> AtomAdditivePhysicalPotential<T, V, E> for P
+where
+    T: Add<Output = T>,
+    P: DerefMut<Target: AtomAdditivePhysicalPotential<T, V, E>> + ?Sized,
+{
+    type AtomError = <<Self as Deref>::Target as AtomAdditivePhysicalPotential<T, V, E>>::AtomError;
+    type SystemError = <<Self as Deref>::Target as AtomAdditivePhysicalPotential<T, V, E>>::SystemError;
+
+    #[inline]
+    fn calculate_energy_and_force(&mut self, atom_index: usize, position: &V) -> Result<(T, V), Self::AtomError> {
+        (*self).calculate_energy_and_force(atom_index, position)
+    }
+
+    #[inline]
+    fn calculate_energy(&mut self, atom_index: usize, position: &V) -> Result<T, Self::AtomError> {
+        #[allow(deprecated)]
+        (*self).calculate_energy(atom_index, position)
+    }
+
+    #[inline]
+    fn calculate_force(&mut self, atom_index: usize, position: &V) -> Result<V, Self::AtomError> {
+        #[allow(deprecated)]
+        (*self).calculate_force(atom_index, position)
     }
 }
 
@@ -95,9 +123,9 @@ where
     V: AddAssign,
     A: SyncAddSender<T>,
     P: ?Sized,
-    Self: AtomAdditivePhysicalPotential<T, V, SystemError: From<A::Error>>,
+    Self: AtomAdditivePhysicalPotential<T, V, A::Error>,
 {
-    type Error = <Self as AtomAdditivePhysicalPotential<T, V>>::SystemError;
+    type Error = <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::SystemError;
 
     fn calculate_energy_set_forces(
         &mut self,
@@ -116,7 +144,7 @@ where
             .try_fold(first_atom_energy, |accum_energy, (elem, force)| {
                 let (atom_energy, atom_force) = elem?;
                 *force = atom_force;
-                Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V>>::AtomError>(accum_energy + atom_energy)
+                Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::AtomError>(accum_energy + atom_energy)
             })?;
         self.adder.send(group_energy)?;
         Ok(())
@@ -139,7 +167,7 @@ where
             .try_fold(first_atom_energy, |accum_energy, (elem, force)| {
                 let (atom_energy, atom_force) = elem?;
                 *force += atom_force;
-                Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V>>::AtomError>(accum_energy + atom_energy)
+                Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::AtomError>(accum_energy + atom_energy)
             })?;
         self.adder.send(group_energy)?;
         Ok(())
@@ -152,7 +180,7 @@ where
         });
         let first_atom_energy = iter.next().ok_or(EmptyError)??;
         let group_energy = iter.try_fold(first_atom_energy, |accum_energy, atom_energy| {
-            Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V>>::AtomError>(accum_energy + atom_energy?)
+            Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::AtomError>(accum_energy + atom_energy?)
         })?;
         self.adder.send(group_energy)?;
         Ok(())
@@ -181,9 +209,9 @@ where
     V: AddAssign,
     A: SyncAddReceiver<T>,
     P: ?Sized,
-    Self: AtomAdditivePhysicalPotential<T, V, SystemError: From<A::Error>>,
+    Self: AtomAdditivePhysicalPotential<T, V, A::Error>,
 {
-    type Error = <Self as AtomAdditivePhysicalPotential<T, V>>::SystemError;
+    type Error = <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::SystemError;
 
     fn calculate_energy_set_forces(
         &mut self,
@@ -202,7 +230,7 @@ where
             .try_fold(first_atom_energy, |accum_energy, (elem, force)| {
                 let (atom_energy, atom_force) = elem?;
                 *force = atom_force;
-                Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V>>::AtomError>(accum_energy + atom_energy)
+                Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::AtomError>(accum_energy + atom_energy)
             })?;
         let image_energy = group_energy + self.adder.recv_sum()?.ok_or(EmptyError)?;
         Ok(image_energy)
@@ -225,7 +253,7 @@ where
             .try_fold(first_atom_energy, |accum_energy, (elem, force)| {
                 let (atom_energy, atom_force) = elem?;
                 *force += atom_force;
-                Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V>>::AtomError>(accum_energy + atom_energy)
+                Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::AtomError>(accum_energy + atom_energy)
             })?;
         let image_energy = group_energy + self.adder.recv_sum()?.ok_or(EmptyError)?;
         Ok(image_energy)
@@ -238,7 +266,7 @@ where
         });
         let first_atom_energy = iter.next().ok_or(EmptyError)??;
         let group_energy = iter.try_fold(first_atom_energy, |accum_energy, atom_energy| {
-            Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V>>::AtomError>(accum_energy + atom_energy?)
+            Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::AtomError>(accum_energy + atom_energy?)
         })?;
         let image_energy = group_energy + self.adder.recv_sum()?.ok_or(EmptyError)?;
         Ok(image_energy)

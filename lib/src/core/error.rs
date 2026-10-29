@@ -6,7 +6,7 @@ use std::{
     range::Range,
 };
 
-use crate::core::ImageType;
+use crate::core::{ImageType, marker::NonInfallible};
 
 /// An error representing an attempt to access an empty container.
 #[derive(Clone, Copy, Debug)]
@@ -25,6 +25,8 @@ impl Display for EmptyError {
 }
 
 impl Error for EmptyError {}
+
+impl NonInfallible for EmptyError {}
 
 /// An error that represents invalid indexing with indices.
 #[derive(Clone, Copy, Debug)]
@@ -57,6 +59,8 @@ impl Display for InvalidIndexError {
 }
 
 impl Error for InvalidIndexError {}
+
+impl NonInfallible for InvalidIndexError {}
 
 /// An error that represents invalid indexing with ranges.
 #[derive(Clone, Copy, Debug)]
@@ -95,8 +99,10 @@ impl Display for InvalidRangeError {
 
 impl Error for InvalidRangeError {}
 
+impl NonInfallible for InvalidRangeError {}
+
 /// An error that represents invalid access.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum AccessError {
     /// Invalid indexing.
     Index(InvalidIndexError),
@@ -150,6 +156,8 @@ impl Error for AccessError {
     }
 }
 
+impl NonInfallible for AccessError {}
+
 /// A miscellaneous error used by [`run`].
 ///
 /// [`run`]: crate::run
@@ -183,3 +191,5 @@ impl Display for CommError {
 }
 
 impl Error for CommError {}
+
+impl NonInfallible for CommError {}

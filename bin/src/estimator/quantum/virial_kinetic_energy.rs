@@ -1,5 +1,6 @@
+use crate::estimator::EstimatorsError;
 use lib::{
-    core::{Vector, error::EmptyError},
+    core::Vector,
     estimator::quantum::{AdditiveValueQuantumEstimator, AtomAdditiveQuantumEstimator},
 };
 use num::Float;
@@ -17,14 +18,15 @@ impl<T: From<f32>, const N: usize> VirialKineticEnergy<T, N> {
     }
 }
 
-impl<T, V, const N: usize> AtomAdditiveQuantumEstimator<T, V> for VirialKineticEnergy<T, N>
+impl<T, V, E, const N: usize> AtomAdditiveQuantumEstimator<T, V, E> for VirialKineticEnergy<T, N>
 where
     T: Float,
     V: Vector<N, Element = T>,
+    EstimatorsError: From<E>,
 {
     type Output = T;
     type AtomError = Infallible;
-    type SystemError = EmptyError;
+    type SystemError = EstimatorsError;
 
     fn calculate(
         &mut self,

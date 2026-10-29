@@ -6,7 +6,7 @@ pub mod constants {
 mod unimplemented {
     use lib::{
         core::{
-            GroupInTypeInImage, GroupInTypeInImageInSystem, Vector,
+            GroupInTypeInImage, GroupInTypeInImageInSystem,
             marker::ValidOutput,
             stat::{Bosonic, Distinguishable},
         },

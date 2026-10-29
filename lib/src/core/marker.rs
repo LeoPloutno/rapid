@@ -1,7 +1,16 @@
 //! Marker traits for allowing default implementations.
 
+/// A marker trait used to exclude [`Infallible`](std::convert::Infallible)
+pub trait NonInfallible {}
+
+impl !NonInfallible for ! {}
+
 /// A marker trait used to exclude `()`.
 pub trait MeaningfulOutput {}
+
+impl MeaningfulOutput for f32 {}
+
+impl MeaningfulOutput for f64 {}
 
 impl !MeaningfulOutput for () {}
 

@@ -8,6 +8,8 @@ use lib::{
 };
 use num::Float;
 
+use crate::estimator::EstimatorsError;
+
 pub struct PhysicalPotentialEnergyTrailing;
 
 impl<T, V, A, M> ClassicalEstimator<T, V, A, M, ()> for PhysicalPotentialEnergyTrailing
@@ -43,9 +45,10 @@ impl<T, V, A, M> ClassicalEstimator<T, V, A, M, ()> for PhysicalPotentialEnergyI
 where
     A: SyncAddSender<T> + ?Sized,
     M: ?Sized,
+    EstimatorsError: From<A::Error>,
 {
     type Output = T;
-    type Error = A::Error;
+    type Error = EstimatorsError;
 
     fn calculate(
         &mut self,
@@ -73,8 +76,9 @@ where
     T: Float + MeaningfulOutput,
     A: SyncAddReceiver<T> + ?Sized,
     M: ?Sized,
+    EstimatorsError: From<A::Error>,
 {
-    type Error = A::Error;
+    type Error = EstimatorsError;
     type Output = T;
 
     fn calculate(

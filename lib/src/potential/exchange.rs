@@ -1,5 +1,10 @@
 //! Traits for updating the forces and calculating the exchange potential energy.
 
+use std::{
+    error::Error,
+    ops::{Deref, DerefMut},
+};
+
 use crate::core::{GroupInTypeInImage, marker::ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
 
@@ -17,7 +22,7 @@ pub use monte_carlo::{MonteCarloExchangePotential, NeighboringImage};
 /// that combines the recieved data and returns the total exchange potential energy.
 pub trait ExchangePotential<T, V, O: ValidOutput<T>> {
     /// The type associated with an error returned by the implementor.
-    type Error;
+    type Error: Error;
 
     /// Calculates the contribution of a group to the total exchange potential energy
     /// of the type and sets the forces of that group accordingly.
@@ -79,12 +84,12 @@ pub trait ExchangePotential<T, V, O: ValidOutput<T>> {
     ) -> Result<(), Self::Error>;
 }
 
-impl<'a, T, V, O, P> ExchangePotential<T, V, O> for &'a mut P
+impl<T, V, O, P> ExchangePotential<T, V, O> for P
 where
     O: ValidOutput<T>,
-    P: ExchangePotential<T, V, O> + ?Sized,
+    P: DerefMut<Target: ExchangePotential<T, V, O>> + ?Sized,
 {
-    type Error = P::Error;
+    type Error = <<Self as Deref>::Target as ExchangePotential<T, V, O>>::Error;
 
     #[inline]
     fn calculate_energy_set_forces(

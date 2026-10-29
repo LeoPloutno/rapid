@@ -161,8 +161,11 @@ pub struct Synchronizer<T> {
 
 impl<T> Synchronizer<T> {
     /// Constructs a new synchronizer
-    pub const fn new(lock: RwLock<T>, barrier: Barrier) -> Self {
-        Self { lock, barrier }
+    pub const fn new(lock: RwLock<T>, n: usize) -> Self {
+        Self {
+            lock,
+            barrier: Barrier::new(n),
+        }
     }
 }
 

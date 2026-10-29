@@ -1,9 +1,64 @@
 use lib::{
-    core::{Vector, error::AccessError},
+    core::Vector,
     potential::physical::{AdditivePhysicalPotential, AtomAdditivePhysicalPotential},
 };
 use num::Float;
-use std::convert::Infallible;
+use std::{convert::Infallible, error::Error};
+
+mod error {
+    use lib::core::error::{AccessError, EmptyError, InvalidIndexError, InvalidRangeError};
+    use std::{convert::Infallible, error::Error, fmt::Display};
+
+    use crate::sync_ops::mutex::SyncError;
+
+    #[derive(Clone, Copy, Debug)]
+    pub enum HarmonicPotentialError<T> {
+        Access(AccessError),
+        Add(T),
+    }
+
+    impl<T> From<Infallible> for HarmonicPotentialError<T> {
+        fn from(value: Infallible) -> Self {
+            value
+        }
+    }
+
+    impl<T> From<EmptyError> for HarmonicPotentialError<T> {
+        fn from(value: EmptyError) -> Self {
+            Self::Access(AccessError::Empty(value))
+        }
+    }
+
+    impl<T> From<InvalidIndexError> for HarmonicPotentialError<T> {
+        fn from(value: InvalidIndexError) -> Self {
+            Self::Access(AccessError::Index(value))
+        }
+    }
+
+    impl<T> From<InvalidRangeError> for HarmonicPotentialError<T> {
+        fn from(value: InvalidRangeError) -> Self {
+            Self::Access(AccessError::Range(value))
+        }
+    }
+
+    impl From<SyncError> for HarmonicPotentialError<SyncError> {
+        fn from(value: SyncError) -> Self {
+            Self::Add(value)
+        }
+    }
+
+    impl<T: Display> Display for HarmonicPotentialError<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Access(err) => write!(f, "access error: {}", err),
+                Self::Add(err) => write!(f, "synchronized addition error: {}", err),
+            }
+        }
+    }
+
+    impl<T: Error> Error for HarmonicPotentialError<T> {}
+}
+pub use error::HarmonicPotentialError;
 
 pub struct Harmonic<T, const N: usize> {
     potential_prefactor: T,
@@ -25,20 +80,22 @@ where
     }
 }
 
-impl<T, V, const N: usize> AtomAdditivePhysicalPotential<T, V> for Harmonic<T, N>
+impl<T, V, E, const N: usize> AtomAdditivePhysicalPotential<T, V, E> for Harmonic<T, N>
 where
     T: From<f32> + Float,
     V: Vector<N, Element = T>,
+    E: Error,
+    HarmonicPotentialError<E>: From<E>,
 {
     type AtomError = Infallible;
-    type SystemError = AccessError;
+    type SystemError = HarmonicPotentialError<E>;
 
     #[inline]
     fn calculate_energy_and_force(&mut self, atom_index: usize, position: &V) -> Result<(T, V), Self::AtomError> {
         #[allow(deprecated)]
         Ok((
-            self.calculate_energy(atom_index, position)?,
-            self.calculate_force(atom_index, position)?,
+            <Self as AtomAdditivePhysicalPotential<T, V, E>>::calculate_energy(self, atom_index, position)?,
+            <Self as AtomAdditivePhysicalPotential<T, V, E>>::calculate_force(self, atom_index, position)?,
         ))
     }
 

@@ -1,9 +1,9 @@
-use lib::core::Vector;
+use lib::core::{Vector, marker::MeaningfulOutput};
 use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
     iter::Sum,
     mem::{self, MaybeUninit},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
-    slice::{Iter, IterMut},
 };
 
 #[derive(Clone, Copy)]
@@ -144,23 +144,23 @@ impl<T, const N: usize> From<[T; N]> for ArrayVector<T, N> {
     }
 }
 
-impl<'a, T, const N: usize> IntoIterator for &'a ArrayVector<T, N> {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
+impl<T: Display, const N: usize> Display for ArrayVector<T, N> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "(")?;
+        let mut iterator = self.0.iter();
+        let last = iterator.next_back();
+        for element in iterator {
+            write!(f, "{}, ", *element)?;
+        }
+        if let Some(element) = last {
+            write!(f, "{}", *element)?;
+        }
+        write!(f, ")")?;
+        Ok(())
     }
 }
 
-impl<'a, T, const N: usize> IntoIterator for &'a mut ArrayVector<T, N> {
-    type Item = &'a mut T;
-    type IntoIter = IterMut<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter_mut()
-    }
-}
+impl<T, const N: usize> MeaningfulOutput for ArrayVector<T, N> {}
 
 impl<T, const N: usize> Vector<N> for ArrayVector<T, N>
 where

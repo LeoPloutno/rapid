@@ -1,6 +1,11 @@
 //! Traits for propagating the system using an exchange potential
 //! expanded to the second order.
 
+use std::{
+    error::Error,
+    ops::{Deref, DerefMut},
+};
+
 use super::GroupRwLockInTypeInImageInSystem;
 use crate::{
     core::{
@@ -24,7 +29,7 @@ where
     OutExch: ValidOutput<T>,
 {
     /// The type associated with an error returned by the implementor.
-    type Error;
+    type Error: Error;
 
     /// Propagates the positions, momenta, and forces by a single step.
     ///
@@ -43,4 +48,51 @@ where
         physical_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
         exchange_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
     ) -> Result<(OutPhys, OutExch, T), Self::Error>;
+}
+
+impl<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch, P>
+    QuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch> for P
+where
+    Phys: PhysicalPotential<T, V, OutPhys> + ?Sized,
+    Dist: for<'a> QuadraticExpansionExchangePotential<'a, T, V, OutExch> + Distinguishable + ?Sized,
+    Boson: for<'a> QuadraticExpansionExchangePotential<'a, T, V, OutExch> + Bosonic + ?Sized,
+    Therm: Thermostat<T, V> + ?Sized,
+    OutPhys: ValidOutput<T>,
+    OutExch: ValidOutput<T>,
+    P: DerefMut<Target: QuadraticExpansionPropagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch>> + ?Sized,
+{
+    type Error = <<Self as Deref>::Target as QuadraticExpansionPropagator<
+        T,
+        V,
+        Phys,
+        Dist,
+        Boson,
+        Therm,
+        OutPhys,
+        OutExch,
+    >>::Error;
+
+    #[inline]
+    fn propagate(
+        &mut self,
+        step: usize,
+        physical_potential: &mut Phys,
+        exchange_potential: Stat<&mut Dist, &mut Boson>,
+        thermostat: &mut Therm,
+        positions: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        momenta: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        physical_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+        exchange_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
+    ) -> Result<(OutPhys, OutExch, T), Self::Error> {
+        (*self).propagate(
+            step,
+            physical_potential,
+            exchange_potential,
+            thermostat,
+            positions,
+            momenta,
+            physical_forces,
+            exchange_forces,
+        )
+    }
 }

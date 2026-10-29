@@ -1,6 +1,11 @@
 //! Traits for calculating quantum observables.
 
-use crate::core::{GroupInTypeInImage, Synchronizer, marker::ValidOutput};
+use std::{
+    error::Error,
+    ops::{Deref, DerefMut},
+};
+
+use crate::core::{GroupInTypeInImage, Synchronizer};
 use macros::heavy_computation;
 
 mod atom_additive;
@@ -21,12 +26,11 @@ pub trait QuantumEstimator<T, V, A, M, O>
 where
     A: ?Sized,
     M: ?Sized,
-    O: ValidOutput<Self::Output>,
 {
     /// The type associated with the output returned by the implementor.
     type Output;
     /// The type associated with an error returned by the implementor.
-    type Error;
+    type Error: Error;
 
     /// Calculates the contribution of a group to the contribution
     /// of the image to the observable.
@@ -44,4 +48,38 @@ where
         physical_forces: &GroupInTypeInImage<T, V>,
         exchange_forces: &GroupInTypeInImage<T, V>,
     ) -> Result<O, Self::Error>;
+}
+
+impl<T, V, A, M, O, E> QuantumEstimator<T, V, A, M, O> for E
+where
+    A: ?Sized,
+    M: ?Sized,
+    E: DerefMut<Target: QuantumEstimator<T, V, A, M, O>> + ?Sized,
+{
+    type Output = <<Self as Deref>::Target as QuantumEstimator<T, V, A, M, O>>::Output;
+    type Error = <<Self as Deref>::Target as QuantumEstimator<T, V, A, M, O>>::Error;
+
+    #[inline]
+    fn calculate(
+        &mut self,
+        synchronizer: &Synchronizer<T>,
+        adder: &mut A,
+        multiplier: &mut M,
+        physical_potential_energy: T,
+        type_exchange_potential_energy: T,
+        positions: &GroupInTypeInImage<T, V>,
+        physical_forces: &GroupInTypeInImage<T, V>,
+        exchange_forces: &GroupInTypeInImage<T, V>,
+    ) -> Result<O, Self::Error> {
+        (*self).calculate(
+            synchronizer,
+            adder,
+            multiplier,
+            physical_potential_energy,
+            type_exchange_potential_energy,
+            positions,
+            physical_forces,
+            exchange_forces,
+        )
+    }
 }

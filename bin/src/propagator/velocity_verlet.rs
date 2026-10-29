@@ -14,9 +14,15 @@ use num::Float;
 use std::sync::{Arc, Barrier};
 
 mod error {
-    use std::sync::PoisonError;
+    use std::{
+        error::Error,
+        fmt::{Display, Formatter, Result as FmtResult},
+        sync::PoisonError,
+    };
 
     use lib::core::error::{AccessError, EmptyError, InvalidIndexError, InvalidRangeError};
+
+    #[derive(Clone, Copy, Debug)]
     pub enum VelocityVerletError<Phys, Exch, Therm> {
         PhysicalPotential(Phys),
         ExchangePotential(Exch),
@@ -54,6 +60,35 @@ mod error {
             Self::Poison
         }
     }
+
+    impl<Phys, Exch, Therm> Display for VelocityVerletError<Phys, Exch, Therm>
+    where
+        Phys: Display,
+        Exch: Display,
+        Therm: Display,
+    {
+        fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+            match self {
+                Self::PhysicalPotential(err) => {
+                    write!(f, "error occured during computation of physical potential: {}", err)
+                }
+                Self::ExchangePotential(err) => {
+                    write!(f, "error occured during computation of exchange potenntial: {}", err)
+                }
+                Self::Thermostat(err) => write!(f, "error occured during thermalization: {}", err),
+                Self::Access(err) => write!(f, "illegal acces: {}", err),
+                Self::Poison => write!(f, "another thread was poisoned"),
+            }
+        }
+    }
+
+    impl<Phys, Exch, Therm> Error for VelocityVerletError<Phys, Exch, Therm>
+    where
+        Phys: Error,
+        Exch: Error,
+        Therm: Error,
+    {
+    }
 }
 pub use error::VelocityVerletError;
 
@@ -61,6 +96,16 @@ pub struct VelocityVerlet<T, const N: usize> {
     step_size: T,
     mass: T,
     barrier: Arc<Barrier>,
+}
+
+impl<T, const N: usize> VelocityVerlet<T, N> {
+    pub fn new(step_size: T, mass: T, barrier: Arc<Barrier>) -> Self {
+        Self {
+            step_size,
+            mass,
+            barrier,
+        }
+    }
 }
 
 impl<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch, const N: usize>

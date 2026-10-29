@@ -256,7 +256,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Ok(())
     }
 
-    pub fn step__image_leader_group<V, OutPhys, OutExch, EstErr, Err, const N: usize>(
+    pub fn step_image_leader_group<V, OutPhys, OutExch, EstErr, Err, const N: usize>(
         &mut self,
         step: usize,
         quantum_estimators: Option<
@@ -285,7 +285,6 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Prop: Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch>,
         T: Clone + MeaningfulOutput,
         V: Vector<N, Element = T> + MeaningfulOutput,
-        for<'b> &'b V: IntoIterator<Item = &'b T>,
         OutPhys: ValidOutput<T> + PropagationOutput<T>,
         OutExch: ValidOutput<T> + PropagationOutput<T>,
         Err: From<CommError> + From<EstAdd::Error> + From<Prop::Error> + From<EstErr>,
@@ -355,7 +354,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                     .map_map(|map| map.read())
                                     .map_whole(|whole| whole.into()),
                             )?;
-                            for element in &vector {
+                            for element in vector.as_array() {
                                 self.estimators_adder.send(element.clone())?;
                                 self.estimators_barrier.wait();
                             }
@@ -442,12 +441,12 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                 impl ClassicalEstimator<T, V, SysAdd, SysMul, T, Output = T, Error = EstErr>,
                 impl ClassicalEstimator<T, V, SysAdd, SysMul, V, Output = V, Error = EstErr>,
             >],
-            &mut ValS,
+            ValS,
         >,
-        positions_output: Option<&mut VecS>,
-        momenta_output: Option<&mut VecS>,
-        physical_forces_output: Option<&mut VecS>,
-        exchange_forces_output: Option<&mut VecS>,
+        positions_output: Option<VecS>,
+        momenta_output: Option<VecS>,
+        physical_forces_output: Option<VecS>,
+        exchange_forces_output: Option<VecS>,
         positions: &mut GroupRwLockInTypeInImageInSystem<T, V>,
         momenta: &mut GroupRwLockInTypeInImageInSystem<T, V>,
         physical_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
@@ -460,9 +459,8 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
         Boson: ExchangePotential<T, V, OutExch> + Bosonic,
         Therm: Thermostat<T, V>,
         Prop: Propagator<T, V, Phys, Dist, Boson, Therm, OutPhys, OutExch>,
-        T: Add<Output = T> + Div<Output = T> + Clone + From<usize> + MeaningfulOutput,
+        T: Add<Output = T> + Div<Output = T> + Clone + From<f32> + MeaningfulOutput,
         V: Vector<N, Element = T> + MeaningfulOutput,
-        for<'b> &'b mut V: IntoIterator<Item = &'b mut T>,
         ValS: ValuesStream<T> + ValuesStream<V>,
         VecS: VectorsStream<T, V>,
         OutPhys: ValidOutput<T> + PropagationOutput<T>,
@@ -523,7 +521,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                         match self.estimators_adder.recv_sum()? {
                                             Some(other_images_observable) => image_observable + other_images_observable,
                                             None => image_observable,
-                                        } / self.images.into(),
+                                        } / (self.images as f32).into(),
                                     )?;
                                 }
                                 Estimator::Vector(estimator) => {
@@ -546,14 +544,14 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                             .map_map(|map| map.read())
                                             .map_whole(|whole| whole.into()),
                                     )?;
-                                    for image_element in &mut image_observable {
+                                    for image_element in image_observable.as_mut_array() {
                                         self.estimators_barrier.wait();
                                         *image_element =
                                             if let Some(other_images_element) = self.estimators_adder.recv_sum()? {
                                                 image_element.clone() + other_images_element
                                             } else {
                                                 image_element.clone()
-                                            } / self.images.into();
+                                            } / (self.images as f32).into();
                                     }
                                     $stream.write_value(image_observable)?;
                                 }
@@ -629,12 +627,12 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                 }
 
                 match estimators_output {
-                    EstimatorsOutputOption::Quantum(EstimatorsOutput { estimators, stream }) => {
+                    EstimatorsOutputOption::Quantum(EstimatorsOutput { estimators, mut stream }) => {
                         stream.write_prelude(step)?;
                         write_observables!(@quantum estimators, stream);
                         stream.new_line()?;
                     }
-                    EstimatorsOutputOption::Classical(EstimatorsOutput { estimators, stream }) => {
+                    EstimatorsOutputOption::Classical(EstimatorsOutput { estimators, mut stream }) => {
                         stream.write_prelude(step)?;
                         write_observables!(@classical estimators, stream);
                         stream.new_line()?;
@@ -642,14 +640,17 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                     EstimatorsOutputOption::Shared {
                         quantum_estimators,
                         classical_estimators,
-                        stream,
+                        mut stream,
                     } => {
                         stream.write_prelude(step)?;
                         write_observables!(@quantum quantum_estimators, stream);
                         write_observables!(@classical classical_estimators, stream);
                         stream.new_line()?;
                     }
-                    EstimatorsOutputOption::Separate { quantum, classical } => {
+                    EstimatorsOutputOption::Separate {
+                        mut quantum,
+                        mut classical,
+                    } => {
                         quantum.stream.write_prelude(step)?;
                         write_observables!(@quantum quantum.estimators, quantum.stream);
                         quantum.stream.new_line()?;
@@ -676,19 +677,19 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
             };
         }
 
-        if let Some(stream) = positions_output {
+        if let Some(mut stream) = positions_output {
             write_vectors!(stream, positions);
         }
 
-        if let Some(stream) = momenta_output {
+        if let Some(mut stream) = momenta_output {
             write_vectors!(stream, momenta);
         }
 
-        if let Some(stream) = physical_forces_output {
+        if let Some(mut stream) = physical_forces_output {
             write_vectors!(stream, physical_forces);
         }
 
-        if let Some(stream) = exchange_forces_output {
+        if let Some(mut stream) = exchange_forces_output {
             write_vectors!(stream, exchange_forces);
         }
 

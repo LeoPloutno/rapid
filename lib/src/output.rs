@@ -1,13 +1,16 @@
 //! Types and traits for printing out data collected during the simulation.
 
-use std::ops::{Deref, DerefMut};
+use std::{
+    error::Error,
+    ops::{Deref, DerefMut},
+};
 
 use crate::core::GroupInTypeInImageInSystem;
 
 /// A trait for streams that write into a file as the simulation progresses.
 pub trait StepStream {
     /// The type associated with an error returned by the implementor.
-    type Error;
+    type Error: Error;
 
     /// Writes a prelude.
     fn write_prelude(&mut self, step: usize) -> Result<(), Self::Error>;
@@ -16,16 +19,53 @@ pub trait StepStream {
     fn new_line(&mut self) -> Result<(), Self::Error>;
 }
 
+impl<S> StepStream for S
+where
+    S: DerefMut<Target: StepStream> + ?Sized,
+{
+    type Error = <<Self as Deref>::Target as StepStream>::Error;
+
+    #[inline]
+    fn write_prelude(&mut self, step: usize) -> Result<(), Self::Error> {
+        (*self).write_prelude(step)
+    }
+
+    #[inline]
+    fn new_line(&mut self) -> Result<(), Self::Error> {
+        (*self).new_line()
+    }
+}
+
 /// A trait for streams that write to coordinate files, such as '.xyz' files.
 pub trait VectorsStream<T, V>: StepStream {
     /// Writes the vectors.
     fn write_vectors(&mut self, vectors: &GroupInTypeInImageInSystem<T, V>) -> Result<(), Self::Error>;
 }
 
+impl<T, V, S> VectorsStream<T, V> for S
+where
+    S: DerefMut<Target: VectorsStream<T, V>> + ?Sized,
+{
+    #[inline]
+    fn write_vectors(&mut self, vectors: &GroupInTypeInImageInSystem<T, V>) -> Result<(), Self::Error> {
+        (*self).write_vectors(vectors)
+    }
+}
+
 /// A trait for streams that write values into the output file.
 pub trait ValuesStream<T>: StepStream {
     /// Writes the value.
     fn write_value(&mut self, value: T) -> Result<(), Self::Error>;
+}
+
+impl<T, S> ValuesStream<T> for S
+where
+    S: DerefMut<Target: ValuesStream<T>> + ?Sized,
+{
+    #[inline]
+    fn write_value(&mut self, value: T) -> Result<(), Self::Error> {
+        (*self).write_value(value)
+    }
 }
 
 /// A struct which contains the estimators and the output stream.

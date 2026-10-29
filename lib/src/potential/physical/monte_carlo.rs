@@ -1,3 +1,8 @@
+use std::{
+    error::Error,
+    ops::{Deref, DerefMut},
+};
+
 use super::PhysicalPotential;
 use crate::core::{GroupInTypeInImage, marker::ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
@@ -18,7 +23,7 @@ pub enum ChangedGroup {
 /// that combines the recieved data and returns the total physical potential energy.
 pub trait MonteCarloPhysicalPotential<T, V, O: ValidOutput<T>>: PhysicalPotential<T, V, O> {
     /// The type associated with an error returned by the implementor.
-    type Error;
+    type Error: Error;
 
     /// Calculates the contribution of a group to the total physical potential energy
     /// of the image after a change in the position of a single atom
@@ -89,4 +94,91 @@ pub trait MonteCarloPhysicalPotential<T, V, O: ValidOutput<T>>: PhysicalPotentia
         positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, O>>::Error>;
+}
+
+impl<T, V, O, P> MonteCarloPhysicalPotential<T, V, O> for P
+where
+    O: ValidOutput<T>,
+    P: DerefMut<Target: MonteCarloPhysicalPotential<T, V, O>> + ?Sized,
+{
+    type Error = <<Self as Deref>::Target as MonteCarloPhysicalPotential<T, V, O>>::Error;
+
+    #[inline]
+    fn calculate_new_energy_set_changed_forces(
+        &mut self,
+        changed_group: ChangedGroup,
+        changed_atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        positions: &GroupInTypeInImage<T, V>,
+        forces: &mut [V],
+    ) -> Result<O, <Self as MonteCarloPhysicalPotential<T, V, O>>::Error> {
+        (*self).calculate_new_energy_set_changed_forces(
+            changed_group,
+            changed_atom_index,
+            old_energy,
+            old_position,
+            positions,
+            forces,
+        )
+    }
+
+    #[inline]
+    fn calculate_new_energy_add_changed_forces(
+        &mut self,
+        changed_group: ChangedGroup,
+        changed_atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        positions: &GroupInTypeInImage<T, V>,
+        forces: &mut [V],
+    ) -> Result<O, <Self as MonteCarloPhysicalPotential<T, V, O>>::Error> {
+        (*self).calculate_new_energy_add_changed_forces(
+            changed_group,
+            changed_atom_index,
+            old_energy,
+            old_position,
+            positions,
+            forces,
+        )
+    }
+
+    #[inline]
+    fn calculate_new_energy(
+        &mut self,
+        changed_group: ChangedGroup,
+        changed_atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        positions: &GroupInTypeInImage<T, V>,
+    ) -> Result<O, <Self as MonteCarloPhysicalPotential<T, V, O>>::Error> {
+        #[allow(deprecated)]
+        (*self).calculate_new_energy(changed_group, changed_atom_index, old_energy, old_position, positions)
+    }
+
+    #[inline]
+    fn set_changed_forces(
+        &mut self,
+        changed_group: ChangedGroup,
+        changed_atom_index: usize,
+        old_position: V,
+        positions: &GroupInTypeInImage<T, V>,
+        forces: &mut [V],
+    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, O>>::Error> {
+        #[allow(deprecated)]
+        (*self).set_changed_forces(changed_group, changed_atom_index, old_position, positions, forces)
+    }
+
+    #[inline]
+    fn add_changed_forces(
+        &mut self,
+        changed_group: ChangedGroup,
+        changed_atom_index: usize,
+        old_position: V,
+        positions: &GroupInTypeInImage<T, V>,
+        forces: &mut [V],
+    ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, O>>::Error> {
+        #[allow(deprecated)]
+        (*self).add_changed_forces(changed_group, changed_atom_index, old_position, positions, forces)
+    }
 }

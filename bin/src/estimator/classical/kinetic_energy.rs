@@ -1,10 +1,12 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, error::Error};
 
 use lib::{
-    core::{Vector, error::EmptyError},
+    core::Vector,
     estimator::classical::{AdditiveValueClassicalEstimator, AtomAdditiveClassicalEstimator},
 };
 use num::Float;
+
+use crate::estimator::EstimatorsError;
 
 pub struct KineticEnergy<T, const N: usize> {
     mass: T,
@@ -18,14 +20,16 @@ impl<T: Float, const N: usize> KineticEnergy<T, N> {
     }
 }
 
-impl<T, V, const N: usize> AtomAdditiveClassicalEstimator<T, V> for KineticEnergy<T, N>
+impl<T, V, E, const N: usize> AtomAdditiveClassicalEstimator<T, V, E> for KineticEnergy<T, N>
 where
     T: From<f32> + Float,
     V: Vector<N, Element = T>,
+    E: Error,
+    EstimatorsError: From<E>,
 {
     type Output = T;
     type AtomError = Infallible;
-    type SystemError = EmptyError;
+    type SystemError = EstimatorsError;
 
     fn calculate(
         &mut self,

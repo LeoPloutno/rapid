@@ -3,7 +3,10 @@
 use super::{GroupInTypeInImageInSystem, Thermostat};
 use crate::{core::error::EmptyError, zip_items, zip_iterators};
 use macros::heavy_computation;
-use std::ops::Add;
+use std::{
+    error::Error,
+    ops::{Add, Deref, DerefMut},
+};
 
 /// A trait for thermostats that decouple all atoms from each
 /// other such that each one can be thermalized independently.
@@ -15,9 +18,9 @@ where
     T: Add<Output = T>,
 {
     /// The type of error `Self` returns.
-    type ErrorAtom;
+    type AtomError: Error;
     /// The type of error [`AtomDecoupledThermostat<Self>`] returns.
-    type ErrorSystem: From<Self::ErrorAtom> + From<EmptyError>;
+    type SystemError: Error + From<Self::AtomError> + From<EmptyError>;
 
     /// Thermalizes the atom.
     ///
@@ -33,7 +36,7 @@ where
         physical_force: &V,
         exchange_force: &V,
         momentum: &mut V,
-    ) -> Result<T, Self::ErrorAtom>;
+    ) -> Result<T, Self::AtomError>;
 }
 
 /// A wrapper for implementors of the [`AtomDecoupledThermostat`] trait.
@@ -51,9 +54,10 @@ where
     T: Add<Output = T> + Clone,
     U: AtomDecoupledThermostat<T, V> + ?Sized,
 {
-    type ErrorAtom = U::ErrorAtom;
-    type ErrorSystem = U::ErrorSystem;
+    type AtomError = U::AtomError;
+    type SystemError = U::SystemError;
 
+    #[inline]
     fn thermalize(
         &mut self,
         step_size: T,
@@ -63,8 +67,39 @@ where
         physical_force: &V,
         exchange_force: &V,
         momentum: &mut V,
-    ) -> Result<T, Self::ErrorAtom> {
+    ) -> Result<T, Self::AtomError> {
         self.0.thermalize(
+            step_size,
+            step,
+            atom_index,
+            position,
+            physical_force,
+            exchange_force,
+            momentum,
+        )
+    }
+}
+
+impl<T, V, U> AtomDecoupledThermostat<T, V> for U
+where
+    T: Add<Output = T>,
+    U: DerefMut<Target: AtomDecoupledThermostat<T, V>> + ?Sized,
+{
+    type AtomError = <<Self as Deref>::Target as AtomDecoupledThermostat<T, V>>::AtomError;
+    type SystemError = <<Self as Deref>::Target as AtomDecoupledThermostat<T, V>>::SystemError;
+
+    #[inline]
+    fn thermalize(
+        &mut self,
+        step_size: T,
+        step: usize,
+        atom_index: usize,
+        position: &V,
+        physical_force: &V,
+        exchange_force: &V,
+        momentum: &mut V,
+    ) -> Result<T, Self::AtomError> {
+        (*self).thermalize(
             step_size,
             step,
             atom_index,
@@ -82,8 +117,9 @@ where
     U: ?Sized,
     Self: AtomDecoupledThermostat<T, V>,
 {
-    type Error = <Self as AtomDecoupledThermostat<T, V>>::ErrorSystem;
+    type Error = <Self as AtomDecoupledThermostat<T, V>>::SystemError;
 
+    #[inline]
     fn thermalize(
         &mut self,
         step_size: T,
@@ -116,7 +152,7 @@ where
         );
         let first_atom_heat = iter.next().ok_or(EmptyError)??;
         Ok(iter.try_fold(first_atom_heat, |accum_heat, atom_heat| {
-            Ok::<_, <Self as AtomDecoupledThermostat<T, V>>::ErrorAtom>(accum_heat + atom_heat?)
+            Ok::<_, <Self as AtomDecoupledThermostat<T, V>>::AtomError>(accum_heat + atom_heat?)
         })?)
     }
 }

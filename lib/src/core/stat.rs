@@ -1,7 +1,11 @@
 //! Types and traits meant to distinguish between different types
 //! of ensemble statistics.
 
-use std::ops::{Deref, DerefMut};
+use std::{
+    error::Error,
+    fmt::{Display, Formatter, Result as FmtResult},
+    ops::{Deref, DerefMut},
+};
 
 use crate::{
     core::{GroupInTypeInImage, marker::ValidOutput},
@@ -66,6 +70,26 @@ impl<D, B> Stat<D, B> {
             Self::Bosonic(boson) => Stat::Bosonic(boson),
         }
     }
+}
+
+impl<D, B> Display for Stat<D, B>
+where
+    D: Display,
+    B: Display,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::Distinguishable(value) => write!(f, "distinguishable: {}", value),
+            Self::Bosonic(value) => write!(f, "bosonic: {}", value),
+        }
+    }
+}
+
+impl<D, B> Error for Stat<D, B>
+where
+    D: Error,
+    B: Error,
+{
 }
 
 impl<T, V, O, D, B> ExchangePotential<T, V, O> for Stat<D, B>
@@ -167,5 +191,9 @@ where
 /// A trait for marking exchange potentials of distinguishable particles.
 pub trait Distinguishable {}
 
+impl<T: Deref<Target: Distinguishable>> Distinguishable for T {}
+
 /// A trait for marking exchange potentials of bosons.
 pub trait Bosonic {}
+
+impl<T: Deref<Target: Bosonic>> Bosonic for T {}

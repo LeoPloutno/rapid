@@ -1,10 +1,9 @@
-use crate::core::constants::BOLTZMANN_CONSTANT;
+use crate::{core::constants::BOLTZMANN_CONSTANT, estimator::EstimatorsError};
 use lib::{
     core::{GroupInTypeInImage, Synchronizer, marker::MeaningfulOutput},
     estimator::quantum::QuantumEstimator,
 };
 use num::Float;
-use std::convert::Infallible;
 
 pub struct PrimitiveKineticEnergy<T> {
     constant: T,
@@ -25,7 +24,7 @@ where
 
 impl<T, V, A: ?Sized, M: ?Sized> QuantumEstimator<T, V, A, M, ()> for PrimitiveKineticEnergy<T> {
     type Output = T;
-    type Error = Infallible;
+    type Error = EstimatorsError;
 
     fn calculate(
         &mut self,
@@ -49,7 +48,7 @@ where
     M: ?Sized,
 {
     type Output = T;
-    type Error = Infallible;
+    type Error = EstimatorsError;
 
     fn calculate(
         &mut self,

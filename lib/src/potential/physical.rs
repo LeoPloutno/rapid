@@ -1,5 +1,10 @@
 //! Traits for updating the forces and calculating the physical potential energy.
 
+use std::{
+    error::Error,
+    ops::{Deref, DerefMut},
+};
+
 use crate::core::{GroupInTypeInImage, marker::ValidOutput};
 use macros::{efficient_alternatives, heavy_computation};
 
@@ -22,7 +27,7 @@ pub use self::{
 /// that combines the recieved data and returns the total physical potential energy.
 pub trait PhysicalPotential<T, V, O: ValidOutput<T>> {
     /// The type associated with an error returned by the implementor.
-    type Error;
+    type Error: Error;
 
     /// Calculates the contribution of a group to the total physical potential energy
     /// of the image and sets the forces of that group accordingly.
@@ -61,4 +66,48 @@ pub trait PhysicalPotential<T, V, O: ValidOutput<T>> {
     /// Adds the forces arising from this potential to the forces of a group.
     #[efficient_alternatives("calculate_energy_add_forces")]
     fn add_forces(&mut self, positions: &GroupInTypeInImage<T, V>, forces: &mut [V]) -> Result<(), Self::Error>;
+}
+
+impl<T, V, O, P> PhysicalPotential<T, V, O> for P
+where
+    O: ValidOutput<T>,
+    P: DerefMut<Target: PhysicalPotential<T, V, O>> + ?Sized,
+{
+    type Error = <<Self as Deref>::Target as PhysicalPotential<T, V, O>>::Error;
+
+    #[inline]
+    fn calculate_energy_set_forces(
+        &mut self,
+        positions: &GroupInTypeInImage<T, V>,
+        forces: &mut [V],
+    ) -> Result<O, Self::Error> {
+        (*self).calculate_energy_set_forces(positions, forces)
+    }
+
+    #[inline]
+    fn calculate_energy_add_forces(
+        &mut self,
+        positions: &GroupInTypeInImage<T, V>,
+        forces: &mut [V],
+    ) -> Result<O, Self::Error> {
+        (*self).calculate_energy_add_forces(positions, forces)
+    }
+
+    #[inline]
+    fn calculate_energy(&mut self, positions: &GroupInTypeInImage<T, V>) -> Result<O, Self::Error> {
+        #[allow(deprecated)]
+        (*self).calculate_energy(positions)
+    }
+
+    #[inline]
+    fn set_forces(&mut self, positions: &GroupInTypeInImage<T, V>, forces: &mut [V]) -> Result<(), Self::Error> {
+        #[allow(deprecated)]
+        (*self).set_forces(positions, forces)
+    }
+
+    #[inline]
+    fn add_forces(&mut self, positions: &GroupInTypeInImage<T, V>, forces: &mut [V]) -> Result<(), Self::Error> {
+        #[allow(deprecated)]
+        (*self).add_forces(positions, forces)
+    }
 }

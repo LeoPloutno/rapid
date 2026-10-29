@@ -10,6 +10,7 @@ use crate::{
 };
 use macros::efficient_alternatives;
 use std::{
+    error::Error,
     ops::{Add, AddAssign},
     sync::mpsc::{Receiver, RecvError, SendError, Sender},
 };
@@ -18,16 +19,18 @@ use std::{
 ///
 /// For any type `P` that implements this trait, [`AdditivePhysicalPotential<_, MonteCarlo<_, P>>`]
 /// atomatically implements [`MonteCarloPhysicalPotential`].
-pub trait AtomAdditiveMonteCarloPhysicalPotential<T, V>: AtomAdditivePhysicalPotential<T, V>
+pub trait AtomAdditiveMonteCarloPhysicalPotential<T, V, E>: AtomAdditivePhysicalPotential<T, V, E>
 where
     T: Add<Output = T>,
 {
     /// The type of error `Self` returns.
-    type AtomError;
+    type AtomError: Error;
     /// The type of error [`AdditiveMonteCarloPhysicalPotential<Self>`] returns.
-    type SystemError: From<<Self as AtomAdditivePhysicalPotential<T, V>>::AtomError>
-        + From<<Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError>
-        + From<InvalidIndexError>;
+    type SystemError: Error
+        + From<<Self as AtomAdditivePhysicalPotential<T, V, E>>::AtomError>
+        + From<<Self as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::AtomError>
+        + From<InvalidIndexError>
+        + From<E>;
 
     /// Calculates the contribution of an atom to the total physical potential energy
     /// of the image and the force arising from it after a change in the atom's position.
@@ -39,7 +42,7 @@ where
         old_energy: T,
         old_position: V,
         position: &V,
-    ) -> Result<(T, V), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError>;
+    ) -> Result<(T, V), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::AtomError>;
 
     /// Calculates the contribution of an atom to the total physical potential energy
     /// of the image after a change in the atom's position.
@@ -52,7 +55,7 @@ where
         old_energy: T,
         old_position: V,
         position: &V,
-    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError>;
+    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::AtomError>;
 }
 
 /// A wrapper for implementors of the [`AtomAdditiveMonteCarloPhysicalPotential`] trait.
@@ -61,63 +64,64 @@ pub struct MonteCarlo<P: ?Sized, C> {
     potential: P,
 }
 
-impl<T, V, C, P> AtomAdditivePhysicalPotential<T, V> for MonteCarlo<P, C>
+impl<T, V, E, C, P> AtomAdditivePhysicalPotential<T, V, E> for MonteCarlo<P, C>
 where
     T: Add<Output = T>,
-    P: AtomAdditivePhysicalPotential<T, V> + ?Sized,
+    P: AtomAdditivePhysicalPotential<T, V, E> + ?Sized,
 {
     type AtomError = P::AtomError;
     type SystemError = P::SystemError;
 
-    #[inline(always)]
+    #[inline]
     fn calculate_energy_and_force(&mut self, atom_index: usize, position: &V) -> Result<(T, V), Self::AtomError> {
         #[allow(deprecated)]
         self.potential.calculate_energy_and_force(atom_index, position)
     }
 
-    #[inline(always)]
+    #[inline]
     fn calculate_energy(&mut self, atom_index: usize, position: &V) -> Result<T, Self::AtomError> {
         #[allow(deprecated)]
         self.potential.calculate_energy(atom_index, position)
     }
 
-    #[inline(always)]
+    #[inline]
     fn calculate_force(&mut self, atom_index: usize, position: &V) -> Result<V, Self::AtomError> {
         #[allow(deprecated)]
         self.potential.calculate_force(atom_index, position)
     }
 }
 
-impl<T, V, A, C, P> AtomAdditiveMonteCarloPhysicalPotential<T, V> for AdditivePhysicalPotential<MonteCarlo<P, C>, A>
+impl<T, V, E, A, C, P> AtomAdditiveMonteCarloPhysicalPotential<T, V, E>
+    for AdditivePhysicalPotential<MonteCarlo<P, C>, A>
 where
     T: Add<Output = T>,
     V: AddAssign,
-    P: AtomAdditiveMonteCarloPhysicalPotential<T, V> + ?Sized,
+    P: AtomAdditiveMonteCarloPhysicalPotential<T, V, E> + ?Sized,
 {
-    type AtomError = <P as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError;
-    type SystemError = <P as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::SystemError;
+    type AtomError = <P as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::AtomError;
+    type SystemError = <P as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::SystemError;
 
-    #[inline(always)]
+    #[inline]
     fn calculate_new_energy_and_force(
         &mut self,
         atom_index: usize,
         old_energy: T,
         old_position: V,
         position: &V,
-    ) -> Result<(T, V), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError> {
+    ) -> Result<(T, V), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::AtomError> {
         self.potential
             .potential
             .calculate_new_energy_and_force(atom_index, old_energy, old_position, position)
     }
 
-    #[inline(always)]
+    #[inline]
     fn calculate_new_energy(
         &mut self,
         atom_index: usize,
         old_energy: T,
         old_position: V,
         position: &V,
-    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::AtomError> {
+    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::AtomError> {
         #[allow(deprecated)]
         self.potential
             .potential
@@ -131,10 +135,10 @@ where
     V: AddAssign,
     A: SyncAddSender<T>,
     P: ?Sized,
-    Self: AtomAdditivePhysicalPotential<T, V, SystemError: From<A::Error>>
-        + AtomAdditiveMonteCarloPhysicalPotential<T, V, SystemError: From<A::Error> + From<SendError<T>>>,
+    Self: AtomAdditivePhysicalPotential<T, V, A::Error>
+        + AtomAdditiveMonteCarloPhysicalPotential<T, V, A::Error, SystemError: From<SendError<T>>>,
 {
-    type Error = <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::SystemError;
+    type Error = <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V, A::Error>>::SystemError;
 
     fn calculate_new_energy_set_changed_forces(
         &mut self,
@@ -278,10 +282,10 @@ where
     V: AddAssign,
     A: SyncAddReceiver<T>,
     P: ?Sized,
-    Self: AtomAdditivePhysicalPotential<T, V, SystemError: From<A::Error>>
-        + AtomAdditiveMonteCarloPhysicalPotential<T, V, SystemError: From<A::Error> + From<RecvError>>,
+    Self: AtomAdditivePhysicalPotential<T, V, A::Error>
+        + AtomAdditiveMonteCarloPhysicalPotential<T, V, A::Error, SystemError: From<RecvError>>,
 {
-    type Error = <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V>>::SystemError;
+    type Error = <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V, A::Error>>::SystemError;
 
     fn calculate_new_energy_set_changed_forces(
         &mut self,
