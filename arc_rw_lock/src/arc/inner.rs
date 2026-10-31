@@ -80,24 +80,24 @@ impl<T: ?Sized> InnerArc<T> {
     }
 
     /// Decrements the shared counter assuming it is non-zero and returns
-    /// whether it was unity.
+    /// whether the whole counter was unity.
     ///
     /// # Safety
     ///
     /// - The pointer points to a valid and live `InnerArc<T>`.
     /// - The shared counter is non-zero.
-    pub(crate) unsafe fn decrement_shared_counter(this: NonNull<Self>, order: Ordering) -> bool {
+    pub(crate) unsafe fn decrement_shared_counter_unchecked(this: NonNull<Self>, order: Ordering) -> bool {
         unsafe { &(*this.as_ptr()).counter }.fetch_sub(Self::SHARED_COUNTER_ONE, order) == Self::SHARED_COUNTER_ONE
     }
 
     /// Decrements the unique counter assuming it is non-zero and returns
-    /// whether it was unity.
+    /// whether the whole counter was unity.
     ///
     /// # Safety
     ///
     /// - The pointer points to a valid and live `InnerArc<T>`.
     /// - The unique counter is non-zero.
-    pub(crate) unsafe fn decrement_unique_counter(this: NonNull<Self>, order: Ordering) -> bool {
+    pub(crate) unsafe fn decrement_unique_counter_unchecked(this: NonNull<Self>, order: Ordering) -> bool {
         unsafe { &(*this.as_ptr()).counter }.fetch_sub(Self::UNIQUE_COUNTER_ONE, order) == Self::UNIQUE_COUNTER_ONE
     }
 

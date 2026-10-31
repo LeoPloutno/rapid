@@ -187,7 +187,7 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                             )?;
                         }
                     }
-                    self.image_synchronizer.barrier.wait();
+                    self.system_synchronizer.barrier.wait();
                 }
             }
 
@@ -311,27 +311,27 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                 for estimator in estimators {
                     match estimator {
                         Estimator::Value(estimator) => {
-                            self.estimators_adder.send(
-                                estimator.calculate(
-                                    &mut self.image_synchronizer,
-                                    &mut self.image_adder,
-                                    &mut self.image_multiplier,
-                                    physical_potential_energy.clone(),
-                                    type_exchange_potential_energy.clone(),
-                                    &positions
-                                        .as_map_ref()
-                                        .map_map(|map| map.read())
-                                        .map_whole(|whole| whole.into()),
-                                    &physical_forces
-                                        .as_map_ref()
-                                        .map_map(|map| map.read())
-                                        .map_whole(|whole| whole.into()),
-                                    &exchange_forces
-                                        .as_map_ref()
-                                        .map_map(|map| map.read())
-                                        .map_whole(|whole| whole.into()),
-                                )?,
+                            let observable = estimator.calculate(
+                                &mut self.image_synchronizer,
+                                &mut self.image_adder,
+                                &mut self.image_multiplier,
+                                physical_potential_energy.clone(),
+                                type_exchange_potential_energy.clone(),
+                                &positions
+                                    .as_map_ref()
+                                    .map_map(|map| map.read())
+                                    .map_whole(|whole| whole.into()),
+                                &physical_forces
+                                    .as_map_ref()
+                                    .map_map(|map| map.read())
+                                    .map_whole(|whole| whole.into()),
+                                &exchange_forces
+                                    .as_map_ref()
+                                    .map_map(|map| map.read())
+                                    .map_whole(|whole| whole.into()),
                             )?;
+                            self.estimators_adder.send(observable)?;
+                            self.estimators_barrier.wait();
                             self.estimators_barrier.wait();
                         }
                         Estimator::Vector(estimator) => {
@@ -357,10 +357,11 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                             for element in vector.as_array() {
                                 self.estimators_adder.send(element.clone())?;
                                 self.estimators_barrier.wait();
+                                self.estimators_barrier.wait();
                             }
                         }
                     }
-                    self.image_synchronizer.barrier.wait();
+                    self.system_synchronizer.barrier.wait();
                 }
             }
 
@@ -517,8 +518,10 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                             .map_whole(|whole| whole.into()),
                                     )?;
                                     self.estimators_barrier.wait();
+                                    let other_images_observables = self.estimators_adder.recv_sum()?;
+                                    self.estimators_barrier.wait();
                                     $stream.write_value(
-                                        match self.estimators_adder.recv_sum()? {
+                                        match other_images_observables {
                                             Some(other_images_observable) => image_observable + other_images_observable,
                                             None => image_observable,
                                         } / (self.images as f32).into(),
@@ -546,12 +549,13 @@ impl<'a, T, SysAdd, ImAdd, EstAdd, SysMul, ImMul, Phys, Dist, Boson, Therm, Prop
                                     )?;
                                     for image_element in image_observable.as_mut_array() {
                                         self.estimators_barrier.wait();
-                                        *image_element =
-                                            if let Some(other_images_element) = self.estimators_adder.recv_sum()? {
-                                                image_element.clone() + other_images_element
-                                            } else {
-                                                image_element.clone()
-                                            } / (self.images as f32).into();
+                                        let other_images_element = self.estimators_adder.recv_sum()?;
+                                        self.estimators_barrier.wait();
+                                        *image_element = if let Some(other_images_element) = other_images_element {
+                                            image_element.clone() + other_images_element
+                                        } else {
+                                            image_element.clone()
+                                        } / (self.images as f32).into();
                                     }
                                     $stream.write_value(image_observable)?;
                                 }

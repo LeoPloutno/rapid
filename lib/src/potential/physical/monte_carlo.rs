@@ -133,7 +133,8 @@ where
         positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, <Self as MonteCarloPhysicalPotential<T, V, O>>::Error> {
-        (*self).calculate_new_energy_add_changed_forces(
+        <<Self as Deref>::Target as MonteCarloPhysicalPotential<T, V, O>>::calculate_new_energy_add_changed_forces(
+            &mut *self,
             changed_group,
             changed_atom_index,
             old_energy,
@@ -153,7 +154,14 @@ where
         positions: &GroupInTypeInImage<T, V>,
     ) -> Result<O, <Self as MonteCarloPhysicalPotential<T, V, O>>::Error> {
         #[allow(deprecated)]
-        (*self).calculate_new_energy(changed_group, changed_atom_index, old_energy, old_position, positions)
+        <<Self as Deref>::Target as MonteCarloPhysicalPotential<T, V, O>>::calculate_new_energy(
+            &mut *self,
+            changed_group,
+            changed_atom_index,
+            old_energy,
+            old_position,
+            positions,
+        )
     }
 
     #[inline]
@@ -166,7 +174,14 @@ where
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, O>>::Error> {
         #[allow(deprecated)]
-        (*self).set_changed_forces(changed_group, changed_atom_index, old_position, positions, forces)
+        <<Self as Deref>::Target as MonteCarloPhysicalPotential<T, V, O>>::set_changed_forces(
+            &mut *self,
+            changed_group,
+            changed_atom_index,
+            old_position,
+            positions,
+            forces,
+        )
     }
 
     #[inline]
@@ -179,6 +194,13 @@ where
         forces: &mut [V],
     ) -> Result<(), <Self as MonteCarloPhysicalPotential<T, V, O>>::Error> {
         #[allow(deprecated)]
-        (*self).add_changed_forces(changed_group, changed_atom_index, old_position, positions, forces)
+        <<Self as Deref>::Target as MonteCarloPhysicalPotential<T, V, O>>::add_changed_forces(
+            &mut *self,
+            changed_group,
+            changed_atom_index,
+            old_position,
+            positions,
+            forces,
+        )
     }
 }

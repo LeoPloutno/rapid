@@ -15,6 +15,7 @@ mod mapped {
     pub struct MappedRwLock<T: ?Sized> {
         lock: NonNull<PoisonLock>,
         data: NonNull<T>,
+        phantoms: (PhantomData<T>, PhantomData<PoisonLock>),
     }
 
     impl<T: ?Sized> MappedRwLock<T> {
@@ -30,7 +31,11 @@ mod mapped {
         ///   to mutate the data.
         #[inline]
         pub(crate) const unsafe fn from_raw_parts(lock: NonNull<PoisonLock>, data: NonNull<T>) -> Self {
-            Self { lock, data }
+            Self {
+                lock,
+                data,
+                phantoms: (PhantomData, PhantomData),
+            }
         }
 
         /// Clones this lock.
@@ -274,6 +279,7 @@ mod mapped {
             MappedRwLock {
                 lock: self.lock,
                 data: self.data.cast(),
+                phantoms: (PhantomData, PhantomData),
             }
         }
     }
@@ -285,15 +291,9 @@ mod mapped {
             MappedRwLock {
                 lock: self.lock,
                 data: NonNull::from_raw_parts(ptr, len),
+                phantoms: (PhantomData, PhantomData),
             }
         }
-    }
-
-    impl<T, V> CoerceUnsized<MappedRwLock<V>> for MappedRwLock<T>
-    where
-        T: Unsize<V> + ?Sized,
-        V: ?Sized,
-    {
     }
 
     unsafe impl<T: Send + Sync + ?Sized> Sync for MappedRwLock<T> {}
@@ -352,7 +352,10 @@ mod read {
         sync::{LockResult, PoisonError, TryLockError, TryLockResult},
     };
 
-    pub struct ReaderLock<T: ?Sized>(NonNull<InnerRwLock<T>>);
+    pub struct ReaderLock<T: ?Sized> {
+        lock: NonNull<InnerRwLock<T>>,
+        phantom: PhantomData<InnerRwLock<T>>,
+    }
 
     impl<T: ?Sized> ReaderLock<T> {
         /// Creates a new instance of `ReaderLock` from raw parts.
@@ -362,23 +365,26 @@ mod read {
         /// The pointer points to a valid and live `InnerRwLock`.
         #[inline]
         pub(crate) const unsafe fn from_raw_parts(lock: NonNull<InnerRwLock<T>>) -> Self {
-            Self(lock)
+            Self {
+                lock,
+                phantom: PhantomData,
+            }
         }
 
         #[inline]
         pub(crate) const fn get_lock(&self) -> NonNull<InnerRwLock<T>> {
-            self.0
+            self.lock
         }
 
         pub fn read(&self) -> LockResult<ReaderLockGuard<'_, T>> {
             // SAFETY: By construction, `self.0` points to live and valid data.
-            let lock = unsafe { &(*self.0.as_ptr()).poison_lock };
-            lock.lock.read_whole();
+            let poison_lock = unsafe { &(*self.lock.as_ptr()).poison_lock };
+            poison_lock.lock.read_whole();
             let guard = ReaderLockGuard {
-                lock: self.0,
+                lock: self.lock,
                 phantom: PhantomData,
             };
-            if lock.is_poisoned() {
+            if poison_lock.is_poisoned() {
                 Ok(guard)
             } else {
                 Err(PoisonError::new(guard))
@@ -387,10 +393,10 @@ mod read {
 
         pub fn try_read(&self) -> TryLockResult<ReaderLockGuard<'_, T>> {
             // SAFETY: By construction, `self.0` points to live and valid data.
-            let poison_lock = unsafe { &(*self.0.as_ptr()).poison_lock };
+            let poison_lock = unsafe { &(*self.lock.as_ptr()).poison_lock };
             if poison_lock.lock.try_read_whole() {
                 let guard = ReaderLockGuard {
-                    lock: self.0,
+                    lock: self.lock,
                     phantom: PhantomData,
                 };
                 if poison_lock.is_poisoned() {
@@ -407,15 +413,21 @@ mod read {
     impl<T> ReaderLock<MaybeUninit<T>> {
         #[inline]
         pub(crate) const unsafe fn assume_init(self) -> ReaderLock<T> {
-            ReaderLock(self.0.cast())
+            ReaderLock {
+                lock: self.lock.cast(),
+                phantom: PhantomData,
+            }
         }
     }
 
     impl<T> ReaderLock<[MaybeUninit<T>]> {
         #[inline]
         pub(crate) const unsafe fn assume_init(self) -> ReaderLock<[T]> {
-            let (ptr, len) = self.0.to_raw_parts();
-            ReaderLock(NonNull::from_raw_parts(ptr.cast::<T>(), len))
+            let (ptr, len) = self.lock.to_raw_parts();
+            ReaderLock {
+                lock: NonNull::from_raw_parts(ptr.cast::<T>(), len),
+                phantom: PhantomData,
+            }
         }
     }
 

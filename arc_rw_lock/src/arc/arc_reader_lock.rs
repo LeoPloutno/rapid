@@ -5,7 +5,7 @@ use std::{
     borrow::Borrow,
     convert::AsRef,
     fmt::Debug,
-    marker::Unsize,
+    marker::{PhantomData, Unsize},
     mem::{self, MaybeUninit},
     ops::{CoerceUnsized, Deref},
     process,
@@ -14,8 +14,9 @@ use std::{
 };
 
 pub struct ArcReaderLock<T: ?Sized, A: Allocator = Global> {
-    pub(crate) lock: ReaderLock<T>,
-    pub(crate) allocator: A,
+    lock: ReaderLock<T>,
+    allocator: A,
+    phantom: PhantomData<InnerArc<T>>,
 }
 
 impl<T: ?Sized, A: Allocator> ArcReaderLock<T, A> {
@@ -31,6 +32,7 @@ impl<T: ?Sized, A: Allocator> ArcReaderLock<T, A> {
             // SAFETY: User-upheld invariant.
             lock: unsafe { ReaderLock::from_raw_parts(lock) },
             allocator,
+            phantom: PhantomData,
         }
     }
 
@@ -50,6 +52,7 @@ impl<T, A: Allocator> ArcReaderLock<MaybeUninit<T>, A> {
             // SAFETY: User-upheld invariant.
             lock: unsafe { lock.assume_init() },
             allocator,
+            phantom: PhantomData,
         }
     }
 }
@@ -65,6 +68,7 @@ impl<T, A: Allocator> ArcReaderLock<[MaybeUninit<T>], A> {
             // SAFETY: User-upheld invariant.
             lock: unsafe { lock.assume_init() },
             allocator,
+            phantom: PhantomData,
         }
     }
 }
@@ -73,19 +77,25 @@ impl<T: ?Sized, A: Allocator> Drop for ArcReaderLock<T, A> {
     fn drop(&mut self) {
         // SAFETY: By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
         let (allocation, layout) = unsafe { InnerArc::from_inner_rw_lock(self.lock.get_lock()) };
-        if unsafe { InnerArc::decrement_shared_counter(allocation, Ordering::Release) } {
-            atomic::fence(Ordering::Acquire);
-            if const { mem::needs_drop::<InnerArc<T>>() } {
-                // SAFETY: - By construction, `allocation` points to live and valid data.
-                //         - Ensured this was the last handle to this allocation.
-                unsafe {
-                    allocation.drop_in_place();
-                }
-            }
-            // SAFETY: By construction, this allocation has been allocated by this allocator.
+
+        // SAFETY: The existence of `self` proves that the counter is non-zero.
+        if !unsafe { InnerArc::decrement_shared_counter_unchecked(allocation, Ordering::Release) } {
+            return;
+        }
+
+        atomic::fence(Ordering::Acquire);
+
+        if const { mem::needs_drop::<InnerArc<T>>() } {
+            // SAFETY: - By construction, `allocation` points to live and valid data.
+            //         - Ensured this was the last handle to this allocation.
             unsafe {
-                self.allocator.deallocate(allocation.cast(), layout);
+                allocation.drop_in_place();
             }
+        }
+
+        // SAFETY: By construction, this allocation has been allocated by this allocator.
+        unsafe {
+            self.allocator.deallocate(allocation.cast(), layout);
         }
     }
 }
@@ -140,20 +150,22 @@ impl<T: ?Sized, A: Allocator> Debug for ArcReaderLock<T, A> {
 
 impl<T: ?Sized, A: AllocatorClone> Clone for ArcReaderLock<T, A> {
     fn clone(&self) -> Self {
-        if unsafe {
+        if crate::unlikely(unsafe {
             // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
             InnerArc::increment_shared_counter(
                 // SAFETY: By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
                 InnerArc::from_inner_rw_lock(self.lock.get_lock()).0,
-                Ordering::Release,
+                Ordering::Relaxed,
             )
-        } {
+        }) {
             process::abort();
         }
+
         Self {
             // SAFETY: By construction, the pointee of `self.lock` has been allocated as a part of an `InnerRwLock`.
             lock: unsafe { ReaderLock::from_raw_parts(self.lock.get_lock()) },
             allocator: self.allocator.clone(),
+            phantom: PhantomData,
         }
     }
 }

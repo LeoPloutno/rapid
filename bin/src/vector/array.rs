@@ -1,6 +1,6 @@
 use lib::core::{Vector, marker::MeaningfulOutput};
 use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
+    fmt::{Display, Formatter, LowerExp, Result as FmtResult, UpperExp},
     iter::Sum,
     mem::{self, MaybeUninit},
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
@@ -154,6 +154,38 @@ impl<T: Display, const N: usize> Display for ArrayVector<T, N> {
         }
         if let Some(element) = last {
             write!(f, "{}", *element)?;
+        }
+        write!(f, ")")?;
+        Ok(())
+    }
+}
+
+impl<T: LowerExp, const N: usize> LowerExp for ArrayVector<T, N> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "(")?;
+        let mut iterator = self.0.iter();
+        let last = iterator.next_back();
+        for element in iterator {
+            write!(f, "{:e}, ", *element)?;
+        }
+        if let Some(element) = last {
+            write!(f, "{:e}", *element)?;
+        }
+        write!(f, ")")?;
+        Ok(())
+    }
+}
+
+impl<T: UpperExp, const N: usize> UpperExp for ArrayVector<T, N> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "(")?;
+        let mut iterator = self.0.iter();
+        let last = iterator.next_back();
+        for element in iterator {
+            write!(f, "{:E}, ", *element)?;
+        }
+        if let Some(element) = last {
+            write!(f, "{:E}", *element)?;
         }
         write!(f, ")")?;
         Ok(())

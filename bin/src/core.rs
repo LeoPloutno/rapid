@@ -168,3 +168,39 @@ mod unimplemented {
     }
 }
 pub use unimplemented::{Unimplemented, UnimplementedError};
+
+mod dummy {
+    use std::convert::Infallible;
+
+    use lib::{
+        core::GroupInTypeInImageInSystem,
+        output::{StepStream, ValuesStream, VectorsStream},
+    };
+
+    pub struct Dummy;
+
+    impl StepStream for Dummy {
+        type Error = Infallible;
+
+        fn write_prelude(&mut self, _step: usize) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn new_line(&mut self) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
+    impl<T> ValuesStream<T> for Dummy {
+        fn write_value(&mut self, _value: T) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
+    impl<T, V> VectorsStream<T, V> for Dummy {
+        fn write_vectors(&mut self, _vectors: &GroupInTypeInImageInSystem<T, V>) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+}
+pub use dummy::Dummy;

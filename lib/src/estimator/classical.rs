@@ -75,7 +75,8 @@ where
         physical_forces: &GroupInTypeInImageInSystem<T, V>,
         exchange_forces: &GroupInTypeInImageInSystem<T, V>,
     ) -> Result<O, Self::Error> {
-        (*self).calculate(
+        <<Self as Deref>::Target as ClassicalEstimator<T, V, A, M, O>>::calculate(
+            &mut *self,
             system_synchronizer,
             image_synchronizer,
             adder,

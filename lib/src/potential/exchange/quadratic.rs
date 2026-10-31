@@ -83,7 +83,7 @@ where
         images_type_coordinates: TypeAcrossImages<T, V>,
         group_modes: &mut [V],
     ) -> Result<(), Self::Error> {
-        (*self).transform(images_type_coordinates, group_modes)
+        <<Self as Deref>::Target as Transform<T, V>>::transform(&mut *self, images_type_coordinates, group_modes)
     }
 
     #[inline]
@@ -92,12 +92,12 @@ where
         modes: TypeAcrossImages<T, V>,
         group_coordinates: &mut [V],
     ) -> Result<(), Self::Error> {
-        (*self).inverse_transform(modes, group_coordinates)
+        <<Self as Deref>::Target as Transform<T, V>>::inverse_transform(&mut *self, modes, group_coordinates)
     }
 
     #[inline]
     fn eigenvalues(&self, eigenvalues: &mut [T]) -> Result<(), Self::Error> {
-        (*self).eigenvalues(eigenvalues)
+        <<Self as Deref>::Target as Transform<T, V>>::eigenvalues(&*self, eigenvalues)
     }
 }
 

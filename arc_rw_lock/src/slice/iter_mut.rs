@@ -2,6 +2,7 @@ use crate::{MappedRwLock, UniqueArcMappedRwLock, arc::InnerArc};
 use std::{
     alloc::{Allocator, AllocatorClone, Global},
     iter::FusedIterator,
+    marker::PhantomData,
     mem, process,
     ptr::Pointee,
     sync::atomic::{self, Ordering},
@@ -11,6 +12,7 @@ pub struct IterMut<T, U: ?Sized = dyn Send + Sync + 'static, A: Allocator = Glob
     lock: MappedRwLock<[T]>,
     metadata: <U as Pointee>::Metadata,
     allocator: A,
+    phantoms: (PhantomData<InnerArc<U>>, PhantomData<[T]>),
 }
 
 impl<T, U: ?Sized, A: Allocator> IterMut<T, U, A> {
@@ -29,6 +31,27 @@ impl<T, U: ?Sized, A: Allocator> IterMut<T, U, A> {
             lock,
             metadata,
             allocator,
+            phantoms: (PhantomData, PhantomData),
+        }
+    }
+
+    /// Increments the unique counter.
+    ///
+    /// # Safety
+    ///
+    /// Must be used with a corresponding construction of a unique lock
+    /// so that the incremented counter is accurate.
+    unsafe fn increment_counter(&mut self) {
+        if crate::unlikely(unsafe {
+            // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
+            InnerArc::increment_unique_counter(
+                // SAFETY: - By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
+                //         - By construction, `self.metadata` is the metadata of the underlying allocation.
+                InnerArc::<U>::from_poison_lock_with_metadata(self.lock.get_lock(), self.metadata).0,
+                Ordering::Relaxed,
+            )
+        }) {
+            process::abort();
         }
     }
 }
@@ -39,19 +62,25 @@ impl<T, U: ?Sized, A: Allocator> Drop for IterMut<T, U, A> {
         //         - By construction, `self.metadata` is the metadata of the underlying allocation.
         let (allocation, layout) =
             unsafe { InnerArc::<U>::from_poison_lock_with_metadata(self.lock.get_lock(), self.metadata) };
-        if unsafe { InnerArc::decrement_unique_counter(allocation, Ordering::Release) } {
-            atomic::fence(Ordering::Acquire);
-            if const { mem::needs_drop::<InnerArc<U>>() } {
-                // SAFETY: - By construction, `allocation` points to live and valid data.
-                //         - Ensured this was the last handle to this allocation.
-                unsafe {
-                    allocation.drop_in_place();
-                }
-            }
-            // SAFETY: By construction, this allocation has been allocated by this allocator.
+
+        // SAFETY: The existence of `self` proves that the counter is non-zero.
+        if !unsafe { InnerArc::decrement_unique_counter_unchecked(allocation, Ordering::Release) } {
+            return;
+        }
+
+        atomic::fence(Ordering::Acquire);
+
+        if const { mem::needs_drop::<InnerArc<U>>() } {
+            // SAFETY: - By construction, `allocation` points to live and valid data.
+            //         - Ensured this was the last handle to this allocation.
             unsafe {
-                self.allocator.deallocate(allocation.cast(), layout);
+                allocation.drop_in_place();
             }
+        }
+
+        // SAFETY: By construction, this allocation has been allocated by this allocator.
+        unsafe {
+            self.allocator.deallocate(allocation.cast(), layout);
         }
     }
 }
@@ -76,19 +105,14 @@ impl<T, U: ?Sized, A: AllocatorClone> Iterator for IterMut<T, U, A> {
     type Item = UniqueArcMappedRwLock<T, U, A>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY: The lock is not shared.
         match unsafe { self.lock.split_off_first() } {
             Some(lock) => {
-                if crate::unlikely(unsafe {
-                    // SAFETY: See below.
-                    InnerArc::increment_shared_counter(
-                        // SAFETY: - By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
-                        //         - By construction, `self.metadata` is the metadata of the underlying allocation.
-                        InnerArc::<U>::from_poison_lock_with_metadata(self.lock.get_lock(), self.metadata).0,
-                        Ordering::Release,
-                    )
-                }) {
-                    process::abort()
+                // SAFETY: Below we construct another unique lock.
+                unsafe {
+                    self.increment_counter();
                 }
+
                 // SAFETY: By construction, this allocation has been allocated by this allocator.
                 unsafe {
                     Some(UniqueArcMappedRwLock::from_lock(
@@ -105,19 +129,14 @@ impl<T, U: ?Sized, A: AllocatorClone> Iterator for IterMut<T, U, A> {
 
 impl<T, U: ?Sized, A: AllocatorClone> DoubleEndedIterator for IterMut<T, U, A> {
     fn next_back(&mut self) -> Option<Self::Item> {
+        // SAFETY: The lock is not shared.
         match unsafe { self.lock.split_off_last() } {
             Some(lock) => {
-                if crate::unlikely(unsafe {
-                    // SAFETY: See below.
-                    InnerArc::increment_shared_counter(
-                        // SAFETY: - By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
-                        //         - By construction, `self.metadata` is the metadata of the underlying allocation.
-                        InnerArc::<U>::from_poison_lock_with_metadata(self.lock.get_lock(), self.metadata).0,
-                        Ordering::Release,
-                    )
-                }) {
-                    process::abort()
+                // SAFETY: Below we construct another unique lock.
+                unsafe {
+                    self.increment_counter();
                 }
+
                 // SAFETY: By construction, this allocation has been allocated by this allocator.
                 unsafe {
                     Some(UniqueArcMappedRwLock::from_lock(

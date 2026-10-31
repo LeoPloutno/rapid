@@ -17,7 +17,7 @@ mod error {
     use std::{
         error::Error,
         fmt::{Display, Formatter, Result as FmtResult},
-        sync::PoisonError,
+        sync::{PoisonError, TryLockError},
     };
 
     use lib::core::error::{AccessError, EmptyError, InvalidIndexError, InvalidRangeError};
@@ -28,7 +28,8 @@ mod error {
         ExchangePotential(Exch),
         Thermostat(Therm),
         Access(AccessError),
-        Poison,
+        WouldBlock,
+        Poisoned,
     }
 
     impl<Phys, Exch, Therm> From<InvalidIndexError> for VelocityVerletError<Phys, Exch, Therm> {
@@ -57,7 +58,16 @@ mod error {
 
     impl<Phys, Exch, Therm, G> From<PoisonError<G>> for VelocityVerletError<Phys, Exch, Therm> {
         fn from(_value: PoisonError<G>) -> Self {
-            Self::Poison
+            Self::Poisoned
+        }
+    }
+
+    impl<Phys, Exch, Therm, G> From<TryLockError<G>> for VelocityVerletError<Phys, Exch, Therm> {
+        fn from(value: TryLockError<G>) -> Self {
+            match value {
+                TryLockError::WouldBlock => Self::WouldBlock,
+                TryLockError::Poisoned(_) => Self::Poisoned,
+            }
         }
     }
 
@@ -77,7 +87,8 @@ mod error {
                 }
                 Self::Thermostat(err) => write!(f, "error occured during thermalization: {}", err),
                 Self::Access(err) => write!(f, "illegal acces: {}", err),
-                Self::Poison => write!(f, "another thread was poisoned"),
+                Self::WouldBlock => write!(f, "deadlock"),
+                Self::Poisoned => write!(f, "another thread was poisoned"),
             }
         }
     }
@@ -212,7 +223,7 @@ where
             };
 
             self.barrier.wait();
-            let prev_image_type_guard = type_in_prev_image.lock.read()?;
+            let prev_image_type_guard = type_in_prev_image.lock.try_read()?; // !!!
             let prev_image_positions = MapOutsideWhole {
                 map: prev_image_type_guard
                     .get(group_index)
@@ -220,7 +231,7 @@ where
                 whole: type_in_prev_image,
             };
 
-            let next_image_type_guard = type_in_next_image.lock.read()?;
+            let next_image_type_guard = type_in_next_image.lock.try_read()?;
             let next_image_positions = MapOutsideWhole {
                 map: next_image_type_guard
                     .get(group_index)

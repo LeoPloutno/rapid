@@ -99,7 +99,13 @@ where
         positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error> {
-        (*self).calculate_energy_set_forces(prev_image_positions, next_image_positions, positions, forces)
+        <<Self as Deref>::Target as ExchangePotential<T, V, O>>::calculate_energy_set_forces(
+            &mut *self,
+            prev_image_positions,
+            next_image_positions,
+            positions,
+            forces,
+        )
     }
 
     #[inline]

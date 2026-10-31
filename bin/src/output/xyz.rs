@@ -78,7 +78,7 @@ where
             for group_lock in lock.read().map_err(|_| XYZError::Sync)?.iter() {
                 for atom in group_lock.read() {
                     let [x, y] = atom.as_array();
-                    write!(self.stream, "\n{1} {2:.0$e} {3:.0$e}", self.precision, name, *x, *y)?;
+                    write!(self.stream, "\n{1} {2:+.0$e} {3:+.0$e}", self.precision, name, *x, *y)?;
                 }
             }
         }
@@ -104,7 +104,7 @@ where
                     let [x, y, z] = atom.as_array();
                     write!(
                         self.stream,
-                        "\n{1} {2:.0$e} {3:.0$e} {4:.0$e}",
+                        "\n{1} {2:+.0$e} {3:+.0$e} {4:+.0$e}",
                         self.precision, name, *x, *y, *z
                     )?;
                 }

@@ -1,4 +1,9 @@
-use std::{ops::Deref, ptr, range::Range, slice};
+use std::{
+    ops::Deref,
+    ptr,
+    range::Range,
+    slice::{self, SliceIndex},
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct MapInWhole<T, U> {
@@ -65,8 +70,8 @@ impl<T, U, V> From<MapInWhole<MapInWhole<T, U>, V>> for MapInWhole<U, V> {
 }
 
 impl<'a, T> MapInWhole<&'a T, &'a [T]> {
-    pub fn with_element_offset(slice: &'a [T], element_offset: usize) -> Option<Self> {
-        match slice.get(element_offset) {
+    pub fn with_element_offset<I: SliceIndex<[T], Output = T>>(slice: &'a [T], offset: I) -> Option<Self> {
+        match slice.get(offset) {
             Some(element) => Some(Self {
                 map: element,
                 whole: slice,
@@ -219,7 +224,7 @@ impl<'a, T, U> MapInWhole<MapInWhole<U, &'a T>, &'a [T]> {
 }
 
 impl<'a, T> MapInWhole<&'a [T], &'a [T]> {
-    pub fn with_range(slice: &'a [T], range: Range<usize>) -> Option<Self> {
+    pub fn with_range<R: SliceIndex<[T], Output = [T]>>(slice: &'a [T], range: R) -> Option<Self> {
         match slice.get(range) {
             Some(subslice) => Some(Self {
                 map: subslice,
@@ -228,6 +233,7 @@ impl<'a, T> MapInWhole<&'a [T], &'a [T]> {
             None => None,
         }
     }
+
     pub const fn before(&self) -> &[T] {
         if const { size_of::<T>() == 0 } {
             return self.whole;
@@ -397,6 +403,15 @@ impl<'a, T, U> MapInWhole<MapInWhole<U, &'a [T]>, &'a [T]> {
                 // SAFETY: Adding the length of a subslice to its start cannot overflow.
                 end: start.unchecked_add(subslice_len),
             }
+        }
+    }
+}
+
+impl<'a, T, U> MapInWhole<&'a [T], U> {
+    pub fn map<I: SliceIndex<[T]>>(self, index: I) -> Result<MapInWhole<&'a I::Output, Self>, Self> {
+        match self.map.get(index) {
+            Some(map) => Ok(MapInWhole { map, whole: self }),
+            None => Err(self),
         }
     }
 }

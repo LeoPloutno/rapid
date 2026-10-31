@@ -27,12 +27,12 @@ where
 
     #[inline]
     fn write_prelude(&mut self, step: usize) -> Result<(), Self::Error> {
-        (*self).write_prelude(step)
+        <<Self as Deref>::Target as StepStream>::write_prelude(&mut *self, step)
     }
 
     #[inline]
     fn new_line(&mut self) -> Result<(), Self::Error> {
-        (*self).new_line()
+        <<Self as Deref>::Target as StepStream>::new_line(&mut *self)
     }
 }
 
@@ -48,7 +48,7 @@ where
 {
     #[inline]
     fn write_vectors(&mut self, vectors: &GroupInTypeInImageInSystem<T, V>) -> Result<(), Self::Error> {
-        (*self).write_vectors(vectors)
+        <<Self as Deref>::Target as VectorsStream<T, V>>::write_vectors(&mut *self, vectors)
     }
 }
 
@@ -64,7 +64,7 @@ where
 {
     #[inline]
     fn write_value(&mut self, value: T) -> Result<(), Self::Error> {
-        (*self).write_value(value)
+        <<Self as Deref>::Target as ValuesStream<T>>::write_value(&mut *self, value)
     }
 }
 

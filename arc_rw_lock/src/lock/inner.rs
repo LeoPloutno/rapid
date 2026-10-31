@@ -106,6 +106,7 @@ impl Lock {
 
     /// Blocks until there are no subfield writers and
     /// locks with global read access.
+    // !!! Error out while `try_read_whole` does not.
     pub(crate) fn read_whole(&self) {
         let mut loaded = self.0.load(Ordering::Relaxed);
         loop {

@@ -52,6 +52,14 @@ where
         exchange_forces: &GroupInTypeInImageInSystem<T, V>,
         momenta: &mut [V],
     ) -> Result<T, Self::Error> {
-        (*self).thermalize(step_size, step, positions, physical_forces, exchange_forces, momenta)
+        <<Self as Deref>::Target as Thermostat<T, V>>::thermalize(
+            &mut *self,
+            step_size,
+            step,
+            positions,
+            physical_forces,
+            exchange_forces,
+            momenta,
+        )
     }
 }

@@ -1,6 +1,6 @@
 use super::InnerArc;
 use crate::{
-    ArcMappedRwLock, ArcReaderLock, ReaderLock,
+    ArcMappedRwLock, ArcReaderLock,
     lock::{InnerRwLock, MappedRwLock, PoisonLock},
     slice::{ChunksExactMut, IterMut},
 };
@@ -8,10 +8,10 @@ use std::{
     alloc::{AllocError, Allocator, AllocatorClone, Global, Layout, LayoutError, handle_alloc_error},
     borrow::{Borrow, BorrowMut},
     convert::{AsMut, AsRef},
-    marker::Unsize,
+    marker::PhantomData,
     mem::{self, MaybeUninit},
     num::NonZeroUsize,
-    ops::{CoerceUnsized, Deref, DerefMut, OneSidedRange},
+    ops::{Deref, DerefMut, OneSidedRange},
     process,
     ptr::{NonNull, Pointee},
     range::Range,
@@ -19,9 +19,10 @@ use std::{
 };
 
 pub struct UniqueArcMappedRwLock<T: ?Sized, U: ?Sized = dyn Send + Sync + 'static, A: Allocator = Global> {
-    pub(crate) lock: MappedRwLock<T>,
-    pub(crate) metadata: <U as Pointee>::Metadata,
-    pub(crate) allocator: A,
+    lock: MappedRwLock<T>,
+    metadata: <U as Pointee>::Metadata,
+    allocator: A,
+    phantom: PhantomData<InnerArc<U>>,
 }
 
 impl<T: ?Sized, U: ?Sized, A: Allocator> UniqueArcMappedRwLock<T, U, A> {
@@ -41,6 +42,7 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> UniqueArcMappedRwLock<T, U, A> {
             lock,
             metadata,
             allocator,
+            phantom: PhantomData,
         }
     }
 
@@ -65,6 +67,27 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> UniqueArcMappedRwLock<T, U, A> {
             lock: unsafe { MappedRwLock::from_raw_parts(lock, data) },
             metadata,
             allocator,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Increments the unique counter.
+    ///
+    /// # Safety
+    ///
+    /// Must be used with a corresponding construction of a unique lock
+    /// so that the incremented counter is accurate.
+    pub(crate) unsafe fn increment_counter(&mut self) {
+        if crate::unlikely(unsafe {
+            // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
+            InnerArc::increment_unique_counter(
+                // SAFETY: - By construction, the pointee of `self.lock` has been allocated as a part of an `InnerArc`.
+                //         - By construction, `self.metadata` is the metadata of the underlying allocation.
+                InnerArc::<U>::from_poison_lock_with_metadata(self.lock.get_lock(), self.metadata).0,
+                Ordering::Relaxed,
+            )
+        }) {
+            process::abort();
         }
     }
 
@@ -87,7 +110,7 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> UniqueArcMappedRwLock<T, U, A> {
             if InnerArc::increment_shared_counter(allocation, Ordering::Relaxed) {
                 process::abort();
             }
-            InnerArc::decrement_unique_counter(allocation, Ordering::Release);
+            InnerArc::decrement_unique_counter_unchecked(allocation, Ordering::Release);
         };
         // SAFETY: By construction, all invariants are satisfied.
         unsafe { ArcMappedRwLock::from_lock(lock, metadata, allocator) }
@@ -139,10 +162,14 @@ impl<T> UniqueArcMappedRwLock<T, T> {
 }
 
 impl<T, A: AllocatorClone> UniqueArcMappedRwLock<T, T, A> {
-    #[inline]
+    #[inline(always)]
     fn try_new_in_with_layout(data: T, alloc: A) -> Result<(Self, ArcReaderLock<T, A>), (Layout, AllocError)> {
         let inner = InnerArc {
-            counter: AtomicUsize::new(InnerArc::<MaybeUninit<T>>::UNIQUE_COUNTER_ONE),
+            counter: const {
+                AtomicUsize::new(
+                    InnerArc::<MaybeUninit<T>>::UNIQUE_COUNTER_ONE | InnerArc::<MaybeUninit<T>>::SHARED_COUNTER_ONE,
+                )
+            },
             lock: InnerRwLock {
                 poison_lock: PoisonLock::new(),
                 data,
@@ -157,8 +184,8 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<T, T, A> {
         unsafe {
             allocation.write(inner);
         }
-        Ok((
-            unsafe {
+        unsafe {
+            Ok((
                 // SAFETY: - Provided a clone of the allocator, where `A: AllocatorClone`.
                 //         - Both pointers are derived from a valid and live allocation
                 //           of `InnerArc`.
@@ -169,22 +196,19 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<T, T, A> {
                     NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock.data),
                     (),
                     alloc.clone(),
-                )
-            },
-            ArcReaderLock {
-                lock: unsafe {
-                    // SAFETY: The pointer is derived from a valid and live allocation of `InnerArc`.
-                    ReaderLock::from_raw_parts(
-                        // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                        NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
-                    )
-                },
-                allocator: alloc,
-            },
-        ))
+                ),
+                // SAFETY: - provided the allocator that was used to allocate the data.
+                //         - The pointer is derived from a valid and live allocation of `InnerArc`.
+                ArcReaderLock::from_raw_parts(
+                    // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                    NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
+                    alloc,
+                ),
+            ))
+        }
     }
 
-    #[inline]
+    #[inline(always)]
     fn try_new_uninit_in_with_layout(
         alloc: A,
     ) -> Result<
@@ -202,11 +226,17 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<T, T, A> {
         let ptr = allocation.as_ptr();
         // SAFETY: The allocation has been allocated previously.
         unsafe {
-            (&raw mut (*ptr).counter).write(AtomicUsize::new(InnerArc::<MaybeUninit<T>>::UNIQUE_COUNTER_ONE));
+            (&raw mut (*ptr).counter).write(
+                const {
+                    AtomicUsize::new(
+                        InnerArc::<MaybeUninit<T>>::UNIQUE_COUNTER_ONE | InnerArc::<MaybeUninit<T>>::SHARED_COUNTER_ONE,
+                    )
+                },
+            );
             (&raw mut (*ptr).lock.poison_lock).write(PoisonLock::new());
         }
-        Ok((
-            unsafe {
+        unsafe {
+            Ok((
                 // SAFETY: - Provided a clone of the allocator, where `A: AllocatorClone`.
                 //         - Both pointers are derived from a valid and live allocation
                 //           of `InnerArc`.
@@ -217,22 +247,19 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<T, T, A> {
                     NonNull::new_unchecked(&raw mut (*ptr).lock.data),
                     (),
                     alloc.clone(),
-                )
-            },
-            ArcReaderLock {
-                lock: unsafe {
-                    // SAFETY: The pointer is derived from a valid and live allocation of `InnerArc`.
-                    ReaderLock::from_raw_parts(
-                        // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                        NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
-                    )
-                },
-                allocator: alloc,
-            },
-        ))
+                ),
+                // SAFETY: - provided the allocator that was used to allocate the data.
+                //         - The pointer is derived from a valid and live allocation of `InnerArc`.
+                ArcReaderLock::from_raw_parts(
+                    // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                    NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
+                    alloc,
+                ),
+            ))
+        }
     }
 
-    #[inline]
+    #[inline(always)]
     fn try_new_zeroed_in_with_layout(
         alloc: A,
     ) -> Result<
@@ -250,11 +277,17 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<T, T, A> {
         let ptr = allocation.as_ptr();
         // SAFETY: The allocation has been allocated previously.
         unsafe {
-            (&raw mut (*ptr).counter).write(AtomicUsize::new(InnerArc::<MaybeUninit<T>>::UNIQUE_COUNTER_ONE));
+            (&raw mut (*ptr).counter).write(
+                const {
+                    AtomicUsize::new(
+                        InnerArc::<MaybeUninit<T>>::UNIQUE_COUNTER_ONE | InnerArc::<MaybeUninit<T>>::SHARED_COUNTER_ONE,
+                    )
+                },
+            );
             (&raw mut (*ptr).lock.poison_lock).write(PoisonLock::new());
         }
-        Ok((
-            unsafe {
+        unsafe {
+            Ok((
                 // SAFETY: - Provided a clone of the allocator, where `A: AllocatorClone`.
                 //         - Both pointers are derived from a valid and live allocation
                 //           of `InnerArc`.
@@ -265,19 +298,16 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<T, T, A> {
                     NonNull::new_unchecked(&raw mut (*ptr).lock.data),
                     (),
                     alloc.clone(),
-                )
-            },
-            ArcReaderLock {
-                lock: unsafe {
-                    // SAFETY: The pointer is derived from a valid and live allocation of `InnerArc`.
-                    ReaderLock::from_raw_parts(
-                        // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                        NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
-                    )
-                },
-                allocator: alloc,
-            },
-        ))
+                ),
+                // SAFETY: - provided the allocator that was used to allocate the data.
+                //         - The pointer is derived from a valid and live allocation of `InnerArc`.
+                ArcReaderLock::from_raw_parts(
+                    // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                    NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
+                    alloc,
+                ),
+            ))
+        }
     }
 
     pub fn new_in(data: T, alloc: A) -> (Self, ArcReaderLock<T, A>) {
@@ -414,7 +444,7 @@ impl<T> UniqueArcMappedRwLock<[T], [T]> {
 }
 
 impl<T, A: AllocatorClone> UniqueArcMappedRwLock<[T], [T], A> {
-    #[inline]
+    #[inline(always)]
     fn try_new_uninit_slice_in_with_layout(
         len: usize,
         alloc: A,
@@ -433,11 +463,18 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<[T], [T], A> {
         let ptr = allocation.as_ptr();
         // SAFETY: The allocation has been allocated previously.
         unsafe {
-            (&raw mut (*ptr).counter).write(AtomicUsize::new(1));
+            (&raw mut (*ptr).counter).write(
+                const {
+                    AtomicUsize::new(
+                        InnerArc::<[MaybeUninit<T>]>::UNIQUE_COUNTER_ONE
+                            | InnerArc::<[MaybeUninit<T>]>::SHARED_COUNTER_ONE,
+                    )
+                },
+            );
             (&raw mut (*ptr).lock.poison_lock).write(PoisonLock::new());
         }
-        Ok((
-            unsafe {
+        unsafe {
+            Ok((
                 // SAFETY: - By construction, `len` is the length of the unsized part of the allocation.
                 //         - Provided a clone of the allocator, where `A: AllocatorClone`.
                 //         - Both pointers are derived from a valid and live allocation
@@ -449,22 +486,19 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<[T], [T], A> {
                     NonNull::new_unchecked(&raw mut (*ptr).lock.data),
                     len,
                     alloc.clone(),
-                )
-            },
-            ArcReaderLock {
-                lock: unsafe {
-                    // SAFETY: The pointer is derived from a valid and live allocation of `InnerArc`.
-                    ReaderLock::from_raw_parts(
-                        // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                        NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
-                    )
-                },
-                allocator: alloc,
-            },
-        ))
+                ),
+                // SAFETY: - provided the allocator that was used to allocate the data.
+                //         - The pointer is derived from a valid and live allocation of `InnerArc`.
+                ArcReaderLock::from_raw_parts(
+                    // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                    NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
+                    alloc,
+                ),
+            ))
+        }
     }
 
-    #[inline]
+    #[inline(always)]
     fn try_new_zeroed_slice_in_with_layout(
         len: usize,
         alloc: A,
@@ -483,11 +517,13 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<[T], [T], A> {
         let ptr = allocation.as_ptr();
         // SAFETY: The allocation has been allocated previously.
         unsafe {
-            (&raw mut (*ptr).counter).write(AtomicUsize::new(1));
+            (&raw mut (*ptr).counter).write(AtomicUsize::new(
+                InnerArc::<[MaybeUninit<T>]>::UNIQUE_COUNTER_ONE | InnerArc::<[MaybeUninit<T>]>::SHARED_COUNTER_ONE,
+            ));
             (&raw mut (*ptr).lock.poison_lock).write(PoisonLock::new());
         }
-        Ok((
-            unsafe {
+        unsafe {
+            Ok((
                 // SAFETY: - By construction, `len` is the length of the unsized part of the allocation.
                 //         - Provided a clone of the allocator, where `A: AllocatorClone`.
                 //         - Both pointers are derived from a valid and live allocation
@@ -499,19 +535,16 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<[T], [T], A> {
                     NonNull::new_unchecked(&raw mut (*ptr).lock.data),
                     len,
                     alloc.clone(),
-                )
-            },
-            ArcReaderLock {
-                lock: unsafe {
-                    // SAFETY: The pointer is derived from a valid and live allocation of `InnerArc`.
-                    ReaderLock::from_raw_parts(
-                        // SAFETY: A pointer to a field of a live and valid struct is non-null.
-                        NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
-                    )
-                },
-                allocator: alloc,
-            },
-        ))
+                ),
+                // SAFETY: - provided the allocator that was used to allocate the data.
+                //         - The pointer is derived from a valid and live allocation of `InnerArc`.
+                ArcReaderLock::from_raw_parts(
+                    // SAFETY: A pointer to a field of a live and valid struct is non-null.
+                    NonNull::new_unchecked(&raw mut (*allocation.as_ptr()).lock),
+                    alloc,
+                ),
+            ))
+        }
     }
 
     pub fn new_uninit_slice_in(
@@ -598,6 +631,7 @@ impl<T, A: AllocatorClone> UniqueArcMappedRwLock<[T], [T], A> {
 }
 
 impl<T, U: ?Sized, A: AllocatorClone> UniqueArcMappedRwLock<[T], U, A> {
+    #[inline]
     pub fn split_at_mut(self, mid: usize) -> (Self, Self) {
         match self.split_at_mut_checked(mid) {
             Ok(pair) => pair,
@@ -615,6 +649,11 @@ impl<T, U: ?Sized, A: AllocatorClone> UniqueArcMappedRwLock<[T], U, A> {
                 .split_at_checked(mid)
         } {
             Ok((left, right)) => {
+                // SAFETY: Below we construct another unique lock.
+                unsafe {
+                    self.increment_counter();
+                }
+
                 self.lock = left;
                 let (metadata, allocator) = (self.metadata, self.allocator.clone());
                 Ok((
@@ -623,6 +662,7 @@ impl<T, U: ?Sized, A: AllocatorClone> UniqueArcMappedRwLock<[T], U, A> {
                         lock: right,
                         metadata,
                         allocator,
+                        phantom: PhantomData,
                     },
                 ))
             }
@@ -630,6 +670,7 @@ impl<T, U: ?Sized, A: AllocatorClone> UniqueArcMappedRwLock<[T], U, A> {
         }
     }
 
+    #[inline]
     pub fn split_first_mut(mut self) -> Result<(UniqueArcMappedRwLock<T, U, A>, Self), Self> {
         match self.split_off_first_mut() {
             Some(first) => Ok((first, self)),
@@ -637,6 +678,7 @@ impl<T, U: ?Sized, A: AllocatorClone> UniqueArcMappedRwLock<[T], U, A> {
         }
     }
 
+    #[inline]
     pub fn split_last_mut(mut self) -> Result<(UniqueArcMappedRwLock<T, U, A>, Self), Self> {
         match self.split_off_last_mut() {
             Some(last) => Ok((last, self)),
@@ -647,11 +689,19 @@ impl<T, U: ?Sized, A: AllocatorClone> UniqueArcMappedRwLock<[T], U, A> {
     pub fn split_off_mut<R: OneSidedRange<usize>>(&mut self, range: R) -> Option<Self> {
         // SAFETY: The resulting lock is unique.
         match unsafe { self.lock.split_off(range) } {
-            Some(lock) => Some(Self {
-                lock,
-                metadata: self.metadata,
-                allocator: self.allocator.clone(),
-            }),
+            Some(lock) => {
+                // SAFETY: Below we construct another unique lock.
+                unsafe {
+                    self.increment_counter();
+                }
+
+                Some(Self {
+                    lock,
+                    metadata: self.metadata,
+                    allocator: self.allocator.clone(),
+                    phantom: PhantomData,
+                })
+            }
             None => None,
         }
     }
@@ -659,11 +709,19 @@ impl<T, U: ?Sized, A: AllocatorClone> UniqueArcMappedRwLock<[T], U, A> {
     pub fn split_off_first_mut(&mut self) -> Option<UniqueArcMappedRwLock<T, U, A>> {
         // SAFETY: The resulting lock is unique.
         match unsafe { self.lock.split_off_first() } {
-            Some(lock) => Some(UniqueArcMappedRwLock {
-                lock,
-                metadata: self.metadata,
-                allocator: self.allocator.clone(),
-            }),
+            Some(lock) => {
+                // SAFETY: Below we construct another unique lock.
+                unsafe {
+                    self.increment_counter();
+                }
+
+                Some(UniqueArcMappedRwLock {
+                    lock,
+                    metadata: self.metadata,
+                    allocator: self.allocator.clone(),
+                    phantom: PhantomData,
+                })
+            }
             None => None,
         }
     }
@@ -671,11 +729,19 @@ impl<T, U: ?Sized, A: AllocatorClone> UniqueArcMappedRwLock<[T], U, A> {
     pub fn split_off_last_mut(&mut self) -> Option<UniqueArcMappedRwLock<T, U, A>> {
         // SAFETY: The resulting lock is unique.
         match unsafe { self.lock.split_off_last() } {
-            Some(lock) => Some(UniqueArcMappedRwLock {
-                lock,
-                metadata: self.metadata,
-                allocator: self.allocator.clone(),
-            }),
+            Some(lock) => {
+                // SAFETY: Below we construct another unique lock.
+                unsafe {
+                    self.increment_counter();
+                }
+
+                Some(UniqueArcMappedRwLock {
+                    lock,
+                    metadata: self.metadata,
+                    allocator: self.allocator.clone(),
+                    phantom: PhantomData,
+                })
+            }
             None => None,
         }
     }
@@ -732,6 +798,7 @@ impl<T, U, A: Allocator> UniqueArcMappedRwLock<MaybeUninit<T>, MaybeUninit<U>, A
             lock: unsafe { lock.assume_init() },
             metadata: (),
             allocator,
+            phantom: PhantomData,
         }
     }
 }
@@ -749,6 +816,7 @@ impl<T, A: Allocator> UniqueArcMappedRwLock<MaybeUninit<T>, [MaybeUninit<T>], A>
             lock: unsafe { lock.assume_init() },
             metadata,
             allocator,
+            phantom: PhantomData,
         }
     }
 }
@@ -766,6 +834,7 @@ impl<T, A: Allocator> UniqueArcMappedRwLock<[MaybeUninit<T>], [MaybeUninit<T>], 
             lock: unsafe { lock.assume_init() },
             metadata,
             allocator,
+            phantom: PhantomData,
         }
     }
 }
@@ -776,19 +845,25 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> Drop for UniqueArcMappedRwLock<T, U, A>
         //         - By construction, `self.metadata` is the metadata of the underlying allocation.
         let (allocation, layout) =
             unsafe { InnerArc::<U>::from_poison_lock_with_metadata(self.lock.get_lock(), self.metadata) };
-        if unsafe { InnerArc::decrement_unique_counter(allocation, Ordering::Release) } {
-            atomic::fence(Ordering::Acquire);
-            if const { mem::needs_drop::<InnerArc<U>>() } {
-                // SAFETY: - By construction, `allocation` points to live and valid data.
-                //         - Ensured this was the last handle to this allocation.
-                unsafe {
-                    allocation.drop_in_place();
-                }
-            }
-            // SAFETY: By construction, this allocation has been allocated by this allocator.
+
+        // SAFETY: The existence of `self` proves that the counter is non-zero.
+        if !unsafe { InnerArc::decrement_unique_counter_unchecked(allocation, Ordering::Release) } {
+            return;
+        }
+
+        atomic::fence(Ordering::Acquire);
+
+        if const { mem::needs_drop::<InnerArc<U>>() } {
+            // SAFETY: - By construction, `allocation` points to live and valid data.
+            //         - Ensured this was the last handle to this allocation.
             unsafe {
-                self.allocator.deallocate(allocation.cast(), layout);
+                allocation.drop_in_place();
             }
+        }
+
+        // SAFETY: By construction, this allocation has been allocated by this allocator.
+        unsafe {
+            self.allocator.deallocate(allocation.cast(), layout);
         }
     }
 }
@@ -829,14 +904,6 @@ impl<T: ?Sized, U: ?Sized, A: Allocator> BorrowMut<MappedRwLock<T>> for UniqueAr
     fn borrow_mut(&mut self) -> &mut MappedRwLock<T> {
         &mut self.lock
     }
-}
-
-impl<T, U, V, A> CoerceUnsized<UniqueArcMappedRwLock<V, U, A>> for UniqueArcMappedRwLock<T, U, A>
-where
-    T: Unsize<V> + ?Sized,
-    U: ?Sized,
-    A: Allocator,
-{
 }
 
 unsafe impl<T, U, A> Send for UniqueArcMappedRwLock<T, U, A>

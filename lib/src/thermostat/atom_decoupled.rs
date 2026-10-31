@@ -99,7 +99,8 @@ where
         exchange_force: &V,
         momentum: &mut V,
     ) -> Result<T, Self::AtomError> {
-        (*self).thermalize(
+        <<Self as Deref>::Target as AtomDecoupledThermostat<T, V>>::thermalize(
+            &mut *self,
             step_size,
             step,
             atom_index,

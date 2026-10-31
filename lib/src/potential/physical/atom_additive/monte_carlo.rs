@@ -11,7 +11,7 @@ use crate::{
 use macros::efficient_alternatives;
 use std::{
     error::Error,
-    ops::{Add, AddAssign},
+    ops::{Add, AddAssign, Deref, DerefMut},
     sync::mpsc::{Receiver, RecvError, SendError, Sender},
 };
 
@@ -126,6 +126,49 @@ where
         self.potential
             .potential
             .calculate_new_energy(atom_index, old_energy, old_position, position)
+    }
+}
+
+impl<T, V, E, P> AtomAdditiveMonteCarloPhysicalPotential<T, V, E> for P
+where
+    T: Add<Output = T>,
+    V: AddAssign,
+    P: DerefMut<Target: AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>,
+{
+    type AtomError = <<Self as Deref>::Target as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::AtomError;
+    type SystemError = <<Self as Deref>::Target as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::SystemError;
+
+    fn calculate_new_energy_and_force(
+        &mut self,
+        atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        position: &V,
+    ) -> Result<(T, V), <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::AtomError> {
+        <<Self as Deref>::Target as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::calculate_new_energy_and_force(
+            &mut *self,
+            atom_index,
+            old_energy,
+            old_position,
+            position,
+        )
+    }
+
+    fn calculate_new_energy(
+        &mut self,
+        atom_index: usize,
+        old_energy: T,
+        old_position: V,
+        position: &V,
+    ) -> Result<T, <Self as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::AtomError> {
+        #[allow(deprecated)]
+        <<Self as Deref>::Target as AtomAdditiveMonteCarloPhysicalPotential<T, V, E>>::calculate_new_energy(
+            &mut *self,
+            atom_index,
+            old_energy,
+            old_position,
+            position,
+        )
     }
 }
 

@@ -101,7 +101,8 @@ where
         physical_force: &V,
         exchange_force: &V,
     ) -> Result<Self::Output, Self::AtomError> {
-        (*self).calculate(
+        <<Self as Deref>::Target as AtomMultiplicativeQuantumEstimator<T, V, E>>::calculate(
+            &mut *self,
             atom_index,
             physical_potential_energy,
             type_exchange_potential_energy,

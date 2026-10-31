@@ -84,7 +84,17 @@ where
         physical_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
         exchange_forces: &mut GroupRwLockInTypeInImageInSystem<T, V>,
     ) -> Result<(OutPhys, OutExch, T), Self::Error> {
-        (*self).propagate(
+        <<Self as Deref>::Target as QuadraticExpansionPropagator<
+            T,
+            V,
+            Phys,
+            Dist,
+            Boson,
+            Therm,
+            OutPhys,
+            OutExch,
+        >>::propagate(
+            &mut *self,
             step,
             physical_potential,
             exchange_potential,

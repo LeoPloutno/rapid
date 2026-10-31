@@ -1,6 +1,6 @@
 use lib::core::{Vector, marker::MeaningfulOutput};
 use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
+    fmt::{Display, Formatter, LowerExp, Result as FmtResult, UpperExp},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     simd::{Simd, SimdElement},
@@ -128,6 +128,44 @@ where
         }
         if let Some(element) = last {
             write!(f, "{}", *element)?;
+        }
+        write!(f, ")")?;
+        Ok(())
+    }
+}
+
+impl<T, const N: usize> LowerExp for SimdVector<T, N>
+where
+    T: SimdElement + LowerExp,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "(")?;
+        let mut iterator = self.0.as_array().iter();
+        let last = iterator.next_back();
+        for element in iterator {
+            write!(f, "{:e}, ", *element)?;
+        }
+        if let Some(element) = last {
+            write!(f, "{:e}", *element)?;
+        }
+        write!(f, ")")?;
+        Ok(())
+    }
+}
+
+impl<T, const N: usize> UpperExp for SimdVector<T, N>
+where
+    T: SimdElement + UpperExp,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "(")?;
+        let mut iterator = self.0.as_array().iter();
+        let last = iterator.next_back();
+        for element in iterator {
+            write!(f, "{:E}, ", *element)?;
+        }
+        if let Some(element) = last {
+            write!(f, "{:E}", *element)?;
         }
         write!(f, ")")?;
         Ok(())

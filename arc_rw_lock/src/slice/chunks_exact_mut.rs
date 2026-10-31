@@ -2,6 +2,7 @@ use crate::{UniqueArcMappedRwLock, arc::InnerArc, lock::InnerRwLock};
 use std::{
     alloc::{Allocator, AllocatorClone, Global},
     iter::FusedIterator,
+    marker::PhantomData,
     mem,
     num::NonZeroUsize,
     process,
@@ -15,6 +16,7 @@ pub struct ChunksExactMut<T, U: ?Sized = dyn Send + Sync + 'static, A: Allocator
     chunk_size: NonZeroUsize,
     allocation: NonNull<InnerRwLock<U>>,
     allocator: A,
+    phantoms: (PhantomData<InnerArc<U>>, PhantomData<[T]>),
 }
 
 impl<T, U: ?Sized, A: Allocator> ChunksExactMut<T, U, A> {
@@ -47,6 +49,26 @@ impl<T, U: ?Sized, A: Allocator> ChunksExactMut<T, U, A> {
             chunk_size,
             allocation,
             allocator,
+            phantoms: (PhantomData, PhantomData),
+        }
+    }
+
+    /// Increments the unique counter.
+    ///
+    /// # Safety
+    ///
+    /// Must be used with a corresponding construction of a unique lock
+    /// so that the incremented counter is accurate.
+    unsafe fn increment_counter(&mut self) {
+        if crate::unlikely(unsafe {
+            // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
+            InnerArc::increment_unique_counter(
+                // SAFETY: `self.allocation` has been allocated as a part of an `InnerArc`.
+                InnerArc::from_inner_rw_lock(self.allocation).0,
+                Ordering::Release,
+            )
+        }) {
+            process::abort()
         }
     }
 
@@ -77,19 +99,25 @@ impl<T, U: ?Sized, A: Allocator> Drop for ChunksExactMut<T, U, A> {
     fn drop(&mut self) {
         // SAFETY: `self.allocation` has been allocated as a part of an `InnerArc`.
         let (allocation, layout) = unsafe { InnerArc::from_inner_rw_lock(self.allocation) };
-        if unsafe { InnerArc::decrement_unique_counter(allocation, Ordering::Release) } {
-            atomic::fence(Ordering::Acquire);
-            if const { mem::needs_drop::<InnerArc<U>>() } {
-                // SAFETY: - By construction, `allocation` points to live and valid data.
-                //         - Ensured this was the last handle to this allocation.
-                unsafe {
-                    allocation.drop_in_place();
-                }
-            }
-            // SAFETY: By construction, this allocation has been allocated by this allocator.
+
+        // SAFETY: The existence of `self` proves that the counter is non-zero.
+        if !unsafe { InnerArc::decrement_unique_counter_unchecked(allocation, Ordering::Release) } {
+            return;
+        }
+
+        atomic::fence(Ordering::Acquire);
+
+        if const { mem::needs_drop::<InnerArc<U>>() } {
+            // SAFETY: - By construction, `allocation` points to live and valid data.
+            //         - Ensured this was the last handle to this allocation.
             unsafe {
-                self.allocator.deallocate(allocation.cast(), layout);
+                allocation.drop_in_place();
             }
+        }
+
+        // SAFETY: By construction, this allocation has been allocated by this allocator.
+        unsafe {
+            self.allocator.deallocate(allocation.cast(), layout);
         }
     }
 }
@@ -116,6 +144,11 @@ impl<T, U: ?Sized, A: AllocatorClone> Iterator for ChunksExactMut<T, U, A> {
     fn next(&mut self) -> Option<Self::Item> {
         let (ptr, len) = self.slice.to_raw_parts();
         if len > 0 {
+            // SAFETY: Below we construct another unique lock.
+            unsafe {
+                self.increment_counter();
+            }
+
             let ptr = ptr.cast::<T>();
             unsafe {
                 self.slice = NonNull::from_raw_parts(
@@ -125,16 +158,6 @@ impl<T, U: ?Sized, A: AllocatorClone> Iterator for ChunksExactMut<T, U, A> {
                     //         By construction, `len` is a multiple of `self.chunk_size`.
                     len.unchecked_sub(self.chunk_size.get()),
                 );
-            }
-            if crate::unlikely(unsafe {
-                // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
-                InnerArc::increment_unique_counter(
-                    // SAFETY: `self.allocation` has been allocated as a part of an `InnerArc`.
-                    InnerArc::from_inner_rw_lock(self.allocation).0,
-                    Ordering::Release,
-                )
-            }) {
-                process::abort()
             }
             Some(unsafe {
                 // SAFETY: - By construction, the computed pointer and `self.allocation` are pointers derived
@@ -159,21 +182,16 @@ impl<T, U: ?Sized, A: AllocatorClone> DoubleEndedIterator for ChunksExactMut<T, 
     fn next_back(&mut self) -> Option<Self::Item> {
         let (ptr, mut len) = self.slice.to_raw_parts();
         if len > 0 {
+            // SAFETY: Below we construct another unique lock.
+            unsafe {
+                self.increment_counter();
+            }
+
             // SAFETY: Checked above that 'len > 0`.
             //         By construction, `len` is a multiple of `self.chunk_size`.
             len = unsafe { len.unchecked_sub(self.chunk_size.get()) };
             let ptr = ptr.cast::<T>();
             self.slice = NonNull::from_raw_parts(ptr, len);
-            if crate::unlikely(unsafe {
-                // SAFETY: By construction, the pointer points to a valid and live instance of `InnerArc`.
-                InnerArc::increment_unique_counter(
-                    // SAFETY: `self.allocation` has been allocated as a part of an `InnerArc`.
-                    InnerArc::from_inner_rw_lock(self.allocation).0,
-                    Ordering::Release,
-                )
-            }) {
-                process::abort()
-            }
             Some(unsafe {
                 // SAFETY: - By construction, the computed pointer and `self.allocation` are pointers derived
                 //           from a pointer to a valid and live `InnerRwLock`.

@@ -1,19 +1,24 @@
 use lib::output::{StepStream, ValuesStream};
 use macros::warn;
-use std::{fmt::Display, io::Error as IOError, io::Write};
+use std::{
+    fmt::{Display, LowerExp},
+    io::{Error as IOError, Write},
+};
 
 pub struct DefaultStream<W> {
     stream: W,
     step_width: usize,
     padding: usize,
+    precision: usize,
 }
 
 impl<W> DefaultStream<W> {
-    pub fn new(stream: W, max_step: usize, padding: usize) -> Self {
+    pub fn new(stream: W, max_step: usize, padding: usize, precision: usize) -> Self {
         Self {
             stream,
             step_width: max_step.ilog10() as _,
             padding,
+            precision,
         }
     }
 }
@@ -34,11 +39,11 @@ impl<W: Write> StepStream for DefaultStream<W> {
 
 impl<T, W> ValuesStream<T> for DefaultStream<W>
 where
-    T: Display,
+    T: Display + LowerExp,
     W: Write,
 {
     fn write_value(&mut self, value: T) -> Result<(), Self::Error> {
         warn!("optimize");
-        write!(self.stream, "{0:1$}{2}", ' ', self.padding, value)
+        write!(self.stream, "{0:1$}{3:+.2$e}", ' ', self.padding, self.precision, value)
     }
 }

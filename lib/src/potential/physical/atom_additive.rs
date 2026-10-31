@@ -101,19 +101,25 @@ where
 
     #[inline]
     fn calculate_energy_and_force(&mut self, atom_index: usize, position: &V) -> Result<(T, V), Self::AtomError> {
-        (*self).calculate_energy_and_force(atom_index, position)
+        <<Self as Deref>::Target as AtomAdditivePhysicalPotential<T, V, E>>::calculate_energy_and_force(
+            &mut *self, atom_index, position,
+        )
     }
 
     #[inline]
     fn calculate_energy(&mut self, atom_index: usize, position: &V) -> Result<T, Self::AtomError> {
         #[allow(deprecated)]
-        (*self).calculate_energy(atom_index, position)
+        <<Self as Deref>::Target as AtomAdditivePhysicalPotential<T, V, E>>::calculate_energy(
+            &mut *self, atom_index, position,
+        )
     }
 
     #[inline]
     fn calculate_force(&mut self, atom_index: usize, position: &V) -> Result<V, Self::AtomError> {
         #[allow(deprecated)]
-        (*self).calculate_force(atom_index, position)
+        <<Self as Deref>::Target as AtomAdditivePhysicalPotential<T, V, E>>::calculate_force(
+            &mut *self, atom_index, position,
+        )
     }
 }
 
@@ -232,8 +238,10 @@ where
                 *force = atom_force;
                 Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::AtomError>(accum_energy + atom_energy)
             })?;
-        let image_energy = group_energy + self.adder.recv_sum()?.ok_or(EmptyError)?;
-        Ok(image_energy)
+        Ok(match self.adder.recv_sum()? {
+            Some(other_groups_energy) => group_energy + other_groups_energy,
+            None => group_energy,
+        })
     }
 
     fn calculate_energy_add_forces(
@@ -255,8 +263,10 @@ where
                 *force += atom_force;
                 Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::AtomError>(accum_energy + atom_energy)
             })?;
-        let image_energy = group_energy + self.adder.recv_sum()?.ok_or(EmptyError)?;
-        Ok(image_energy)
+        Ok(match self.adder.recv_sum()? {
+            Some(other_groups_energy) => group_energy + other_groups_energy,
+            None => group_energy,
+        })
     }
 
     fn calculate_energy(&mut self, positions: &GroupInTypeInImage<T, V>) -> Result<T, Self::Error> {
@@ -268,8 +278,10 @@ where
         let group_energy = iter.try_fold(first_atom_energy, |accum_energy, atom_energy| {
             Ok::<_, <Self as AtomAdditivePhysicalPotential<T, V, A::Error>>::AtomError>(accum_energy + atom_energy?)
         })?;
-        let image_energy = group_energy + self.adder.recv_sum()?.ok_or(EmptyError)?;
-        Ok(image_energy)
+        Ok(match self.adder.recv_sum()? {
+            Some(other_groups_energy) => group_energy + other_groups_energy,
+            None => group_energy,
+        })
     }
 
     fn set_forces(&mut self, positions: &GroupInTypeInImage<T, V>, forces: &mut [V]) -> Result<(), Self::Error> {

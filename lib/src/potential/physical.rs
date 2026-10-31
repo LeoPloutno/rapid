@@ -81,7 +81,9 @@ where
         positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error> {
-        (*self).calculate_energy_set_forces(positions, forces)
+        <<Self as Deref>::Target as PhysicalPotential<T, V, O>>::calculate_energy_set_forces(
+            &mut *self, positions, forces,
+        )
     }
 
     #[inline]
@@ -90,7 +92,9 @@ where
         positions: &GroupInTypeInImage<T, V>,
         forces: &mut [V],
     ) -> Result<O, Self::Error> {
-        (*self).calculate_energy_add_forces(positions, forces)
+        <<Self as Deref>::Target as PhysicalPotential<T, V, O>>::calculate_energy_add_forces(
+            &mut *self, positions, forces,
+        )
     }
 
     #[inline]
@@ -102,12 +106,12 @@ where
     #[inline]
     fn set_forces(&mut self, positions: &GroupInTypeInImage<T, V>, forces: &mut [V]) -> Result<(), Self::Error> {
         #[allow(deprecated)]
-        (*self).set_forces(positions, forces)
+        <<Self as Deref>::Target as PhysicalPotential<T, V, O>>::set_forces(&mut *self, positions, forces)
     }
 
     #[inline]
     fn add_forces(&mut self, positions: &GroupInTypeInImage<T, V>, forces: &mut [V]) -> Result<(), Self::Error> {
         #[allow(deprecated)]
-        (*self).add_forces(positions, forces)
+        <<Self as Deref>::Target as PhysicalPotential<T, V, O>>::add_forces(&mut *self, positions, forces)
     }
 }

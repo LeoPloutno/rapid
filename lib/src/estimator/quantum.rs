@@ -71,7 +71,8 @@ where
         physical_forces: &GroupInTypeInImage<T, V>,
         exchange_forces: &GroupInTypeInImage<T, V>,
     ) -> Result<O, Self::Error> {
-        (*self).calculate(
+        <<Self as Deref>::Target as QuantumEstimator<T, V, A, M, O>>::calculate(
+            &mut *self,
             synchronizer,
             adder,
             multiplier,
